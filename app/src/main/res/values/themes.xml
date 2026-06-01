@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base theme. Colors are driven by the Compose Material3 theme at runtime;
+         this XML theme exists mainly for the splash/launch window. -->
+    <style name="Theme.Ft8vc" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ft8vc_background</item>
+        <item name="android:statusBarColor">@color/ft8vc_background</item>
+        <item name="android:navigationBarColor">@color/ft8vc_background</item>
+    </style>
+</resources>

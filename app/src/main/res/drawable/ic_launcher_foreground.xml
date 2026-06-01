@@ -1,0 +1,22 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- A simple stylized waterfall / waveform glyph. -->
+    <path
+        android:fillColor="#3DDC97"
+        android:pathData="M30,54 h6 v0 h-6 z M30,40 l6,0 0,28 -6,0 z" />
+    <path
+        android:fillColor="#3DDC97"
+        android:pathData="M42,30 l6,0 0,48 -6,0 z" />
+    <path
+        android:fillColor="#5BC0EB"
+        android:pathData="M54,38 l6,0 0,32 -6,0 z" />
+    <path
+        android:fillColor="#5BC0EB"
+        android:pathData="M66,26 l6,0 0,56 -6,0 z" />
+    <path
+        android:fillColor="#9BC53D"
+        android:pathData="M78,44 l6,0 0,20 -6,0 z" />
+</vector>
