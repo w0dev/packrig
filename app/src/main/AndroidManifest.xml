@@ -10,6 +10,9 @@
     <!-- INTERNET is used by the NTP clock service (added in a later phase). -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Required to capture RX audio from the Digirig USB sound card. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

@@ -1,27 +1,29 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
 }
 
 android {
     namespace = "net.ft8vc.ft8native"
-    compileSdk = 34
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
-    // Pinned so CI can install a matching side-by-side NDK. Bump deliberately.
-    ndkVersion = "26.1.10909125"
+    ndkVersion = libs.versions.ndk.get()
 
     defaultConfig {
-        minSdk = 28
+        minSdk = libs.versions.minSdk.get().toInt()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         externalNativeBuild {
             cmake {
                 cppFlags += "-std=c++17"
+                arguments += listOf(
+                    "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
+                    // Backup linker flags (see CMakeLists.txt); helps if toolchain cache is stale.
+                    "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384",
+                )
             }
         }
 
         ndk {
-            // Keep the APK lean: device ABIs only. Add x86_64 if you need the emulator.
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
     }
@@ -29,7 +31,8 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+            // Uses the newest CMake installed in SDK Manager (install 3.31.6+ for latest).
+            version = libs.versions.cmake.get()
         }
     }
 
@@ -37,13 +40,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
 
-    kotlinOptions {
-        jvmTarget = "17"
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
 dependencies {
     implementation(project(":core"))
     testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }

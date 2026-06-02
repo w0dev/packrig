@@ -22,16 +22,19 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install NDK and CMake
+      - name: Install SDK packages
         run: |
           yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "ndk;26.1.10909125" "cmake;3.22.1"
+          sdkmanager \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;29.0.14206865" \
+            "cmake;4.1.2"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          # No gradle-wrapper.jar is committed; provision Gradle explicitly.
-          gradle-version: '8.9'
+          gradle-version: '9.4.1'
 
       - name: Unit tests
         run: gradle testDebugUnitTest --no-daemon --stacktrace

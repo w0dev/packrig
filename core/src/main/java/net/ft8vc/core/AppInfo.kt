@@ -22,5 +22,5 @@ object AppInfo {
     /** FT8 transmit/receive slot length. */
     const val SLOT_SECONDS = 15
 
-    val currentPhase: BuildPhase = BuildPhase.PHASE_0_SKELETON
+    val currentPhase: BuildPhase = BuildPhase.PHASE_3_TX
 }

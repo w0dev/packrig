@@ -5,8 +5,8 @@ import android.util.Log
 /**
  * Kotlin entry point to the native FT8 core (`libft8vc.so`).
  *
- * Phase 0 exposes only [version] to prove the JNI bridge loads. Phase 2 adds
- * decode/encode entry points wrapping kgoba/ft8_lib.
+ * Wraps kgoba/ft8_lib. [decode] takes one slot of 12 kHz mono PCM and returns
+ * the messages found in it. Encode/TX is added in Phase 3.
  */
 object Ft8Native {
 
@@ -30,5 +30,34 @@ object Ft8Native {
             "not loaded"
         }
 
+    /**
+     * Decode one FT8 slot. [samples] is mono 16-bit PCM at [sampleRate] (12 kHz),
+     * ideally ~15 seconds aligned to the UTC slot boundary. Returns an empty array
+     * if nothing decodes or the native library is unavailable.
+     */
+    fun decode(samples: ShortArray, sampleRate: Int = 12_000): Array<Ft8DecodeResult> =
+        if (loaded) {
+            runCatching { nativeDecode(samples, sampleRate) }.getOrDefault(emptyArray())
+        } else {
+            emptyArray()
+        }
+
+    /**
+     * Encode [message] to a full 15-second FT8 slot of mono 16-bit PCM at
+     * [sampleRate], with the base tone at [freqHz] and silence padding so the
+     * transmission is centered in the slot. Returns an empty array if the message
+     * can't be encoded (e.g. invalid callsign) or the native library is missing.
+     */
+    fun encode(message: String, freqHz: Float = 1000f, sampleRate: Int = 12_000): ShortArray =
+        if (loaded) {
+            runCatching { nativeEncode(message, freqHz, sampleRate) }.getOrDefault(ShortArray(0))
+        } else {
+            ShortArray(0)
+        }
+
     private external fun nativeVersion(): String
+
+    private external fun nativeDecode(samples: ShortArray, sampleRate: Int): Array<Ft8DecodeResult>
+
+    private external fun nativeEncode(message: String, freqHz: Float, sampleRate: Int): ShortArray
 }

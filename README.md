@@ -4,16 +4,15 @@
 designed to drive a rig through a USB audio + serial interface (e.g. a
 [Digirig Mobile](https://digirig.net/)) from your phone.
 
-> Status: **Phase 0 (skeleton)**. The module structure, NDK/JNI toolchain, and CI
-> build are in place. On-air decoding and transmit land in later phases — see
-> [Roadmap](#roadmap).
+> Status: **Phase 3 (in progress)** — live decode, slot-aligned TX audio playback,
+> Digirig CP2102 RTS PTT, and FT-891 CAT (VFO frequency + mode) over USB are wired.
+> See [Roadmap](#roadmap).
 
 ## Why
 
-Existing mobile/web FT8 apps are either buggy or have rough UX. FT8VC aims for a
-clean, POTAcat-inspired operating UI with a reliable decoder, distributed as
-signed APKs from GitHub Releases. Target field setup: **Yaesu FT-891 + Digirig
-Mobile** over USB-C OTG.
+FT8VC aims for a clean, focused operating UI with a reliable decoder,
+distributed as signed APKs from GitHub Releases. Target field setup:
+**Yaesu FT-891 + Digirig Mobile** over USB-C OTG.
 
 ## Architecture
 
@@ -25,14 +24,13 @@ ft8vc/
   app/          Compose UI, navigation, MainActivity
   core/         Slot scheduler, FT8 message models, app constants  (pure Kotlin + unit tests)
   audio/        12 kHz USB audio capture/playback (AAudio/Oboe)    [Phase 1 / 3]
-  rig/          PTT + CAT backends; Digirig first                  [Phase 3 / v1.x]
+  rig/          PTT + CAT backends; Digirig first                  [Phase 3]
   data/         Room logbook + ADIF import/export                  [Phase 5]
   ft8-native/   NDK module: JNI bridge -> ft8_lib + DSP front-end  [Phase 2]
 ```
 
 The native library builds to `libft8vc.so`; `net.ft8vc.ft8native.Ft8Native`
-is the Kotlin entry point. In Phase 0 it only reports a version string to prove
-the JNI bridge loads.
+is the Kotlin entry point for FT8 encode/decode.
 
 ## Building
 
@@ -44,7 +42,19 @@ configuration on a device or emulator.
 
 ### Command line
 
-Requires JDK 17, the Android SDK, NDK `26.1.10909125`, and CMake `3.22.1`.
+Requires **JDK 17**, **Android Studio Panda** (or newer), and SDK components installed via
+**SDK Manager** (see `gradle/libs.versions.toml` and [docs/SDK_SETUP.md](docs/SDK_SETUP.md) for what to install vs skip):
+
+| Component | Version |
+|-----------|---------|
+| Android Gradle Plugin | 9.2.0 |
+| Gradle | 9.4.1 |
+| Kotlin | 2.3.21 |
+| compileSdk / targetSdk | 36 |
+| NDK (16 KB aligned by default) | 29.0.14206865 |
+| CMake | 4.1.2 (SDK Manager → SDK Tools) |
+| Platform-Tools | 37.0.0+ (adb/fastboot; independent of compileSdk) |
+| Compose BOM | 2026.05.00 |
 
 This repo does not commit the `gradle-wrapper.jar` binary. Generate the wrapper
 once (needs a local Gradle 8.9+), then use it:
@@ -70,11 +80,14 @@ need a **powered OTG hub**. See [docs/HARDWARE.md](docs/HARDWARE.md).
 | Phase | Scope |
 |-------|-------|
 | 0 | Skeleton: modules, NDK toolchain, CI (**done**) |
-| 1 | USB audio capture + live waterfall |
-| 2 | FT8 decode core (`ft8_lib` via JNI) + golden-WAV tests |
-| 3 | TX + PTT + QSO state machine (validated into a dummy load) |
-| 4 | POTAcat-style operating UI |
+| 1 | USB audio capture + live waterfall (**done**) |
+| 2 | FT8 decode core (`ft8_lib` via JNI) + golden-WAV tests (**done**) |
+| 3 | TX + PTT + QSO state machine (validated into a dummy load) (**in progress**) |
+| 4 | Full operating UI |
 | 5 | Room logbook + ADIF, signed release, v1.0.0 |
+
+The native decoder downloads `kgoba/ft8_lib` (pinned commit) at CMake configure
+time via `FetchContent`, so the first Gradle sync needs internet access.
 
 ## Legal
 
@@ -85,4 +98,4 @@ dummy load. You are responsible for lawful operation.
 ## License
 
 [MIT](LICENSE). Built on `kgoba/ft8_lib` (MIT). Do not copy GPL-licensed
-WSJT-X / JS8Call source into this repository.
+source into this repository.

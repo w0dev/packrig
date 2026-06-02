@@ -3,22 +3,30 @@ package net.ft8vc.audio
 import net.ft8vc.core.AppInfo
 
 /**
- * Capture and playback of 12 kHz mono PCM through the Digirig USB sound card.
+ * Capture of mono PCM at [AppInfo.SAMPLE_RATE_HZ] from a selected input device
+ * (the Digirig USB sound card in normal use).
  *
- * Phase 1 implements the capture path (USB device selection, AAudio/Oboe input,
- * ring buffering, level/clip metering). Phase 3 adds the playback/TX path.
- * This interface is intentionally transport-agnostic so the FT8 engine never
- * cares whether audio comes from USB, the internal mic (VOX), or a test WAV.
+ * Phase 1 implements the capture path. The playback/TX path is added in Phase 3.
+ * The contract is transport-agnostic so the FT8 engine never cares whether audio
+ * comes from USB, the internal mic (VOX), or a test WAV.
  */
 interface AudioEngine {
 
-    /** Begin capturing mono PCM frames at [AppInfo.SAMPLE_RATE_HZ]. */
-    fun startCapture(onFrames: (ShortArray) -> Unit)
+    /** Sample rate of frames delivered to [start]'s callback. */
+    val outputSampleRateHz: Int
 
-    /** Stop any active capture or playback and release resources. */
+    /**
+     * Begin capturing. [onFrames] is invoked on a capture thread with mono
+     * 16-bit PCM decimated to [outputSampleRateHz].
+     *
+     * @param preferredDeviceId an [android.media.AudioDeviceInfo] id, or null for default routing.
+     */
+    fun start(preferredDeviceId: Int?, onFrames: (ShortArray) -> Unit)
+
+    /** Stop capture and release resources. Safe to call when already stopped. */
     fun stop()
 
     companion object {
-        const val DESCRIPTION = "USB audio I/O @ ${AppInfo.SAMPLE_RATE_HZ} Hz (Phase 1)"
+        const val DESCRIPTION = "USB audio capture @ ${AppInfo.SAMPLE_RATE_HZ} Hz (Phase 1)"
     }
 }
