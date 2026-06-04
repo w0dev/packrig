@@ -56,6 +56,29 @@ object Ft891Cat {
         return body.toLongOrNull()
     }
 
+    /**
+     * Key the transmitter over CAT (`TX1;`). On the FT-891 the CAT/serial jack
+     * has no hardware PTT line, so software PTT is done with this command rather
+     * than the CP2102 RTS pin.
+     */
+    fun txOnCommand(): String = "TX1;"
+
+    /** Un-key the transmitter over CAT (`TX0;`). */
+    fun txOffCommand(): String = "TX0;"
+
+    /** Query TX state. Reply is `TX0;` (RX), `TX1;` (CAT TX), or `TX2;` (other). */
+    fun readTxCommand(): String = "TX;"
+
+    /** Parse a `TXn;` reply into the transmit flag, or null if malformed. */
+    fun parseTxResponse(response: String): Boolean? {
+        val body = opcodeBody(response, "TX") ?: return null
+        return when (body.firstOrNull()) {
+            '0' -> false
+            '1', '2' -> true
+            else -> null
+        }
+    }
+
     /** Query the operating mode. The radio replies with [parseModeResponse]. */
     fun readModeCommand(): String = "MD0;"
 

@@ -132,4 +132,21 @@ class QsoMachineTest {
         assertNull(m.txMessage())
         assertNull(m.dxCall)
     }
+
+    @Test
+    fun snapshotAvailableOnComplete() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        m.onDecodes(decode("W0DEV K1ABC FN42"))
+        m.onDecodes(decode("W0DEV K1ABC R-15"))
+        m.onDecodes(decode("W0DEV K1ABC 73"))
+        assertEquals(QsoState.Complete, m.state)
+        val snap = m.snapshot(1_700_000_000_000L)
+        requireNotNull(snap)
+        assertEquals("W0DEV", snap.myCall)
+        assertEquals("K1ABC", snap.dxCall)
+        assertEquals("FN42", snap.dxGrid)
+        assertEquals(-15, snap.reportRcvd)
+        assertEquals(1_700_000_000_000L, snap.completedAtEpochMs)
+    }
 }

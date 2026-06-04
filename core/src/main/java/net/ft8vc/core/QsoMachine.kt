@@ -81,6 +81,44 @@ class QsoMachine(
         state = QsoState.Answering
     }
 
+    /** Initiator: answerer sent grid; next TX is our report. */
+    fun resumeInitiatorAfterGridReply(dxCall: String, dxGrid: String, snr: Int) {
+        reset()
+        role = QsoRole.Initiator
+        this.dxCall = dxCall
+        this.dxGrid = dxGrid
+        reportSent = snr
+        state = QsoState.SendingReport
+    }
+
+    /** Answerer: we missed our grid TX; initiator sent report — reply with R-report. */
+    fun resumeAnswererAfterReport(dxCall: String, reportSnr: Int) {
+        reset()
+        role = QsoRole.Answerer
+        this.dxCall = dxCall
+        reportSent = reportSnr
+        reportRcvd = reportSnr
+        state = QsoState.SendingRReport
+    }
+
+    /** Initiator: answerer sent R-report — next TX is RRR. */
+    fun resumeInitiatorAfterRReport(dxCall: String, reportRcvdSnr: Int) {
+        reset()
+        role = QsoRole.Initiator
+        this.dxCall = dxCall
+        reportSent = reportRcvdSnr
+        reportRcvd = reportRcvdSnr
+        state = QsoState.SendingRoger
+    }
+
+    /** Answerer: initiator sent RRR/RR73 — next TX is 73. */
+    fun resumeAnswererAfterRoger(dxCall: String) {
+        reset()
+        role = QsoRole.Answerer
+        this.dxCall = dxCall
+        state = QsoState.SendingSeventyThree
+    }
+
     fun reset() {
         state = QsoState.Idle
         role = null
@@ -109,6 +147,22 @@ class QsoMachine(
         if (state == QsoState.SendingSeventyThree) {
             state = QsoState.Complete
         }
+    }
+
+    /** Snapshot for logging when [state] is [QsoState.Complete]. */
+    fun snapshot(completedAtEpochMs: Long = System.currentTimeMillis()): QsoSnapshot? {
+        if (state != QsoState.Complete) return null
+        val dx = dxCall ?: return null
+        return QsoSnapshot(
+            myCall = myCall,
+            myGrid = myGrid,
+            dxCall = dx,
+            dxGrid = dxGrid,
+            reportSent = reportSent,
+            reportRcvd = reportRcvd,
+            role = role ?: QsoRole.Initiator,
+            completedAtEpochMs = completedAtEpochMs,
+        )
     }
 
     /**

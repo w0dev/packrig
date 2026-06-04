@@ -14,7 +14,7 @@ enum class BuildPhase(val label: String) {
 object AppInfo {
     const val APP_NAME = "FT8VC"
     const val TAGLINE = "FT8, vibe-coded"
-    const val VERSION_NAME = "0.1.0-dev"
+    const val VERSION_NAME = "1.0.0"
 
     /** WSJT-X / FT8 internal audio sample rate. Everything DSP runs at this rate. */
     const val SAMPLE_RATE_HZ = 12_000
@@ -22,5 +22,5 @@ object AppInfo {
     /** FT8 transmit/receive slot length. */
     const val SLOT_SECONDS = 15
 
-    val currentPhase: BuildPhase = BuildPhase.PHASE_3_TX
+    val currentPhase: BuildPhase = BuildPhase.PHASE_5_RELEASE
 }

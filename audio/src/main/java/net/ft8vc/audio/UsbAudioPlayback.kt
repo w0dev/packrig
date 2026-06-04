@@ -33,6 +33,9 @@ class UsbAudioPlayback(private val context: Context) {
         applyPreferredDevice(track, preferredDeviceId)
         val pcm = if (factor == 1) samples12k else Upsampler.linear(samples12k, factor)
         try {
+            // Full-scale output so the rig's data input has adequate drive; the
+            // station operator trims level on the rig (DATA GAIN) and antenna ALC.
+            runCatching { track.setVolume(AudioTrack.getMaxVolume()) }
             track.play()
             var offset = 0
             while (offset < pcm.size) {

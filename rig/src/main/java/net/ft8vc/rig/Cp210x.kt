@@ -14,6 +14,17 @@ object Cp210x {
     /** CP2102/CP2109 product id (the Digirig's bridge). */
     const val PRODUCT_ID = 0xEA60
 
+    /** CP210x product IDs seen on Digirig and generic Silicon Labs bridges. */
+    val PRODUCT_IDS = setOf(
+        0xEA60, // CP2102, CP2104, CP2102N (default)
+        0xEA61, // CP2102 dual / some CP2101–4 variants
+        0xEA70, // CP2105
+        0xEA71, // CP2108
+    )
+
+    fun matches(deviceVendorId: Int, deviceProductId: Int): Boolean =
+        deviceVendorId == VENDOR_ID && deviceProductId in PRODUCT_IDS
+
     /** Vendor request, host-to-device (USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE). */
     const val REQTYPE_HOST_TO_DEVICE = 0x41
 
@@ -26,8 +37,22 @@ object Cp210x {
     /** Set the UART line control (data bits / parity / stop bits) via wValue. */
     const val REQUEST_SET_LINE_CTL = 0x03
 
+    /** Set hardware flow control; must be off for manual RTS PTT. */
+    const val REQUEST_SET_FLOW = 0x13
+
     /** Set the baud rate; the 32-bit rate rides in the data stage (little-endian). */
     const val REQUEST_SET_BAUDRATE = 0x1E
+
+    /**
+     * 16-byte SET_FLOW payload that disables RTS/CTS and DTR/DSR handshaking.
+     * Matches usb-serial-for-android CP2102 [FLOW_CONTROL_OFF].
+     */
+    val FLOW_CONTROL_OFF: ByteArray = byteArrayOf(
+        0x01, 0x00, 0x00, 0x00,
+        0x40, 0x00, 0x00, 0x00,
+        0x00, 0x80.toByte(), 0x00, 0x00,
+        0x00, 0x20, 0x00, 0x00,
+    )
 
     const val UART_ENABLE = 0x0001
     const val UART_DISABLE = 0x0000

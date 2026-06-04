@@ -1,0 +1,21 @@
+package net.ft8vc.app.ui.nav
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Radio
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.graphics.vector.ImageVector
+
+sealed class Ft8Destination(
+    val route: String,
+    val label: String,
+    val icon: ImageVector,
+) {
+    data object Operate : Ft8Destination("operate", "Operate", Icons.Filled.Radio)
+    data object Log : Ft8Destination("log", "Log", Icons.Filled.List)
+    data object Settings : Ft8Destination("settings", "Settings", Icons.Filled.Settings)
+
+    companion object {
+        val entries = listOf(Operate, Log, Settings)
+    }
+}

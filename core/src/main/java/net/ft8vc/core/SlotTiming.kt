@@ -31,4 +31,12 @@ object SlotTiming {
     fun millisUntilNextSlot(epochMillisUtc: Long): Long {
         return nextSlotStart(epochMillisUtc) - epochMillisUtc
     }
+
+    /** True when the slot containing [epochMillisUtc] is an even slot (0 or 2). */
+    fun isEvenSlot(epochMillisUtc: Long): Boolean =
+        slotIndexInMinute(epochMillisUtc) % 2 == 0
+
+    /** Seconds remaining until the next slot boundary (ceil). */
+    fun secondsUntilNextSlot(epochMillisUtc: Long): Int =
+        ((millisUntilNextSlot(epochMillisUtc) + 999) / 1000).toInt()
 }

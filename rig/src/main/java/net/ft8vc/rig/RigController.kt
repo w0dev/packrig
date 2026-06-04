@@ -42,8 +42,20 @@ class RigController(private val context: Context) : RigBackend, CatControl {
 
     fun findDevice(): UsbDevice? =
         usbManager.deviceList.values.firstOrNull {
-            it.vendorId == Cp210x.VENDOR_ID && it.productId == Cp210x.PRODUCT_ID
+            Cp210x.matches(it.vendorId, it.productId)
         }
+
+    /** Short summary of USB devices Android reports (for UI diagnostics). */
+    fun usbDeviceSummary(): String {
+        val devices = usbManager.deviceList.values.toList()
+        if (devices.isEmpty()) return "Android sees no USB devices"
+        return devices.joinToString("; ") { dev ->
+            val vid = dev.vendorId.toString(16).padStart(4, '0')
+            val pid = dev.productId.toString(16).padStart(4, '0')
+            val name = dev.productName?.toString()?.ifBlank { null } ?: dev.deviceName
+            "$vid:$pid $name"
+        }
+    }
 
     /** Current discovery/permission state (for UI status). */
     fun state(): State {
@@ -63,8 +75,10 @@ class RigController(private val context: Context) : RigBackend, CatControl {
         val backend = DigirigRigBackend(usbManager, device)
         return if (backend.open()) {
             digirig = backend
+            Log.i(TAG, "Digirig bound for PTT/CAT")
             true
         } else {
+            Log.e(TAG, "Digirig open() failed after USB permission granted")
             false
         }
     }
@@ -112,9 +126,48 @@ class RigController(private val context: Context) : RigBackend, CatControl {
 
     private fun active(): RigBackend = digirig ?: fallback
 
-    override fun keyPtt() = active().keyPtt()
+    /**
+     * When true, PTT uses CAT `TX1;`/`TX0;`. When false (Digirig default), PTT
+     * uses the CP2102 **RTS** line — the hardware PTT path on Digirig Mobile.
+     *
+     * [configurePttFromCatProbe] sets this from a live `FA;` query. Until then
+     * we default to RTS so TX works even when CAT readback is broken on the phone.
+     */
+    @Volatile
+    var useCatPtt: Boolean = false
 
-    override fun releasePtt() = active().releasePtt()
+    /**
+     * Pick CAT vs RTS PTT from whether the rig answers a frequency query.
+     * Call off the main thread (can block ~1 s on timeout).
+     */
+    fun configurePttFromCatProbe(): String {
+        val rig = digirig ?: return "no-op"
+        useCatPtt = rig.frequencyHz() != null
+        val method = if (useCatPtt) "CAT" else "RTS"
+        Log.i(TAG, "PTT method: $method (CAT probe reply=${useCatPtt})")
+        return method
+    }
+
+    override fun keyPtt() {
+        val rig = digirig
+        if (useCatPtt && rig != null) {
+            // CAT only — do not assert RTS (Menu 05-08 CAT RTS can latch TX).
+            rig.catPtt(true)
+        } else {
+            active().keyPtt()
+        }
+    }
+
+    override fun releasePtt() {
+        val rig = digirig
+        if (useCatPtt && rig != null) {
+            rig.catPtt(false)
+        } else {
+            active().releasePtt()
+        }
+        // Always de-assert RTS after any TX path so Digirig hardware PTT cannot stick.
+        rig?.releasePtt()
+    }
 
     /** True once CAT can talk to a real rig (Digirig open). */
     val isCatReady: Boolean get() = digirig != null
@@ -126,6 +179,8 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     override fun mode(): Ft891Cat.Mode? = digirig?.mode()
 
     override fun setMode(mode: Ft891Cat.Mode): Boolean = digirig?.setMode(mode) ?: false
+
+    override fun catPtt(on: Boolean): Boolean = digirig?.catPtt(on) ?: false
 
     /** Release the USB connection (call from owner's teardown). */
     @Synchronized

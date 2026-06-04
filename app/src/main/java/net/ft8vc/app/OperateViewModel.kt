@@ -1,0 +1,723 @@
+package net.ft8vc.app
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import net.ft8vc.app.settings.SettingsRepository
+import net.ft8vc.app.ui.Waterfall
+import net.ft8vc.audio.AudioInputs
+import net.ft8vc.audio.AudioOutputs
+import net.ft8vc.audio.UsbAudioCapture
+import net.ft8vc.audio.UsbAudioPlayback
+import net.ft8vc.audio.dsp.SpectrumProcessor
+import net.ft8vc.core.AppInfo
+import net.ft8vc.core.QsoDecode
+import net.ft8vc.core.QsoMachine
+import net.ft8vc.core.QsoMessages
+import net.ft8vc.core.QsoResume
+import net.ft8vc.core.QsoRx
+import net.ft8vc.core.QsoState
+import net.ft8vc.core.SlotCollector
+import net.ft8vc.core.SlotTiming
+import net.ft8vc.data.Logbook
+import net.ft8vc.data.RoomLogbook
+import net.ft8vc.data.db.Ft8vcDatabase
+import net.ft8vc.data.model.QsoContact
+import net.ft8vc.app.ui.bandLabelForFreq
+import net.ft8vc.ft8native.Ft8Native
+import net.ft8vc.rig.Ft891Cat
+import net.ft8vc.rig.RigController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import java.util.concurrent.Executors
+
+class OperateViewModel(app: Application) : AndroidViewModel(app) {
+
+    private val settingsRepo = SettingsRepository(app)
+    private val logbook: Logbook = RoomLogbook(Ft8vcDatabase.get(app))
+
+    private val _state = MutableStateFlow(OperateUiState())
+    val state: StateFlow<OperateUiState> = _state.asStateFlow()
+
+    private val capture = UsbAudioCapture(app)
+    private val playback = UsbAudioPlayback(app)
+    private val rig = RigController(app)
+    private val spectrum = SpectrumProcessor(sampleRate = AppInfo.SAMPLE_RATE_HZ)
+    private val slotCollector = SlotCollector(AppInfo.SAMPLE_RATE_HZ)
+    private val decodeExecutor = Executors.newSingleThreadExecutor()
+    private val catExecutor = Executors.newSingleThreadExecutor()
+    private val utcTimeFormat = SimpleDateFormat("HHmmss", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }
+    private val utcClockFormat = SimpleDateFormat("HH:mm:ss", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }
+
+    val waterfall = Waterfall(bins = spectrum.binCount)
+    val maxAudioFreqHz: Int = spectrum.freqForBin(spectrum.binCount).toInt()
+
+    private var levelEma = OperateUiState.SILENCE_DBFS
+    @Volatile private var inputGain = 1f
+    private var gainScratch: ShortArray? = null
+    private var lastUiUpdateNs = 0L
+    private var txThread: Thread? = null
+    private var slotClockJob: Job? = null
+    private var qsoTxParity: Int? = null
+
+    private val qsoLock = Any()
+    private var qso: QsoMachine? = null
+    @Volatile private var qsoRunning = false
+    private var qsoThread: Thread? = null
+    private var lastLoggedKey: String? = null
+
+    init {
+        viewModelScope.launch {
+            settingsRepo.settings.collect { s ->
+                waterfall.floorOffsetDb = 24f - s.waterfallBrightness * 32f
+                _state.update { current ->
+                    current.copy(
+                        myCall = s.myCall,
+                        myGrid = s.myGrid,
+                        txFreqHz = s.txToneHz,
+                        licenseAcknowledged = s.licenseAcknowledged,
+                        txEnabled = s.licenseAcknowledged && s.txEnabledInSettings,
+                        autoSeqEnabled = s.autoSeqEnabled,
+                        answerWhenCalledEnabled = s.answerWhenCalledEnabled,
+                        selectedDeviceId = s.selectedAudioDeviceId ?: current.selectedDeviceId,
+                        waterfallBrightness = s.waterfallBrightness,
+                        inputGain = s.inputGain,
+                    )
+                }
+                inputGain = s.inputGain.coerceIn(OperateUiState.INPUT_GAIN_MIN, 1f)
+            }
+        }
+        viewModelScope.launch {
+            logbook.contactCount().collect { count ->
+                _state.update { it.copy(contactCount = count) }
+            }
+        }
+        refreshDevices()
+        startSlotClock()
+    }
+
+    private fun startSlotClock() {
+        slotClockJob?.cancel()
+        slotClockJob = viewModelScope.launch {
+            while (isActive) {
+                val now = System.currentTimeMillis()
+                val parity = qsoTxParity
+                _state.update {
+                    it.copy(
+                        slotIndex = SlotTiming.slotIndexInMinute(now),
+                        secondsToNextSlot = SlotTiming.secondsUntilNextSlot(now),
+                        utcClock = utcClockFormat.format(Date(now)),
+                        isTxSlot = parity?.let { p ->
+                            SlotTiming.slotIndexInMinute(now) % 2 == p
+                        } ?: false,
+                    )
+                }
+                delay(250)
+            }
+        }
+    }
+
+    fun refreshDevices() {
+        val devices = AudioInputs.list(getApplication())
+        _state.update { s ->
+            val saved = s.selectedDeviceId
+            val stillValid = devices.any { it.id == saved }
+            val selected = if (stillValid) saved else devices.firstOrNull { it.isUsb }?.id
+            s.copy(devices = devices, selectedDeviceId = selected)
+        }
+        if (_state.value.isOperating || _state.value.txEnabled) prepareRig()
+    }
+
+    fun selectDevice(id: Int) {
+        val wasActive = _state.value.isCapturing
+        if (wasActive) stopCapture()
+        _state.update { it.copy(selectedDeviceId = id) }
+        viewModelScope.launch { settingsRepo.setSelectedAudioDeviceId(id) }
+        if (wasActive) beginCapture()
+    }
+
+    fun setTxEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepo.setTxEnabledInSettings(enabled) }
+        if (enabled) prepareRig()
+    }
+
+    fun setAutoSeqEnabled(enabled: Boolean) {
+        _state.update { it.copy(autoSeqEnabled = enabled) }
+        viewModelScope.launch { settingsRepo.setAutoSeqEnabled(enabled) }
+    }
+
+    fun setAnswerWhenCalledEnabled(enabled: Boolean) {
+        _state.update { it.copy(answerWhenCalledEnabled = enabled) }
+        viewModelScope.launch { settingsRepo.setAnswerWhenCalledEnabled(enabled) }
+    }
+
+    fun setCq73OnlyFilter(enabled: Boolean) {
+        _state.update { it.copy(cq73OnlyFilter = enabled) }
+    }
+
+    fun acknowledgeLicense() {
+        viewModelScope.launch { settingsRepo.setLicenseAcknowledged(true) }
+    }
+
+    fun setMyCall(call: String) {
+        _state.update { it.copy(myCall = call.trim().uppercase(Locale.US)) }
+        viewModelScope.launch { settingsRepo.setMyCall(call) }
+    }
+
+    fun setMyGrid(grid: String) {
+        _state.update { it.copy(myGrid = grid.trim().uppercase(Locale.US)) }
+        viewModelScope.launch { settingsRepo.setMyGrid(grid) }
+    }
+
+    fun setTxMessage(message: String) {
+        _state.update { it.copy(txMessage = message) }
+    }
+
+    fun setTxFreqHz(freqHz: Int) {
+        val hz = freqHz.coerceIn(300, 3000)
+        _state.update { it.copy(txFreqHz = hz) }
+        viewModelScope.launch { settingsRepo.setTxToneHz(hz) }
+    }
+
+    fun setWaterfallBrightness(pos: Float) {
+        waterfall.floorOffsetDb = 24f - pos * 32f
+        viewModelScope.launch { settingsRepo.setWaterfallBrightness(pos) }
+    }
+
+    fun setInputGain(gain: Float) {
+        val g = gain.coerceIn(OperateUiState.INPUT_GAIN_MIN, 1f)
+        inputGain = g
+        _state.update { it.copy(inputGain = g) }
+        viewModelScope.launch { settingsRepo.setInputGain(g) }
+    }
+
+    fun clearSnackbar() {
+        _state.update { it.copy(snackbarMessage = null, error = null) }
+    }
+
+    fun clearQsoBanner() {
+        _state.update { it.copy(qsoCompleteBanner = null) }
+    }
+
+    /** Master operate toggle: RX + rig prep (+ TX path when enabled). */
+    fun toggleOperate() {
+        if (_state.value.isOperating) {
+            stopOperating()
+        } else {
+            startOperating()
+        }
+    }
+
+    fun startOperating() {
+        if (_state.value.isOperating) return
+        if (!_state.value.licenseAcknowledged) {
+            _state.update { it.copy(error = "Acknowledge the license disclaimer first (Settings).") }
+            return
+        }
+        waterfall.clear()
+        slotCollector.reset()
+        prepareRig()
+        beginCapture()
+        _state.update {
+            it.copy(isOperating = true, isCapturing = true, operateStatus = "Operating", error = null)
+        }
+    }
+
+    fun stopOperating() {
+        stopQso()
+        cancelTx()
+        stopCapture()
+        _state.update { it.copy(isOperating = false, operateStatus = null) }
+    }
+
+    private fun prepareRig() {
+        when (rig.state()) {
+            RigController.State.NoDevice -> {
+                val usb = rig.usbDeviceSummary()
+                _state.update {
+                    it.copy(
+                        pttReady = false,
+                        txStatus = "CP2102 serial not found (PTT no-op). USB: $usb",
+                    )
+                }
+            }
+            RigController.State.Ready -> {
+                _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready") }
+                catExecutor.execute {
+                    val method = rig.configurePttFromCatProbe()
+                    _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
+                    onRigReady()
+                }
+            }
+            RigController.State.NeedsPermission -> {
+                _state.update { it.copy(txStatus = "Requesting USB permission…") }
+                rig.ensureReady { ready ->
+                    if (!ready) {
+                        _state.update {
+                            it.copy(pttReady = false, txStatus = "USB permission denied — PTT is no-op")
+                        }
+                        return@ensureReady
+                    }
+                    _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready") }
+                    catExecutor.execute {
+                        val method = rig.configurePttFromCatProbe()
+                        _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
+                        onRigReady()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun onRigReady() {
+        if (!rig.isCatReady) return
+        _state.update { it.copy(catReady = true) }
+        readRig()
+    }
+
+    fun readRig() {
+        if (!rig.isCatReady) return
+        runCat("Reading rig…") {
+            val freq = rig.frequencyHz()
+            val mode = rig.mode()
+            _state.update {
+                it.copy(
+                    rigFreqHz = freq ?: it.rigFreqHz,
+                    rigMode = mode?.label ?: it.rigMode,
+                    catStatus = if (freq == null && mode == null) "No CAT reply" else "Rig in sync",
+                )
+            }
+            freq?.let { hz -> viewModelScope.launch { settingsRepo.setLastDialFreqHz(hz) } }
+        }
+    }
+
+    fun setRigFrequency(hz: Long) {
+        if (!rig.isCatReady) return
+        runCat("Tuning…") {
+            if (rig.setFrequencyHz(hz)) {
+                val freq = rig.frequencyHz()
+                _state.update { it.copy(rigFreqHz = freq ?: hz, catStatus = "Tuned") }
+                viewModelScope.launch { settingsRepo.setLastDialFreqHz(freq ?: hz) }
+            } else {
+                _state.update { it.copy(catStatus = "Tune rejected") }
+            }
+        }
+    }
+
+    fun setRigDataUsb() {
+        if (!rig.isCatReady) return
+        runCat("Setting DATA-U…") {
+            if (rig.setMode(Ft891Cat.Mode.DATA_USB)) {
+                val mode = rig.mode()
+                _state.update {
+                    it.copy(rigMode = mode?.label ?: Ft891Cat.Mode.DATA_USB.label, catStatus = "Mode set")
+                }
+            } else {
+                _state.update { it.copy(catStatus = "Mode set rejected") }
+            }
+        }
+    }
+
+    fun usbDiagnostics(): String = rig.usbDeviceSummary()
+
+    private fun runCat(busyStatus: String, block: () -> Unit) {
+        _state.update { it.copy(catBusy = true, catStatus = busyStatus) }
+        catExecutor.execute {
+            try {
+                block()
+            } catch (t: Throwable) {
+                _state.update { it.copy(catStatus = t.message ?: "CAT error") }
+            } finally {
+                _state.update { it.copy(catBusy = false) }
+            }
+        }
+    }
+
+    fun startCq() {
+        val s = _state.value
+        if (s.myCall.isBlank()) {
+            _state.update { it.copy(error = "Set your callsign in Settings") }
+            return
+        }
+        if (!s.txEnabled) {
+            _state.update { it.copy(error = "Enable TX in Settings first") }
+            return
+        }
+        if (!s.isOperating) startOperating()
+        val machine = QsoMachine(s.myCall, s.myGrid)
+        machine.startCq()
+        startQsoLoop(machine)
+    }
+
+    /** Tap a decode directed at us to resume the QSO sequence (e.g. after Stop QSO). */
+    fun resumeFromDecode(row: DecodeRow) {
+        val s = _state.value
+        if (s.myCall.isBlank()) {
+            _state.update { it.copy(error = "Set your callsign in Settings") }
+            return
+        }
+        if (!s.txEnabled) {
+            _state.update { it.copy(error = "Enable TX in Settings first") }
+            return
+        }
+        val opp = QsoResume.opportunityFromDecode(s.myCall, QsoDecode(row.message, row.snr)) ?: run {
+            _state.update { it.copy(error = "Not a directed message to ${s.myCall}") }
+            return
+        }
+        if (!s.isOperating) startOperating()
+        resumeFromOpportunity(opp, "Resuming QSO with ${opp.dxCall}")
+    }
+
+    fun answerCq(row: DecodeRow) {
+        val s = _state.value
+        if (s.myCall.isBlank()) {
+            _state.update { it.copy(error = "Set your callsign in Settings") }
+            return
+        }
+        if (!s.txEnabled) {
+            _state.update { it.copy(error = "Enable TX in Settings first") }
+            return
+        }
+        val cq = QsoMessages.parse(row.message) as? QsoRx.Cq ?: run {
+            _state.update { it.copy(error = "Not a CQ: ${row.message}") }
+            return
+        }
+        if (!s.isOperating) startOperating()
+        _state.update { it.copy(snackbarMessage = "Answering ${cq.call}") }
+        val machine = QsoMachine(s.myCall, s.myGrid)
+        machine.answerCq(cq.call, cq.grid, row.snr)
+        startQsoLoop(machine)
+    }
+
+    fun stopQso() {
+        qsoRunning = false
+        qsoThread?.interrupt()
+        qsoThread = null
+        qsoTxParity = null
+        synchronized(qsoLock) { qso = null }
+        _state.update { it.copy(qsoActive = false, qsoState = null, qsoDx = null) }
+    }
+
+    private fun startQsoLoop(machine: QsoMachine) {
+        stopQso()
+        synchronized(qsoLock) { qso = machine }
+        qsoRunning = true
+        val firstBoundary = SlotTiming.nextSlotStart(System.currentTimeMillis())
+        qsoTxParity = SlotTiming.slotIndexInMinute(firstBoundary) % 2
+        publishQsoState()
+
+        qsoThread = Thread({
+            try {
+                val txParity = qsoTxParity ?: return@Thread
+                while (qsoRunning) {
+                    val wait = SlotTiming.millisUntilNextSlot(System.currentTimeMillis())
+                    if (wait > 0) Thread.sleep(wait)
+                    if (!qsoRunning) break
+
+                    val slotStart = SlotTiming.slotStart(System.currentTimeMillis())
+                    val ourTx = SlotTiming.slotIndexInMinute(slotStart) % 2 == txParity
+                    if (!ourTx) continue
+
+                    Thread.sleep(OperateUiState.QSO_TX_GRACE_MS)
+                    if (!qsoRunning) break
+
+                    val message = synchronized(qsoLock) { qso?.txMessage() }
+                    if (message == null) break
+
+                    transmitMessageNow(message)
+                    synchronized(qsoLock) { qso?.markTransmitted() }
+                    publishQsoState()
+
+                    val complete = synchronized(qsoLock) { qso?.state == QsoState.Complete }
+                    if (complete) {
+                        handleQsoComplete()
+                        break
+                    }
+                }
+            } catch (_: InterruptedException) {
+            } catch (t: Throwable) {
+                _state.update { it.copy(error = t.message ?: "QSO failed") }
+            } finally {
+                qsoRunning = false
+                qsoTxParity = null
+                if (!Thread.currentThread().isInterrupted) {
+                    if (_state.value.isOperating && !_state.value.isCapturing && !_state.value.isTransmitting) {
+                        beginCapture()
+                    }
+                    publishQsoState()
+                }
+            }
+        }, "ft8vc-qso").also { it.start() }
+    }
+
+    private fun handleQsoComplete() {
+        val snapshot = synchronized(qsoLock) {
+            qso?.snapshot(System.currentTimeMillis())
+        } ?: return
+        val key = "${snapshot.dxCall}:${snapshot.completedAtEpochMs}"
+        if (key == lastLoggedKey) return
+        lastLoggedKey = key
+
+        val freq = _state.value.rigFreqHz
+        val band = bandLabelForFreq(freq)
+        val contact = QsoContact.fromSnapshot(snapshot, freq, band)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            logbook.log(contact)
+        }
+
+        _state.update {
+            it.copy(
+                qsoCompleteBanner = "QSO complete with ${snapshot.dxCall}",
+                snackbarMessage = "Logged ${snapshot.dxCall}",
+            )
+        }
+    }
+
+    private fun transmitMessageNow(message: String) {
+        val pcm = Ft8Native.encode(message, _state.value.txFreqHz.toFloat(), AppInfo.SAMPLE_RATE_HZ)
+        if (pcm.isEmpty()) throw IllegalStateException("Encoder rejected: $message")
+
+        val resume = _state.value.isCapturing
+        if (resume) stopCapture()
+        _state.update { it.copy(isTransmitting = true, txStatus = "TX: $message") }
+        val outputId = AudioOutputs.firstUsb(getApplication())?.id
+        rig.keyPtt()
+        try {
+            playback.playBlocking(pcm, outputId)
+        } finally {
+            rig.releasePtt()
+        }
+        _state.update { it.copy(isTransmitting = false, txStatus = "Sent: $message") }
+        if (resume && (qsoRunning || _state.value.isOperating)) resumeCapture()
+    }
+
+    private fun publishQsoState() {
+        val snapshot = synchronized(qsoLock) {
+            qso?.let { Triple(it.state, it.dxCall, it.isActive) }
+        }
+        if (snapshot == null) {
+            _state.update { it.copy(qsoActive = false, qsoState = null, qsoDx = null) }
+            return
+        }
+        val (st, dx, active) = snapshot
+        _state.update {
+            it.copy(qsoActive = active, qsoState = qsoStateLabel(st, dx), qsoDx = dx)
+        }
+    }
+
+    private fun qsoStateLabel(state: QsoState, dx: String?): String = when (state) {
+        QsoState.Idle -> "${_state.value.myCall} ${_state.value.myGrid}"
+        QsoState.CallingCq -> "Calling CQ…"
+        QsoState.Answering -> "Answering ${dx ?: "?"}…"
+        QsoState.SendingReport -> "QSO ${dx ?: "?"} — Report"
+        QsoState.SendingRReport -> "QSO ${dx ?: "?"} — R-report"
+        QsoState.SendingRoger -> "QSO ${dx ?: "?"} — RRR"
+        QsoState.SendingSeventyThree -> "QSO ${dx ?: "?"} — 73"
+        QsoState.Complete -> "QSO complete${dx?.let { " with $it" } ?: ""}"
+    }
+
+    fun transmitNextSlot() {
+        if (!_state.value.txEnabled || _state.value.isTransmitting) return
+        val message = _state.value.txMessage.trim()
+        if (message.isEmpty()) {
+            _state.update { it.copy(error = "TX message is empty") }
+            return
+        }
+        cancelTx()
+        val freqHz = _state.value.txFreqHz.toFloat()
+        _state.update { it.copy(txStatus = "Encoding…", error = null) }
+
+        txThread = Thread({
+            try {
+                val pcm = Ft8Native.encode(message, freqHz, AppInfo.SAMPLE_RATE_HZ)
+                if (pcm.isEmpty()) throw IllegalStateException("Encoder rejected message: $message")
+
+                val waitMs = SlotTiming.millisUntilNextSlot(System.currentTimeMillis())
+                val waitSec = (waitMs + 999) / 1000
+                _state.update { it.copy(txStatus = "TX in ${waitSec}s…") }
+                if (waitMs > 0) Thread.sleep(waitMs)
+                if (Thread.currentThread().isInterrupted) return@Thread
+
+                val resumeCapture = _state.value.isCapturing
+                if (resumeCapture) stopCapture()
+                _state.update { it.copy(isTransmitting = true, txStatus = "Transmitting…") }
+                val outputId = AudioOutputs.firstUsb(getApplication())?.id
+                rig.keyPtt()
+                try {
+                    playback.playBlocking(pcm, outputId)
+                } finally {
+                    rig.releasePtt()
+                }
+                if (resumeCapture && !Thread.currentThread().isInterrupted) resumeCapture()
+                _state.update { it.copy(isTransmitting = false, txStatus = "TX complete") }
+            } catch (_: InterruptedException) {
+                _state.update { it.copy(isTransmitting = false, txStatus = null) }
+            } catch (t: Throwable) {
+                _state.update {
+                    it.copy(isTransmitting = false, txStatus = null, error = t.message ?: "Transmit failed")
+                }
+            }
+        }, "ft8vc-tx").also { it.start() }
+    }
+
+    private fun cancelTx() {
+        txThread?.interrupt()
+        txThread = null
+    }
+
+    private fun beginCapture() {
+        try {
+            capture.start(_state.value.selectedDeviceId, ::onFrames)
+            _state.update { it.copy(isCapturing = true, error = null) }
+        } catch (t: Throwable) {
+            _state.update { it.copy(isCapturing = false, isOperating = false, error = t.message ?: "Capture failed") }
+        }
+    }
+
+    private fun resumeCapture() {
+        if (_state.value.isCapturing || _state.value.isTransmitting) return
+        beginCapture()
+    }
+
+    private fun stopCapture() {
+        capture.stop()
+        slotCollector.reset()
+        _state.update {
+            it.copy(isCapturing = false, levelDbfs = OperateUiState.SILENCE_DBFS, clip = false)
+        }
+    }
+
+    private fun onFrames(frames: ShortArray) {
+        val pcm = scaledFrames(frames, inputGain)
+        var sumSq = 0.0
+        var peak = 0
+        for (s in pcm) {
+            val a = if (s.toInt() == Short.MIN_VALUE.toInt()) Short.MAX_VALUE.toInt() else Math.abs(s.toInt())
+            if (a > peak) peak = a
+            sumSq += s.toDouble() * s.toDouble()
+        }
+        val rms = Math.sqrt(sumSq / frames.size)
+        val instDb = (20.0 * Math.log10(rms / 32768.0 + 1e-9)).toFloat()
+        levelEma += 0.3f * (instDb - levelEma)
+        val clip = peak >= 32000
+
+        spectrum.process(pcm) { column -> waterfall.addColumn(column) }
+        slotCollector.add(pcm, System.currentTimeMillis()) { samples, slotStart ->
+            decodeExecutor.execute { decodeSlot(samples, slotStart) }
+        }
+
+        val now = System.nanoTime()
+        if (now - lastUiUpdateNs >= 30_000_000L) {
+            lastUiUpdateNs = now
+            _state.update {
+                it.copy(
+                    levelDbfs = levelEma.coerceIn(OperateUiState.SILENCE_DBFS, 0f),
+                    clip = clip,
+                    waterfallVersion = it.waterfallVersion + 1,
+                )
+            }
+        }
+    }
+
+    private fun scaledFrames(frames: ShortArray, gain: Float): ShortArray {
+        if (gain >= 0.999f) return frames
+        val scratch = gainScratch?.takeIf { it.size >= frames.size }
+            ?: ShortArray(frames.size).also { gainScratch = it }
+        for (i in frames.indices) {
+            val v = (frames[i] * gain).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+            scratch[i] = v.toShort()
+        }
+        return scratch
+    }
+
+    private fun decodeSlot(samples: ShortArray, slotStartEpochMs: Long) {
+        val results = Ft8Native.decode(samples, AppInfo.SAMPLE_RATE_HZ)
+        val time = utcTimeFormat.format(Date(slotStartEpochMs))
+        val myCall = _state.value.myCall
+        val rows = results
+            .sortedByDescending { it.score }
+            .map { r ->
+                val message = r.message.trim()
+                DecodeRow(
+                    timeUtc = time,
+                    snr = r.snr,
+                    dtSeconds = r.dtSeconds,
+                    freqHz = Math.round(r.freqHz),
+                    message = message,
+                    isCq = message.startsWith("CQ"),
+                    isToMe = QsoResume.isDirectedToMe(myCall, message),
+                )
+            }
+        _state.update { s ->
+            val combined = rows + s.decodes
+            s.copy(
+                decodes = combined.take(OperateUiState.MAX_DECODE_ROWS),
+                lastSlotDecodeCount = rows.size,
+            )
+        }
+
+        val s = _state.value
+        if (qsoRunning && s.autoSeqEnabled) {
+            val decodes = rows.map { QsoDecode(it.message, it.snr) }
+            val advanced = synchronized(qsoLock) { qso?.onDecodes(decodes) ?: false }
+            if (advanced) {
+                publishQsoState()
+                val complete = synchronized(qsoLock) { qso?.state == QsoState.Complete }
+                if (complete) handleQsoComplete()
+            }
+        } else if (
+            !qsoRunning &&
+            s.isOperating &&
+            s.txEnabled &&
+            s.answerWhenCalledEnabled &&
+            s.myCall.isNotBlank()
+        ) {
+            tryAnswerWhenCalled(rows)
+        }
+    }
+
+    private fun tryAnswerWhenCalled(rows: List<DecodeRow>) {
+        if (qsoRunning || rows.isEmpty()) return
+        val decodes = rows.map { QsoDecode(it.message, it.snr) }
+        val opp = QsoResume.findOpportunity(_state.value.myCall, decodes) ?: return
+        resumeFromOpportunity(opp, "Answering ${opp.dxCall}")
+    }
+
+    private fun resumeFromOpportunity(opp: QsoResume.Opportunity, snackbar: String) {
+        val s = _state.value
+        val machine = QsoMachine(s.myCall, s.myGrid)
+        QsoResume.apply(machine, opp)
+        _state.update { it.copy(snackbarMessage = snackbar) }
+        startQsoLoop(machine)
+    }
+
+    fun clearDecodes() {
+        _state.update { it.copy(decodes = emptyList(), lastSlotDecodeCount = -1) }
+    }
+
+    override fun onCleared() {
+        stopOperating()
+        slotClockJob?.cancel()
+        capture.stop()
+        rig.close()
+        decodeExecutor.shutdownNow()
+        catExecutor.shutdownNow()
+        super.onCleared()
+    }
+}

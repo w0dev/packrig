@@ -11,10 +11,22 @@ android {
         applicationId = "net.ft8vc"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0-dev"
+        versionCode = System.getenv("FT8VC_VERSION_CODE")?.toIntOrNull() ?: 100
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("FT8VC_KEYSTORE")
+            if (!keystorePath.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("FT8VC_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("FT8VC_KEY_ALIAS")
+                keyPassword = System.getenv("FT8VC_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -23,10 +35,17 @@ android {
             isMinifyEnabled = false
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            if (System.getenv("FT8VC_UNSTABLE") == "true") {
+                applicationIdSuffix = ".unstable"
+                versionNameSuffix = System.getenv("FT8VC_VERSION_NAME_SUFFIX") ?: "-unstable"
+            }
+            System.getenv("FT8VC_KEYSTORE")?.let {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -40,7 +59,6 @@ android {
         compose = true
     }
 
-    // AGP 8.5.1+: uncompressed native libs are zip-aligned for 16 KB devices.
     packaging {
         jniLibs {
             useLegacyPackaging = false
@@ -66,6 +84,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.kotlinx.coroutines.android)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

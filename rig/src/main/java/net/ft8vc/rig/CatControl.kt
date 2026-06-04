@@ -22,4 +22,11 @@ interface CatControl {
 
     /** Set the operating mode. Returns true if the command was sent. */
     fun setMode(mode: Ft891Cat.Mode): Boolean
+
+    /**
+     * Key ([on] = true) or un-key the transmitter over CAT (`TX1;`/`TX0;`).
+     * Used as the FT-891 PTT method, whose CAT jack has no hardware RTS line.
+     * Returns true if the command was sent.
+     */
+    fun catPtt(on: Boolean): Boolean
 }

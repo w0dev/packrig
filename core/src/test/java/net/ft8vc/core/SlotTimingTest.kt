@@ -32,5 +32,12 @@ class SlotTimingTest {
         assertEquals(30_000L, SlotTiming.slotStart(t))
         assertEquals(45_000L, SlotTiming.nextSlotStart(t))
         assertEquals(15_000L, SlotTiming.millisUntilNextSlot(t))
+        assertEquals(15, SlotTiming.secondsUntilNextSlot(t))
+        assertEquals(true, SlotTiming.isEvenSlot(t))
+    }
+
+    @Test
+    fun oddSlotDetected() {
+        assertEquals(false, SlotTiming.isEvenSlot(16_000L))
     }
 }

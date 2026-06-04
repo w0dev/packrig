@@ -37,11 +37,17 @@ manual and your on-air results:
 
 | Setting | Menu # | Value | Notes |
 |---------|--------|-------|-------|
-| TBD     | TBD    | TBD   | confirm on-air |
+| CAT RTS | 05-08 | **DISABLE** | Required for FT8VC CAT PTT (`TX1;`/`TX0;`). If enabled, asserting the Digirig RTS line can latch TX or block un-key. WSJT-X CAT PTT does not drive RTS, so this menu may appear fine on PC until Android touches RTS. |
+| CAT rate | 05-06 | **38400** | Must match FT8VC (`DigirigRigBackend` default). |
+| DATA IN | 08-09 | **REAR** | Digirig audio on the 6-pin DATA jack. |
+| Operating mode | — | **DATA-U** (`D-U` on display) | Plain USB keys the mic path; rear data audio stays muted (0 W). |
+
+Confirmed on-air 2026-06-02: phone + Digirig OTG, FT8VC CAT PTT, ~20 W after ~1 s key-up, spots on PSK Reporter.
 
 ## Digirig configuration
 
-- PTT method: **RTS** of the CP2102 serial port (Digirig Mobile hardware PTT).
+- **CAT PTT** (`TX1;`/`TX0;` at 38400) when the rig answers CAT — same idea as WSJT-X “CAT” PTT.
+- **RTS** on the CP2102 is the hardware PTT fallback if CAT readback fails; keep Menu **05-08 CAT RTS** disabled when using CAT PTT.
 - Serial port electrical level must match the FT-891 (set via Digirig solder
   switches per Digirig docs).
 - Confirm the correct transceiver cable for the FT-891.
@@ -50,6 +56,6 @@ manual and your on-air results:
 
 1. Phone enumerates the Digirig **audio** and **serial** USB devices.
 2. App receives audio (level meter moves on band noise).
-3. RTS PTT keys the radio (no RF / into dummy load first).
-4. Single-tone TX audio produces clean output.
-5. Full FT8 TX into a dummy load decodes on a second receiver (e.g. WSJT-X on PC).
+3. PTT keys the radio — CAT `TX1;`/`TX0;` and/or Digirig RTS (dummy load first).
+4. TX audio produces power on the meter (D-U, REAR data in, phone USB audio out).
+5. Full FT8 TX decodes elsewhere (e.g. PSK Reporter, second receiver, WSJT-X).

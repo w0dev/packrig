@@ -26,6 +26,8 @@ class DigirigRigBackend(
 
     private var connection: UsbDeviceConnection? = null
     private var iface: UsbInterface? = null
+    /** USB interface number for CP210x control transfers (wIndex). */
+    private var interfaceNumber: Int = 0
     private var bulkIn: UsbEndpoint? = null
     private var bulkOut: UsbEndpoint? = null
 
@@ -36,11 +38,12 @@ class DigirigRigBackend(
     @Synchronized
     fun open(): Boolean {
         if (connection != null) return true
-        if (device.interfaceCount <= 0) {
-            Log.e(TAG, "Device has no interfaces")
+        val intf = findCommInterface(device)
+        if (intf == null) {
+            Log.e(TAG, "No bulk IN/OUT interface on ${device.deviceName}")
             return false
         }
-        val intf = device.getInterface(0)
+        interfaceNumber = intf.id
         val conn = usbManager.openDevice(device)
         if (conn == null) {
             Log.e(TAG, "openDevice returned null (permission revoked?)")
@@ -54,12 +57,37 @@ class DigirigRigBackend(
         connection = conn
         iface = intf
         findBulkEndpoints(intf)
-        controlTransfer(Cp210x.REQUEST_IFC_ENABLE, Cp210x.UART_ENABLE)
+        if (controlTransfer(Cp210x.REQUEST_IFC_ENABLE, Cp210x.UART_ENABLE) < 0) {
+            Log.e(TAG, "IFC_ENABLE failed")
+            close()
+            return false
+        }
+        if (controlTransferData(Cp210x.REQUEST_SET_FLOW, Cp210x.FLOW_CONTROL_OFF) < 0) {
+            Log.e(TAG, "SET_FLOW (disable handshake) failed — manual RTS PTT may not work")
+        }
         configureUart()
         // Start de-keyed.
-        controlTransfer(Cp210x.REQUEST_SET_MHS, Cp210x.mhsValue(rts = false))
-        Log.i(TAG, "Digirig CP2102 opened: ${device.deviceName} (CAT @ $catBaud baud)")
+        val mhs = controlTransfer(Cp210x.REQUEST_SET_MHS, Cp210x.mhsValue(rts = false))
+        if (mhs < 0) Log.e(TAG, "Initial SET_MHS failed: $mhs")
+        Log.i(TAG, "Digirig CP2102 opened: ${device.deviceName} iface=$interfaceNumber (CAT @ $catBaud baud)")
         return true
+    }
+
+    /** Prefer the interface that carries bulk UART data (not the CDC notification iface). */
+    private fun findCommInterface(device: UsbDevice): UsbInterface? {
+        for (i in 0 until device.interfaceCount) {
+            val candidate = device.getInterface(i)
+            var hasIn = false
+            var hasOut = false
+            for (e in 0 until candidate.endpointCount) {
+                val ep = candidate.getEndpoint(e)
+                if (ep.type != UsbConstants.USB_ENDPOINT_XFER_BULK) continue
+                if (ep.direction == UsbConstants.USB_DIR_IN) hasIn = true
+                else hasOut = true
+            }
+            if (hasIn && hasOut) return candidate
+        }
+        return if (device.interfaceCount > 0) device.getInterface(0) else null
     }
 
     private fun findBulkEndpoints(intf: UsbInterface) {
@@ -75,21 +103,23 @@ class DigirigRigBackend(
 
     /** Set baud rate and 8N1 line control for CAT. */
     private fun configureUart() {
-        controlTransfer(Cp210x.REQUEST_SET_LINE_CTL, Cp210x.LINE_CTL_8N1)
+        val line = controlTransfer(Cp210x.REQUEST_SET_LINE_CTL, Cp210x.LINE_CTL_8N1)
+        if (line < 0) Log.e(TAG, "SET_LINE_CTL failed (return=$line)")
         val sent = controlTransferData(Cp210x.REQUEST_SET_BAUDRATE, Cp210x.baudRateBytes(catBaud))
-        if (sent < 0) Log.e(TAG, "SET_BAUDRATE failed")
+        if (sent < 0) Log.e(TAG, "SET_BAUDRATE failed (return=$sent)")
+        else Log.i(TAG, "UART configured: 8N1 @ $catBaud baud (line=$line baud=$sent)")
     }
 
     override fun keyPtt() {
-        if (controlTransfer(Cp210x.REQUEST_SET_MHS, Cp210x.mhsValue(rts = true)) < 0) {
-            Log.e(TAG, "keyPtt control transfer failed")
-        }
+        val n = controlTransfer(Cp210x.REQUEST_SET_MHS, Cp210x.mhsValue(rts = true))
+        if (n < 0) Log.e(TAG, "keyPtt SET_MHS failed (return=$n)")
+        else Log.i(TAG, "keyPtt RTS asserted (return=$n)")
     }
 
     override fun releasePtt() {
-        if (controlTransfer(Cp210x.REQUEST_SET_MHS, Cp210x.mhsValue(rts = false)) < 0) {
-            Log.e(TAG, "releasePtt control transfer failed")
-        }
+        val n = controlTransfer(Cp210x.REQUEST_SET_MHS, Cp210x.mhsValue(rts = false))
+        if (n < 0) Log.e(TAG, "releasePtt SET_MHS failed (return=$n)")
+        else Log.i(TAG, "releasePtt RTS cleared (return=$n)")
     }
 
     override fun frequencyHz(): Long? {
@@ -109,15 +139,28 @@ class DigirigRigBackend(
 
     override fun setMode(mode: Ft891Cat.Mode): Boolean = catWrite(Ft891Cat.setModeCommand(mode))
 
+    override fun catPtt(on: Boolean): Boolean {
+        val ok = catWrite(if (on) Ft891Cat.txOnCommand() else Ft891Cat.txOffCommand())
+        Log.i(TAG, "catPtt(on=$on) sent=$ok")
+        return ok
+    }
+
     /** Send a CAT command that expects no reply. */
     private fun catWrite(command: String): Boolean = synchronized(catLock) {
-        writeSerial(command.toByteArray(Charsets.US_ASCII))
+        val ok = writeSerial(command.toByteArray(Charsets.US_ASCII))
+        Log.i(TAG, "CAT write \"$command\" ok=$ok")
+        ok
     }
 
     /** Send a CAT query and read the `;`-terminated reply, or null on timeout. */
     private fun catExchange(command: String): String? = synchronized(catLock) {
-        if (!writeSerial(command.toByteArray(Charsets.US_ASCII))) return null
-        readReply()
+        if (!writeSerial(command.toByteArray(Charsets.US_ASCII))) {
+            Log.e(TAG, "CAT write \"$command\" failed")
+            return null
+        }
+        val reply = readReply()
+        Log.i(TAG, "CAT exchange \"$command\" -> ${reply?.let { "\"$it\"" } ?: "<timeout>"}")
+        reply
     }
 
     private fun writeSerial(bytes: ByteArray): Boolean {
@@ -177,7 +220,7 @@ class DigirigRigBackend(
             Cp210x.REQTYPE_HOST_TO_DEVICE,
             request,
             value,
-            /* index = interface */ 0,
+            interfaceNumber,
             data,
             data?.size ?: 0,
             TIMEOUT_MS,
