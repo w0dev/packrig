@@ -1,6 +1,6 @@
 # FT8VC documentation
 
-Component-level documentation for the FT8VC Android project. For project overview, build instructions, and roadmap, see the [root README](../README.md).
+Component-level documentation for the FT8VC Android project. For project overview, features, and build instructions, see the [root README](../README.md).
 
 For AI agents and contributors: see [AGENTS.md](../AGENTS.md) (mandatory unit tests + doc updates for applicable changes).
 

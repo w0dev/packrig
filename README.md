@@ -4,14 +4,42 @@
 designed to drive a rig through a USB audio + serial interface (e.g. a
 [Digirig Mobile](https://digirig.net/)) from your phone.
 
-> Status: **v1.0.0** on `main` when tagged; day-to-day work lands on **`unstable`**
-> with CI-built test APKs. See [docs/RELEASE.md](docs/RELEASE.md) and [Roadmap](#roadmap).
+> **v1.0.0** ships from tagged commits on `main`. Day-to-day development and field
+> testing happen on **`unstable`** with CI-built APKs. See [docs/RELEASE.md](docs/RELEASE.md).
 
 ## Why
 
 FT8VC aims for a clean, focused operating UI with a reliable decoder,
 distributed as signed APKs from GitHub Releases. Target field setup:
 **Yaesu FT-891 + Digirig Mobile** over USB-C OTG.
+
+## Features
+
+Three tabs — **Operate**, **Log**, and **Settings** — cover a full portable FT8 session.
+
+### Operate
+
+- USB audio RX from the Digirig (12 kHz, UTC slot-aligned decode)
+- Live waterfall with tap/drag TX frequency cursor
+- Decode list: CQ highlighted in green, traffic directed to you in amber
+- UTC slot countdown, rig frequency/mode, and QSO state in the status bar
+- Optional **CQ/73 only** filter to declutter the decode list during monitoring
+- Input level meter and gain control while operating
+
+### TX and QSO automation
+
+- PTT via Digirig serial (CP2102 RTS)
+- Yaesu **FT-891 CAT**: read band/mode, pick FT8 dial frequencies, one-tap **DATA-U**
+- Auto-seq QSO state machine (CQ → grid → reports → RRR → 73)
+- **Start CQ**, tap a CQ to answer, **Stop QSO** / resume when called again
+- Auto-answer when called (toggle on Operate); license acknowledgment before first TX
+- Manual TX message for bench testing (Settings → Advanced)
+
+### Log and settings
+
+- Room logbook; completed QSOs logged automatically
+- **Export ADIF** via Android share intent
+- Persisted station profile: call, grid, audio device, TX tone, waterfall brightness
 
 ## Architecture
 
@@ -43,16 +71,21 @@ Install the debug APK on a device with USB OTG + Digirig, or use Android Studio 
 Field target is the **Yaesu FT-891 + Digirig Mobile** via USB-C OTG. See
 [docs/HARDWARE.md](docs/HARDWARE.md) for menu settings and validation checklist.
 
-## Roadmap
+## Documentation
 
-| Phase | Scope |
-|-------|-------|
-| 0–2 | Skeleton, USB audio, FT8 decode (**done**) |
-| 3 | TX + PTT + QSO state machine (**done**) |
-| 4 | Operating UI: Operate / Settings / slot clock (**done**) |
-| 5 | Room logbook, ADIF export, v1.0.0 release (**done**) |
+| Topic | Document |
+|-------|----------|
+| Component overview | [docs/README.md](docs/README.md) |
+| App UI and ViewModels | [docs/APP.md](docs/APP.md) |
+| Release and unstable APKs | [docs/RELEASE.md](docs/RELEASE.md) |
+| SDK / NDK setup | [docs/SDK_SETUP.md](docs/SDK_SETUP.md) |
+| Field hardware | [docs/HARDWARE.md](docs/HARDWARE.md) |
 
-Post-v1: ADIF import, NTP clock, decode filters, PSK Reporter.
+## Current limitations
+
+- FT-891 CAT only (VFO-A, DATA-U)
+- No ADIF import
+- No split-frequency operation
 
 ## Legal
 

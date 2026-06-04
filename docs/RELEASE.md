@@ -4,7 +4,7 @@
 
 | Branch | Purpose | CI |
 |--------|---------|-----|
-| **`unstable`** | Day-to-day development and field testing | Signed **unstable** release APK (artifact), unit tests, debug APK |
+| **`unstable`** | Day-to-day development and field testing | Unit tests + signed **unstable** release APK (artifact only; no debug APK) |
 | **`main`** | Stable, releasable code only | Unit tests, debug APK on push; **no** automatic release APK |
 | **Tag `v*`** on `main` | Stable public release | GitHub Release with signed `net.ft8vc` APK |
 
