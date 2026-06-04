@@ -60,7 +60,7 @@ $env:FT8VC_VERSION_CODE = "200"
 
 Push a tag `v*` (e.g. `v1.0.0`) on a commit that is on **`main`**. The [Stable Release workflow](../.github/workflows/release.yml) builds a signed production APK and attaches it to a GitHub Release. Tags not on `main` are rejected.
 
-Repository secrets (stable and unstable workflows):
+Repository secrets (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 |--------|-------|
@@ -68,6 +68,8 @@ Repository secrets (stable and unstable workflows):
 | `FT8VC_KEYSTORE_PASSWORD` | Keystore password |
 | `FT8VC_KEY_ALIAS` | Key alias |
 | `FT8VC_KEY_PASSWORD` | Key password |
+
+**Stable** releases require all four secrets. **Unstable** builds use them when present (signed APK, same key as stable); if `FT8VC_KEYSTORE_BASE64` is missing, CI still produces an **unsigned** release APK for sideload testing.
 
 ## Unstable APK (CI)
 

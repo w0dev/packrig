@@ -3,6 +3,12 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+/** CI writes the keystore at repo root; resolve from app module or an absolute path. */
+fun resolveReleaseKeystore(): java.io.File? {
+    val path = System.getenv("FT8VC_KEYSTORE")?.takeIf { it.isNotBlank() } ?: return null
+    return file(path).takeIf { it.isFile } ?: rootProject.file(path).takeIf { it.isFile }
+}
+
 android {
     namespace = "net.ft8vc.app"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -19,9 +25,8 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("FT8VC_KEYSTORE")
-            if (!keystorePath.isNullOrBlank()) {
-                storeFile = file(keystorePath)
+            resolveReleaseKeystore()?.let { store ->
+                storeFile = store
                 storePassword = System.getenv("FT8VC_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("FT8VC_KEY_ALIAS")
                 keyPassword = System.getenv("FT8VC_KEY_PASSWORD")
@@ -40,7 +45,7 @@ android {
                 applicationIdSuffix = ".unstable"
                 versionNameSuffix = System.getenv("FT8VC_VERSION_NAME_SUFFIX") ?: "-unstable"
             }
-            System.getenv("FT8VC_KEYSTORE")?.let {
+            if (resolveReleaseKeystore() != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
             proguardFiles(

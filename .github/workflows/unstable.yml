@@ -35,11 +35,19 @@ jobs:
         with:
           gradle-version: '9.4.1'
 
-      - name: Decode release keystore
-        if: env.FT8VC_KEYSTORE_BASE64 != ''
+      - name: Prepare release keystore
+        id: keystore
         env:
           FT8VC_KEYSTORE_BASE64: ${{ secrets.FT8VC_KEYSTORE_BASE64 }}
-        run: echo "$FT8VC_KEYSTORE_BASE64" | base64 -d > release.keystore
+        run: |
+          if [ -z "$FT8VC_KEYSTORE_BASE64" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "No FT8VC_KEYSTORE_BASE64 secret; building unsigned release APK."
+            exit 0
+          fi
+          echo "$FT8VC_KEYSTORE_BASE64" | base64 -d > "${GITHUB_WORKSPACE}/release.keystore"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+          echo "path=${GITHUB_WORKSPACE}/release.keystore" >> "$GITHUB_OUTPUT"
 
       - name: Set unstable version suffix
         run: echo "FT8VC_VERSION_NAME_SUFFIX=-unstable+${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
@@ -48,7 +56,7 @@ jobs:
         env:
           FT8VC_UNSTABLE: true
           FT8VC_VERSION_CODE: ${{ github.run_number }}
-          FT8VC_KEYSTORE: release.keystore
+          FT8VC_KEYSTORE: ${{ steps.keystore.outputs.path }}
           FT8VC_KEYSTORE_PASSWORD: ${{ secrets.FT8VC_KEYSTORE_PASSWORD }}
           FT8VC_KEY_ALIAS: ${{ secrets.FT8VC_KEY_ALIAS }}
           FT8VC_KEY_PASSWORD: ${{ secrets.FT8VC_KEY_PASSWORD }}
