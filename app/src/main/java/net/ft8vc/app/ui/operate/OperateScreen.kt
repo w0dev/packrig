@@ -15,6 +15,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -34,9 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.ft8vc.app.OperateViewModel
-import net.ft8vc.app.ui.Ft8DialBands
+import net.ft8vc.app.ui.DialFrequencyBottomSheet
 import net.ft8vc.app.ui.theme.Ft8vcTheme
-import net.ft8vc.core.AppInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,8 +46,10 @@ fun OperateScreen(vm: OperateViewModel) {
     val activity = context as? Activity
     val snackbarHostState = remember { SnackbarHostState() }
     var showBandSheet by remember { mutableStateOf(false) }
+    var showPotaSheet by remember { mutableStateOf(false) }
     var showLicenseDialog by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val potaSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var parkRefDraft by remember(state.potaParkRef) { mutableStateOf(state.potaParkRef) }
 
     var hasPermission by remember {
         mutableStateOf(
@@ -98,28 +100,30 @@ fun OperateScreen(vm: OperateViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(
+                        horizontal = Ft8Compact.screenPaddingH,
+                        vertical = Ft8Compact.screenPaddingV,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(Ft8Compact.sectionSpacing),
             ) {
                 OperateStatusBar(
                     state = state,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (state.catReady) {
-                    TextButton(onClick = { showBandSheet = true }) {
-                        Text("Change band")
-                    }
-                }
-                WaterfallPanel(
-                    vm = vm,
-                    version = state.waterfallVersion,
-                    maxFreqHz = vm.maxAudioFreqHz,
-                    txFreqHz = state.txFreqHz,
-                    onFreqChange = vm::setTxFreqHz,
-                    modifier = Modifier.fillMaxWidth().weight(1.2f),
+                    inputGain = state.inputGain,
+                    onInputGainChange = vm::setInputGain,
+                    onPotaChipClick = { showPotaSheet = true },
+                    onBandClick = if (state.catReady) {{ showBandSheet = true }} else null,
+                    onHaltTx = vm::haltTx,
+                    onTxSlotParityChange = vm::setTxSlotParity,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = Ft8Compact.decodePanelTopGap - Ft8Compact.sectionSpacing),
                 )
                 DecodeListPanel(
                     decodes = state.decodes,
+                    myCall = state.myCall,
+                    txToneHz = state.txFreqHz,
+                    decodeViewMode = state.decodeViewMode,
+                    onDecodeViewModeChange = vm::setDecodeViewMode,
                     cq73OnlyFilter = state.cq73OnlyFilter,
                     onCq73OnlyFilterChange = vm::setCq73OnlyFilter,
                     qsoDx = state.qsoDx,
@@ -131,16 +135,15 @@ fun OperateScreen(vm: OperateViewModel) {
                     onResume = vm::resumeFromDecode,
                     modifier = Modifier.fillMaxWidth().weight(1f),
                 )
-                InputLevelControl(
-                    inputGain = state.inputGain,
-                    levelDbfs = state.levelDbfs,
-                    clip = state.clip,
-                    onInputGainChange = vm::setInputGain,
+                OperateTxSelector(
+                    state = state,
+                    onMessageChange = vm::setOperateTxText,
+                    onSelectStep = vm::selectOperateTxStep,
+                    onResetMessage = vm::resetOperateTxText,
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 OperateControls(
                     state = state,
-                    onAutoSeqChange = vm::setAutoSeqEnabled,
-                    onAnswerWhenCalledChange = vm::setAnswerWhenCalledEnabled,
                     onToggleOperate = {
                         if (state.isOperating) {
                             vm.stopOperating()
@@ -154,12 +157,7 @@ fun OperateScreen(vm: OperateViewModel) {
                     },
                     onStartCq = vm::startCq,
                     onStopQso = vm::stopQso,
-                )
-                Text(
-                    "${AppInfo.APP_NAME} ${AppInfo.VERSION_NAME}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 4.dp),
+                    onAbandonQso = vm::abandonQso,
                 )
             }
         }
@@ -193,19 +191,32 @@ fun OperateScreen(vm: OperateViewModel) {
     }
 
     if (showBandSheet && state.catReady) {
-        ModalBottomSheet(onDismissRequest = { showBandSheet = false }, sheetState = sheetState) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("FT8 dial frequency", style = MaterialTheme.typography.titleMedium)
-                Ft8DialBands.forEach { band ->
-                    TextButton(
-                        onClick = {
-                            vm.setRigFrequency(band.hz)
-                            showBandSheet = false
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(band.menuText)
-                    }
+        DialFrequencyBottomSheet(
+            onDismissRequest = { showBandSheet = false },
+            onSelect = vm::setRigFrequency,
+        )
+    }
+
+    if (showPotaSheet) {
+        ModalBottomSheet(onDismissRequest = { showPotaSheet = false }, sheetState = potaSheetState) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("POTA park reference", style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(
+                    value = parkRefDraft,
+                    onValueChange = { parkRefDraft = it.uppercase() },
+                    label = { Text("Park reference") },
+                    placeholder = { Text("US-3315") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TextButton(
+                    onClick = {
+                        vm.setPotaParkRef(parkRefDraft)
+                        showPotaSheet = false
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Save")
                 }
             }
         }

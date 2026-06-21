@@ -53,7 +53,11 @@ object QsoMessages {
         return "%+03d".format(clamped)
     }
 
-    fun cq(myCall: String, myGrid: String): String = "CQ $myCall $myGrid"
+    fun cq(myCall: String, myGrid: String, modifier: String? = null): String =
+        if (modifier.isNullOrBlank()) "CQ $myCall $myGrid" else "CQ $modifier $myCall $myGrid"
+
+    /** ADIF RST field for FT8 (3-char signed report, e.g. `-05`, `+13`). */
+    fun formatAdifRst(snr: Int): String = formatReport(snr)
 
     fun reply(dxCall: String, myCall: String, myGrid: String): String = "$dxCall $myCall $myGrid"
 

@@ -13,6 +13,7 @@ class QsoResumeTest {
     fun findsGridReplyToMe() {
         val opp = QsoResume.findOpportunity(
             "W0DEV",
+            "EM26",
             listOf(QsoDecode("W0DEV K1ABC FN42", -8)),
         )
         requireNotNull(opp)
@@ -24,7 +25,7 @@ class QsoResumeTest {
 
     @Test
     fun ignoresGridReplyToOtherStation() {
-        assertNull(QsoResume.findOpportunity("W0DEV", listOf(QsoDecode("N0XYZ K1ABC FN42", -8))))
+        assertNull(QsoResume.findOpportunity("W0DEV", "EM26", listOf(QsoDecode("N0XYZ K1ABC FN42", -8))))
     }
 
     @Test

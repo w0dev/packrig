@@ -45,8 +45,9 @@ WAV.
 ### `UsbAudioPlayback`
 
 - Opens `AudioTrack` at 48/24/12 kHz
-- `playBlocking(samples12k, preferredDeviceId)` upsamples and plays to completion
-  on the calling thread (used during TX so PTT timing stays aligned)
+- `playBlocking(samples12k, preferredDeviceId)` upsamples and plays on the calling thread
+  (used during TX so PTT timing stays aligned). Returns `false` if interrupted by [stop].
+- `stop()` halts in-progress playback and releases the active track (used by **Halt TX**).
 
 ### `AudioInputs` / `AudioOutputs`
 

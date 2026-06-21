@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,11 +17,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
@@ -28,11 +32,17 @@ import androidx.compose.ui.unit.dp
 import net.ft8vc.app.DecodeRow
 import net.ft8vc.app.ui.theme.Ft8Amber
 import net.ft8vc.app.ui.theme.Ft8Green
+import net.ft8vc.core.DecodeDistance
+import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.MonitorDecodeFilter
 
 @Composable
 fun DecodeListPanel(
     decodes: List<DecodeRow>,
+    myCall: String,
+    txToneHz: Int,
+    decodeViewMode: DecodeViewMode,
+    onDecodeViewModeChange: (DecodeViewMode) -> Unit,
     cq73OnlyFilter: Boolean,
     onCq73OnlyFilterChange: (Boolean) -> Unit,
     qsoDx: String?,
@@ -45,56 +55,96 @@ fun DecodeListPanel(
     modifier: Modifier = Modifier,
 ) {
     val visibleDecodes = decodes.filter { row ->
-        MonitorDecodeFilter.visible(row.message, cq73OnlyFilter, qsoDx, qsoActive)
+        MonitorDecodeFilter.visibleForDisplay(
+            message = row.message,
+            isCq = row.isCq,
+            myCall = myCall,
+            freqHz = row.freqHz,
+            txToneHz = txToneHz,
+            viewMode = decodeViewMode,
+            cq73OnlyFilter = cq73OnlyFilter,
+            qsoDx = qsoDx,
+            qsoActive = qsoActive,
+        )
     }
-    val decodeCountLabel = if (cq73OnlyFilter) {
-        "Decodes (${visibleDecodes.size}/${decodes.size})"
+    val filterActive = decodeViewMode == DecodeViewMode.OPERATE ||
+        (decodeViewMode == DecodeViewMode.ALL && cq73OnlyFilter)
+    val decodeCountLabel = if (filterActive) {
+        "${visibleDecodes.size}/${decodes.size}"
     } else {
-        "Decodes (${decodes.size})"
+        "${decodes.size}"
     }
 
-    Column(modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-        ) {
-            Text(
-                decodeCountLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                FilterChip(
-                    selected = cq73OnlyFilter,
-                    onClick = { onCq73OnlyFilterChange(!cq73OnlyFilter) },
-                    label = { Text("CQ/73") },
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .background(MaterialTheme.colorScheme.surface),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, end = 0.dp, top = 2.dp, bottom = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CompactFilterChip(
+                    selected = decodeViewMode == DecodeViewMode.ALL,
+                    onClick = { onDecodeViewModeChange(DecodeViewMode.ALL) },
+                    label = "Band",
                 )
-                IconButton(onClick = onClear, enabled = decodes.isNotEmpty()) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Clear decodes")
+                CompactFilterChip(
+                    selected = decodeViewMode == DecodeViewMode.OPERATE,
+                    onClick = { onDecodeViewModeChange(DecodeViewMode.OPERATE) },
+                    label = "Focus",
+                )
+                if (decodeViewMode == DecodeViewMode.ALL) {
+                    CompactFilterChip(
+                        selected = cq73OnlyFilter,
+                        onClick = { onCq73OnlyFilterChange(!cq73OnlyFilter) },
+                        label = "CQ·73",
+                    )
+                }
+                Text(
+                    text = decodeCountLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(
+                    onClick = onClear,
+                    enabled = decodes.isNotEmpty(),
+                    modifier = Modifier
+                        .height(36.dp)
+                        .padding(end = 4.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = "Clear decodes",
+                        modifier = Modifier.size(18.dp),
+                    )
                 }
             }
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surface),
-        ) {
             if (visibleDecodes.isEmpty()) {
                 Text(
-                    if (decodes.isEmpty()) {
-                        "No decodes yet. Decoding runs once per 15-second UTC slot."
-                    } else {
-                        "No CQ or 73 decodes match the filter."
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = emptyDecodeMessage(
+                        total = decodes.size,
+                        decodeViewMode = decodeViewMode,
+                        cq73OnlyFilter = cq73OnlyFilter,
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 )
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 6.dp),
+                ) {
                     items(visibleDecodes) { row ->
                         DecodeRowItem(
                             row = row,
@@ -111,6 +161,41 @@ fun DecodeListPanel(
             }
         }
     }
+}
+
+@Composable
+private fun CompactFilterChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: String,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+            )
+        },
+        modifier = Modifier.height(28.dp),
+        border = null,
+        colors = FilterChipDefaults.filterChipColors(
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
+    )
+}
+
+private fun emptyDecodeMessage(
+    total: Int,
+    decodeViewMode: DecodeViewMode,
+    cq73OnlyFilter: Boolean,
+): String = when {
+    total == 0 -> "Waiting for decodes…"
+    decodeViewMode == DecodeViewMode.OPERATE -> "No focus traffic — try Band."
+    cq73OnlyFilter -> "No CQ/73 matches."
+    else -> "No decodes match filters."
 }
 
 @Composable
@@ -133,17 +218,39 @@ private fun DecodeRowItem(
         modifier = Modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(vertical = 3.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(vertical = 1.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(row.timeUtc, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("%+3d".format(row.snr), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("%4d".format(row.freqHz), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = row.timeUtc,
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "%+3d".format(row.snr),
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = DecodeDistance.label(row.distanceKm),
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "%4d".format(row.freqHz),
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Text(
             text = row.message,
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,
-            fontWeight = if (isPartner) FontWeight.Bold else FontWeight.SemiBold,
+            fontWeight = if (isPartner) FontWeight.Bold else FontWeight.Normal,
             color = textColor,
             maxLines = 1,
             modifier = Modifier.weight(1f),

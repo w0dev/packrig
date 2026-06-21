@@ -18,6 +18,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -37,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import net.ft8vc.app.LogViewModel
+import net.ft8vc.data.adif.AdifExportException
 import net.ft8vc.data.model.QsoContact
 import java.io.File
 import java.text.SimpleDateFormat
@@ -50,31 +53,46 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showClearConfirm by remember { mutableStateOf(false) }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Log (${contacts.size})") },
+                title = {
+                    Column {
+                        Text("Log (${contacts.size})")
+                        Text(
+                            "Share exports validated ADIF 3.1",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
                 actions = {
                     IconButton(
                         onClick = {
                             scope.launch {
-                                val adif = vm.exportAdif()
-                                val file = File(context.cacheDir, "ft8vc_export.adi")
-                                file.writeText(adif)
-                                val uri = FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.fileprovider",
-                                    file,
-                                )
-                                context.startActivity(
-                                    Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    },
-                                )
+                                try {
+                                    val adif = vm.exportAdif()
+                                    val file = File(context.cacheDir, "ft8vc_export.adi")
+                                    file.writeText(adif)
+                                    val uri = FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        file,
+                                    )
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        },
+                                    )
+                                } catch (e: AdifExportException) {
+                                    snackbarHostState.showSnackbar(e.message ?: "ADIF export failed")
+                                }
                             }
                         },
                         enabled = contacts.isNotEmpty(),
@@ -114,7 +132,7 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
         AlertDialog(
             onDismissRequest = { showClearConfirm = false },
             title = { Text("Clear log?") },
-            text = { Text("This removes all logged QSOs from the device.") },
+            text = { Text("Remove all ${contacts.size} logged QSOs from the device.") },
             confirmButton = {
                 TextButton(onClick = {
                     vm.clearAll()

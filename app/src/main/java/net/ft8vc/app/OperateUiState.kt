@@ -1,7 +1,13 @@
 package net.ft8vc.app
 
+import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.audio.AudioInputDevice
 import net.ft8vc.core.AppInfo
+import net.ft8vc.core.AnswerPolicy
+import net.ft8vc.core.DecodeViewMode
+import net.ft8vc.core.QsoForm
+import net.ft8vc.core.QsoTxStep
+import net.ft8vc.core.TxSlotParity
 
 data class DecodeRow(
     val timeUtc: String,
@@ -11,6 +17,10 @@ data class DecodeRow(
     val message: String,
     val isCq: Boolean,
     val isToMe: Boolean = false,
+    /** Great-circle km when message carries a 4-char grid; null otherwise. */
+    val distanceKm: Int? = null,
+    /** 0 = even slot (:00/:30), 1 = odd — UTC period when this decode was received. */
+    val slotParity: Int = 0,
 )
 
 data class OperateUiState(
@@ -29,8 +39,13 @@ data class OperateUiState(
     val txEnabled: Boolean = false,
     val autoSeqEnabled: Boolean = true,
     val answerWhenCalledEnabled: Boolean = true,
+    val autoAnswerCqEnabled: Boolean = false,
+    val answerPolicy: AnswerPolicy = AnswerPolicy.FIRST,
+    val maxUnansweredTxCycles: Int = 5,
     val txMessage: String = DEFAULT_TX_MESSAGE,
     val txFreqHz: Int = DEFAULT_TX_FREQ_HZ,
+    /** Next message [QsoMachine] will send on a TX slot, when a QSO is active. */
+    val nextTxMessage: String? = null,
     val txStatus: String? = null,
     val isTransmitting: Boolean = false,
     val pttReady: Boolean = false,
@@ -39,6 +54,12 @@ data class OperateUiState(
     val qsoActive: Boolean = false,
     val qsoState: String? = null,
     val qsoDx: String? = null,
+    /** Next TX line on Operate (auto-filled from QSO machine; user may override). */
+    val operateTxText: String = "",
+    val operateTxStep: QsoTxStep = QsoTxStep.Cq,
+    val operateTxEdited: Boolean = false,
+    /** DX/reports synced from [QsoMachine] for TX dropdown previews. */
+    val operateTxForm: QsoForm = QsoForm(),
     val qsoCompleteBanner: String? = null,
     val catReady: Boolean = false,
     val rigFreqHz: Long? = null,
@@ -48,6 +69,10 @@ data class OperateUiState(
     val slotIndex: Int = 0,
     val secondsToNextSlot: Int = 15,
     val isTxSlot: Boolean = false,
+    /** Seconds until the next slot matching [txSlotParity] (or active QSO parity). */
+    val secondsUntilOurTxSlot: Int = 15,
+    val txSlotParity: TxSlotParity = TxSlotParity.EVEN,
+    val activeTxSlotParity: TxSlotParity? = null,
     val utcClock: String = "00:00:00",
     val operateStatus: String? = null,
     val contactCount: Int = 0,
@@ -56,6 +81,11 @@ data class OperateUiState(
     val inputGain: Float = 1f,
     /** Operate-screen only: decode list shows CQ / 73 / RR73 (plus QSO partner when active). */
     val cq73OnlyFilter: Boolean = false,
+    val decodeViewMode: DecodeViewMode = DecodeViewMode.OPERATE,
+    val potaModeEnabled: Boolean = false,
+    val potaParkRef: String = "",
+    val pttPreference: PttPreference = PttPreference.AUTO,
+    val lastDialFreqHz: Long? = null,
 ) {
     companion object {
         const val INPUT_GAIN_MIN = 0.1f

@@ -149,4 +149,119 @@ class QsoMachineTest {
         assertEquals(-15, snap.reportRcvd)
         assertEquals(1_700_000_000_000L, snap.completedAtEpochMs)
     }
+
+    @Test
+    fun callingCqUsesModifier() {
+        val m = QsoMachine("W0DEV", "EM26", "POTA")
+        m.startCq()
+        assertEquals("CQ POTA W0DEV EM26", m.txMessage())
+    }
+
+    @Test
+    fun callingCqPileupUsesBestSnrPolicy() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        assertTrue(
+            m.onDecodes(
+                listOf(
+                    QsoDecode("W0DEV K1ABC FN42", -10),
+                    QsoDecode("W0DEV N0XYZ FN20", -4),
+                ),
+                AnswerPolicy.BEST_SNR,
+            ),
+        )
+        assertEquals("N0XYZ", m.dxCall)
+    }
+
+    @Test
+    fun recordTransmittedCountsUnansweredCycles() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        m.recordTransmitted()
+        m.recordTransmitted()
+        assertEquals(2, m.unansweredTxCycles)
+        assertFalse(m.noReplyLimitExceeded(5))
+    }
+
+    @Test
+    fun onDecodesProgressResetsUnansweredCounter() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        m.recordTransmitted()
+        m.recordTransmitted()
+        m.onDecodes(listOf(QsoDecode("W0DEV K1ABC FN42", -8)))
+        assertEquals(0, m.unansweredTxCycles)
+    }
+
+    @Test
+    fun noReplyLimitExceededTriggersAbandonThreshold() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        repeat(5) { m.recordTransmitted() }
+        assertTrue(m.noReplyLimitExceeded(5))
+        assertFalse(m.noReplyLimitExceeded(0))
+    }
+
+    @Test
+    fun sendingSeventyThreeCompletesWithoutExtraUnansweredCount() {
+        val m = QsoMachine("K1ABC", "FN42")
+        m.resumeAnswererAfterRoger("W0DEV")
+        m.recordTransmitted()
+        assertEquals(QsoState.Complete, m.state)
+        assertEquals(0, m.unansweredTxCycles)
+    }
+
+    @Test
+    fun callingCqSkipsAbandonedGridReply() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        assertFalse(
+            m.onDecodes(
+                listOf(QsoDecode("W0DEV K1ABC FN42", -8)),
+                excludedDx = setOf("K1ABC"),
+            ),
+        )
+        assertEquals(QsoState.CallingCq, m.state)
+    }
+
+    @Test
+    fun manualControlBlocksAutoAdvance() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        m.setManualControl(true)
+        assertFalse(m.onDecodes(decode("W0DEV K1ABC FN42")))
+        assertEquals(QsoState.CallingCq, m.state)
+    }
+
+    @Test
+    fun customMessageOverridesComposedTx() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        m.setCustomMessage("CQ TEST FN31")
+        assertEquals("CQ TEST FN31", m.txMessage())
+    }
+
+    @Test
+    fun customMessageClearsAfterRecordTransmitted() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        m.setCustomMessage("CQ TEST FN31")
+        m.recordTransmitted()
+        assertEquals("CQ W0DEV EM26", m.txMessage())
+    }
+
+    @Test
+    fun applyFormSetsMidSequenceState() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.applyForm(
+            QsoForm(
+                dxCall = "K1ABC",
+                reportSent = -8,
+                txStep = QsoTxStep.Report,
+                manualControl = true,
+            ),
+        )
+        assertEquals(QsoState.SendingReport, m.state)
+        assertEquals("K1ABC W0DEV -08", m.txMessage())
+    }
 }

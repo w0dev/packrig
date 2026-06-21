@@ -45,6 +45,7 @@ enum class QsoState {
 class QsoMachine(
     private val myCall: String,
     private val myGrid: String,
+    private val cqModifier: String? = null,
 ) {
     var state: QsoState = QsoState.Idle
         private set
@@ -59,7 +60,77 @@ class QsoMachine(
     var reportRcvd: Int? = null
         private set
 
+    /** TX cycles since the last decode advanced [state] (reset on [onDecodes] progress). */
+    var unansweredTxCycles: Int = 0
+        private set
+
+    /** When true, [onDecodes] does not advance state (user owns the form). */
+    var manualControl: Boolean = false
+        private set
+
+    /** Non-null overrides [txMessage] until cleared (typically after one TX). */
+    var customTxMessage: String? = null
+        private set
+
     val isActive: Boolean get() = state != QsoState.Idle && state != QsoState.Complete
+
+    fun hasCustomOverride(): Boolean = !customTxMessage.isNullOrBlank()
+
+    fun setManualControl(enabled: Boolean) {
+        manualControl = enabled
+    }
+
+    fun setCustomMessage(message: String?) {
+        customTxMessage = message?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    fun clearCustomMessage() {
+        customTxMessage = null
+    }
+
+    /** Apply user-edited form fields and optional step change. Sets [manualControl] from [form]. */
+    fun applyForm(form: QsoForm) {
+        manualControl = form.manualControl
+        customTxMessage = form.customMessage?.trim()?.takeIf { it.isNotEmpty() }
+        dxCall = form.dxCall.trim().uppercase().takeIf { it.isNotEmpty() }
+        dxGrid = form.dxGrid.trim().uppercase().takeIf { it.isNotEmpty() }
+        reportSent = form.reportSent
+        reportRcvd = form.reportRcvd
+        applyStep(form.txStep)
+    }
+
+    fun applyStep(step: QsoTxStep) {
+        when (step) {
+            QsoTxStep.Idle -> reset()
+            QsoTxStep.Cq -> {
+                role = QsoRole.Initiator
+                state = QsoState.CallingCq
+            }
+            QsoTxStep.Grid -> {
+                role = QsoRole.Answerer
+                state = QsoState.Answering
+            }
+            QsoTxStep.Report -> {
+                if (role == null) role = QsoRole.Initiator
+                state = QsoState.SendingReport
+            }
+            QsoTxStep.RReport -> {
+                if (role == null) role = QsoRole.Answerer
+                state = QsoState.SendingRReport
+            }
+            QsoTxStep.Roger -> {
+                if (role == null) role = QsoRole.Initiator
+                state = QsoState.SendingRoger
+            }
+            QsoTxStep.SeventyThree -> {
+                if (role == null) role = QsoRole.Answerer
+                state = QsoState.SendingSeventyThree
+            }
+            QsoTxStep.Custom -> { /* keep state; message from customTxMessage */ }
+        }
+    }
+
+    fun formSnapshot(): QsoForm = QsoFormLogic.fromMachine(this)
 
     /** Begin calling CQ. */
     fun startCq() {
@@ -126,14 +197,19 @@ class QsoMachine(
         dxGrid = null
         reportSent = null
         reportRcvd = null
+        unansweredTxCycles = 0
+        manualControl = false
+        customTxMessage = null
     }
 
     /** The message to transmit on the next TX slot, or null if nothing to send. */
     fun txMessage(): String? {
+        val custom = customTxMessage?.trim()
+        if (!custom.isNullOrEmpty()) return custom
         val dx = dxCall
         return when (state) {
             QsoState.Idle, QsoState.Complete -> null
-            QsoState.CallingCq -> QsoMessages.cq(myCall, myGrid)
+            QsoState.CallingCq -> QsoMessages.cq(myCall, myGrid, cqModifier)
             QsoState.Answering -> dx?.let { QsoMessages.reply(it, myCall, myGrid) }
             QsoState.SendingReport -> dx?.let { QsoMessages.report(it, myCall, reportSent ?: 0) }
             QsoState.SendingRReport -> dx?.let { QsoMessages.rReport(it, myCall, reportSent ?: 0) }
@@ -148,6 +224,18 @@ class QsoMachine(
             state = QsoState.Complete
         }
     }
+
+    /** [markTransmitted] plus no-reply cycle counting for abandon timeout. */
+    fun recordTransmitted() {
+        customTxMessage = null
+        markTransmitted()
+        if (state != QsoState.Complete && state != QsoState.Idle) {
+            unansweredTxCycles++
+        }
+    }
+
+    fun noReplyLimitExceeded(maxCycles: Int): Boolean =
+        maxCycles > 0 && unansweredTxCycles >= maxCycles
 
     /** Snapshot for logging when [state] is [QsoState.Complete]. */
     fun snapshot(completedAtEpochMs: Long = System.currentTimeMillis()): QsoSnapshot? {
@@ -170,49 +258,60 @@ class QsoMachine(
      * reply from [dxCall] (addressed to [myCall]) is present. Returns true if the
      * state changed.
      */
-    fun onDecodes(decodes: List<QsoDecode>): Boolean = when (state) {
-        QsoState.CallingCq -> handleCqReplies(decodes)
-        QsoState.Answering -> advanceIf(decodes) { rx ->
-            (rx as? QsoRx.Report)?.takeIf { fromDx(it.target, it.sender) }?.let {
-                reportRcvd = it.snr
-                QsoState.SendingRReport
+    fun onDecodes(
+        decodes: List<QsoDecode>,
+        answerPolicy: AnswerPolicy = AnswerPolicy.FIRST,
+        excludedDx: Set<String> = emptySet(),
+    ): Boolean {
+        if (manualControl) return false
+        val advanced = when (state) {
+            QsoState.CallingCq -> handleCqReplies(decodes, answerPolicy, excludedDx)
+            QsoState.Answering -> advanceIf(decodes) { rx ->
+                (rx as? QsoRx.Report)?.takeIf { fromDx(it.target, it.sender) }?.let {
+                    reportRcvd = it.snr
+                    QsoState.SendingRReport
+                }
             }
-        }
-        QsoState.SendingReport -> advanceIf(decodes) { rx ->
-            (rx as? QsoRx.RReport)?.takeIf { fromDx(it.target, it.sender) }?.let {
-                reportRcvd = it.snr
-                QsoState.SendingRoger
+            QsoState.SendingReport -> advanceIf(decodes) { rx ->
+                (rx as? QsoRx.RReport)?.takeIf { fromDx(it.target, it.sender) }?.let {
+                    reportRcvd = it.snr
+                    QsoState.SendingRoger
+                }
             }
-        }
-        QsoState.SendingRReport -> advanceIf(decodes) { rx ->
-            when {
-                rx is QsoRx.Roger && fromDx(rx.target, rx.sender) -> QsoState.SendingSeventyThree
-                rx is QsoRx.RogerBye && fromDx(rx.target, rx.sender) -> QsoState.SendingSeventyThree
-                else -> null
+            QsoState.SendingRReport -> advanceIf(decodes) { rx ->
+                when {
+                    rx is QsoRx.Roger && fromDx(rx.target, rx.sender) -> QsoState.SendingSeventyThree
+                    rx is QsoRx.RogerBye && fromDx(rx.target, rx.sender) -> QsoState.SendingSeventyThree
+                    else -> null
+                }
             }
-        }
-        QsoState.SendingRoger -> advanceIf(decodes) { rx ->
-            when {
-                rx is QsoRx.Bye && fromDx(rx.target, rx.sender) -> QsoState.Complete
-                rx is QsoRx.RogerBye && fromDx(rx.target, rx.sender) -> QsoState.Complete
-                else -> null
+            QsoState.SendingRoger -> advanceIf(decodes) { rx ->
+                when {
+                    rx is QsoRx.Bye && fromDx(rx.target, rx.sender) -> QsoState.Complete
+                    rx is QsoRx.RogerBye && fromDx(rx.target, rx.sender) -> QsoState.Complete
+                    else -> null
+                }
             }
+            else -> false
         }
-        else -> false
+        if (advanced) unansweredTxCycles = 0
+        return advanced
     }
 
-    private fun handleCqReplies(decodes: List<QsoDecode>): Boolean {
-        for (d in decodes) {
-            val rx = QsoMessages.parse(d.message)
-            if (rx is QsoRx.GridReply && rx.target == myCall) {
-                dxCall = rx.sender
-                dxGrid = rx.grid
-                reportSent = d.snr
-                state = QsoState.SendingReport
-                return true
-            }
-        }
-        return false
+    private fun handleCqReplies(
+        decodes: List<QsoDecode>,
+        answerPolicy: AnswerPolicy,
+        excludedDx: Set<String>,
+    ): Boolean {
+        val picked = AnswerSelector.selectGridReply(
+            myCall, myGrid, decodes, answerPolicy, excludedDx,
+        ) ?: return false
+        val rx = QsoMessages.parse(picked.message) as? QsoRx.GridReply ?: return false
+        dxCall = rx.sender
+        dxGrid = rx.grid
+        reportSent = picked.snr
+        state = QsoState.SendingReport
+        return true
     }
 
     private inline fun advanceIf(

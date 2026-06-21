@@ -54,16 +54,25 @@ in CI.
 
 ## Unit tests by module
 
-### `core` — 5 test classes, 27+ tests
+### `core` — 6 test classes, 30+ tests
 
 Pure Kotlin logic; no Android framework dependencies.
 
 | Test class | What it verifies |
 |------------|------------------|
 | `SlotTimingTest` | UTC slot grid, `isEvenSlot`, `secondsUntilNextSlot` |
+| `TxSlotSelectionTest` | Even/Odd TX parity and countdown to next TX period |
 | `SlotCollectorTest` | PCM slot accumulation and boundary flush |
-| `QsoMessagesTest` | FT8 message format/parse |
-| `QsoMachineTest` | Full QSO sequences, `QsoSnapshot`, edge cases |
+| `QsoMessagesTest` | FT8 message format/parse, CQ modifier |
+| `MonitorDecodeFilterTest` | Operate/All decode list display filters |
+| `AbandonedPartnersTest` | Session blocklist for abandoned incomplete QSOs |
+| `AnswerSelectorTest` | Pileup / CQ / resume selection by answer policy |
+| `MaidenheadGridTest` | 4-char grid validation and distance |
+| `DecodeDistanceTest` | Grid extraction from decodes and km label formatting |
+| `ActivationProfileTest` | POTA park ref, CQ modifier |
+| `QsoMachineTest` | Full QSO sequences, CQ POTA TX, pileup policy, no-reply counter, abandoned pileup skip, manual override, `applyForm`, `QsoSnapshot`, edge cases |
+| `QsoFormLogicTest` | Step labels, compose/effective message, report parsing |
+| `OperateTxOptionsTest` | Idle vs active QSO TX dropdown entries |
 | `WavIoTest` | WAV I/O for golden decode fixtures |
 
 Run:
@@ -103,11 +112,12 @@ Run:
 .\gradlew.bat :rig:testDebugUnitTest
 ```
 
-### `data` — 1 test class
+### `data` — 2 test classes
 
 | Test class | What it verifies |
 |------------|------------------|
-| `AdifWriterTest` | ADIF header, contact fields, EOR records |
+| `AdifWriterTest` | ADIF 3.1.4 header, FT8 records, POTA fields, validation |
+| `AdifValidatorTest` | Length checks, required fields, rejects SUBMODE for FT8 |
 
 Run:
 

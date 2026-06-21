@@ -18,6 +18,7 @@ class QsoMessagesTest {
     @Test
     fun buildsStandardMessages() {
         assertEquals("CQ W0DEV EM26", QsoMessages.cq("W0DEV", "EM26"))
+        assertEquals("CQ POTA W0DEV EM26", QsoMessages.cq("W0DEV", "EM26", "POTA"))
         assertEquals("W0DEV K1ABC FN42", QsoMessages.reply("W0DEV", "K1ABC", "FN42"))
         assertEquals("K1ABC W0DEV -05", QsoMessages.report("K1ABC", "W0DEV", -5))
         assertEquals("K1ABC W0DEV R-12", QsoMessages.rReport("K1ABC", "W0DEV", -12))

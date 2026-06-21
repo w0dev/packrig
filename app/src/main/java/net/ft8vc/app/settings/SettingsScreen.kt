@@ -28,7 +28,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -37,9 +36,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.ft8vc.app.OperateUiState
 import net.ft8vc.app.OperateViewModel
-import net.ft8vc.app.ui.Ft8DialBands
+import net.ft8vc.app.ui.DialFrequencyDropdownField
 import net.ft8vc.app.ui.theme.Ft8Amber
 import net.ft8vc.app.ui.theme.Ft8Green
+import net.ft8vc.core.ActivationProfile
+import net.ft8vc.core.AnswerPolicy
+import net.ft8vc.core.TxSlotParity
 import net.ft8vc.core.AppInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,6 +78,46 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
             }
 
+            SettingsSection("Activation (POTA)") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("POTA mode", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "CQ POTA on-air and POTA fields in ADIF export",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = state.potaModeEnabled,
+                        onCheckedChange = vm::setPotaModeEnabled,
+                    )
+                }
+                if (state.potaModeEnabled) {
+                    OutlinedTextField(
+                        value = state.potaParkRef,
+                        onValueChange = vm::setPotaParkRef,
+                        label = { Text("Park reference") },
+                        placeholder = { Text("US-3315") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = state.potaParkRef.isNotBlank() &&
+                            !ActivationProfile.isValidParkRef(state.potaParkRef),
+                        supportingText = {
+                            Text(
+                                if (state.potaParkRef.isBlank()) "Required for POTA ADIF export"
+                                else if (!ActivationProfile.isValidParkRef(state.potaParkRef)) "Format: prefix-number (e.g. US-3315)"
+                                else "Valid park reference",
+                            )
+                        },
+                    )
+                }
+            }
+
             SettingsSection("Audio") {
                 DevicePicker(state = state, onSelect = vm::selectDevice)
                 Text("Input level (attenuate if meter shows CLIP)")
@@ -99,7 +141,11 @@ fun SettingsScreen(vm: OperateViewModel) {
 
             SettingsSection("Rig (FT-891 CAT)") {
                 if (state.catReady) {
-                    RigBandPicker(state = state, onSetFrequency = vm::setRigFrequency)
+                    DialFrequencyDropdownField(
+                        rigFreqHz = state.rigFreqHz,
+                        enabled = !state.catBusy,
+                        onSelect = vm::setRigFrequency,
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -131,6 +177,10 @@ fun SettingsScreen(vm: OperateViewModel) {
                     "USB: ${vm.usbDiagnostics()}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                PttPreferencePicker(
+                    preference = state.pttPreference,
+                    onSelect = vm::setPttPreference,
                 )
             }
 
@@ -166,12 +216,63 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
             }
 
+            SettingsSection("Operating (auto TX)") {
+                AutoToggleRow(
+                    title = "Auto Seq",
+                    subtitle = "Advance an active QSO when the expected reply is decoded",
+                    checked = state.autoSeqEnabled,
+                    onCheckedChange = vm::setAutoSeqEnabled,
+                    enabled = state.txEnabled,
+                )
+                AutoToggleRow(
+                    title = "Answer when called",
+                    subtitle = "Start or resume when someone calls you (grid, report, etc.)",
+                    checked = state.answerWhenCalledEnabled,
+                    onCheckedChange = vm::setAnswerWhenCalledEnabled,
+                    enabled = state.txEnabled,
+                )
+                AutoToggleRow(
+                    title = "Auto answer CQ",
+                    subtitle = "Call stations that are CQing when idle (FT8CN-style hunt)",
+                    checked = state.autoAnswerCqEnabled,
+                    onCheckedChange = vm::setAutoAnswerCqEnabled,
+                    enabled = state.txEnabled,
+                )
+                TxSlotParityPicker(
+                    parity = state.txSlotParity,
+                    onSelect = vm::setTxSlotParity,
+                    enabled = state.txEnabled && !state.qsoActive,
+                )
+                AnswerPolicyPicker(
+                    policy = state.answerPolicy,
+                    onSelect = vm::setAnswerPolicy,
+                    enabled = state.txEnabled,
+                )
+                MaxUnansweredTxPicker(
+                    cycles = state.maxUnansweredTxCycles,
+                    onSelect = vm::setMaxUnansweredTxCycles,
+                    enabled = state.txEnabled,
+                )
+                TextButton(
+                    onClick = vm::clearAbandonedPartners,
+                    enabled = state.txEnabled,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Clear abandoned-station blocklist")
+                }
+            }
+
             SettingsSection("Display") {
                 Text("Waterfall brightness")
                 Slider(
                     value = state.waterfallBrightness,
                     onValueChange = vm::setWaterfallBrightness,
                     valueRange = 0f..1f,
+                )
+                Text(
+                    "Adjust on the Spectrum tab.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -254,30 +355,176 @@ private fun DevicePicker(state: OperateUiState, onSelect: (Int) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RigBandPicker(state: OperateUiState, onSetFrequency: (Long) -> Unit) {
+private fun AnswerPolicyPicker(
+    policy: AnswerPolicy,
+    onSelect: (AnswerPolicy) -> Unit,
+    enabled: Boolean = true,
+) {
     var expanded by remember { mutableStateOf(false) }
-    val matched = Ft8DialBands.firstOrNull { it.hz == state.rigFreqHz }
-    val fieldText = matched?.menuText
-        ?: state.rigFreqHz?.let { "%.6f MHz".format(it / 1_000_000.0) }
-        ?: "Select band"
-
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (!state.catBusy) expanded = it }) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
         OutlinedTextField(
-            value = fieldText,
+            value = answerPolicyLabel(policy),
             onValueChange = {},
             readOnly = true,
-            enabled = !state.catBusy,
-            label = { Text("Band / dial frequency") },
+            enabled = enabled,
+            label = { Text("Answer selection") },
+            supportingText = {
+                Text("When several stations qualify in one slot (pileup, hunt, resume)")
+            },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            Ft8DialBands.forEach { band ->
+            AnswerPolicy.entries.forEach { entry ->
                 DropdownMenuItem(
-                    text = { Text(band.menuText) },
+                    text = { Text(answerPolicyLabel(entry)) },
                     onClick = {
                         expanded = false
-                        onSetFrequency(band.hz)
+                        onSelect(entry)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AutoToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.SemiBold)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+        )
+    }
+}
+
+private fun answerPolicyLabel(policy: AnswerPolicy): String = when (policy) {
+    AnswerPolicy.FIRST -> "First response"
+    AnswerPolicy.BEST_SNR -> "Best signal (SNR)"
+    AnswerPolicy.FURTHEST -> "Furthest station (grid)"
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TxSlotParityPicker(
+    parity: TxSlotParity,
+    onSelect: (TxSlotParity) -> Unit,
+    enabled: Boolean = true,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
+        OutlinedTextField(
+            value = "${parity.label} (${parity.utcHint} UTC)",
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text("TX slot (Even/Odd)") },
+            supportingText = {
+                Text("WSJT-X-style TX period when calling CQ; answers use the opposite slot")
+            },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            TxSlotParity.entries.forEach { entry ->
+                DropdownMenuItem(
+                    text = { Text("${entry.label} (${entry.utcHint} UTC)") },
+                    onClick = {
+                        expanded = false
+                        onSelect(entry)
+                    },
+                )
+            }
+        }
+    }
+}
+
+private val MAX_UNANSWERED_TX_OPTIONS = listOf(0, 3, 5, 8, 10, 15)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MaxUnansweredTxPicker(
+    cycles: Int,
+    onSelect: (Int) -> Unit,
+    enabled: Boolean = true,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val label = if (cycles == 0) {
+        "Off (no limit)"
+    } else {
+        "$cycles unanswered TX cycles"
+    }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
+        OutlinedTextField(
+            value = label,
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text("Abandon after no reply") },
+            supportingText = {
+                Text("Stop TX and block auto-resume when a QSO makes no decode progress")
+            },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            MAX_UNANSWERED_TX_OPTIONS.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(if (option == 0) "Off (no limit)" else "$option TX cycles")
+                    },
+                    onClick = {
+                        expanded = false
+                        onSelect(option)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PttPreferencePicker(
+    preference: PttPreference,
+    onSelect: (PttPreference) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = preference.name,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("PTT preference") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            PttPreference.entries.forEach { pref ->
+                DropdownMenuItem(
+                    text = { Text(pref.name) },
+                    onClick = {
+                        expanded = false
+                        onSelect(pref)
                     },
                 )
             }

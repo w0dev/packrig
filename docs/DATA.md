@@ -26,7 +26,7 @@ Unique index on `(dxCall, utcMillis)` prevents double-logging the same QSO.
 interface Logbook {
     suspend fun log(contact: QsoContact): Long
     fun contacts(): Flow<List<QsoContact>>
-    suspend fun exportAdif(): String
+    suspend fun exportAdif(context: AdifExportContext): String
     fun contactCount(): Flow<Int>
     suspend fun clearAll()
 }
@@ -37,18 +37,36 @@ interface Logbook {
 
 ## ADIF export
 
-`AdifWriter` produces standard ADIF 3.x records with `CALL`, `GRIDSQUARE`,
-`MY_GRIDSQUARE`, `RST_SENT`, `RST_RCVD`, `FREQ`, `MODE`, `SUBMODE` (FT8),
-`QSO_DATE`, `TIME_ON`.
+Export targets **ADIF 3.1.4** and is validated before share (`AdifValidator`).
 
-JVM unit tests in `AdifWriterTest`.
+Pipeline:
+
+```
+QsoContact + AdifExportContext → AdifNormalizer → AdifWriter → AdifValidator
+```
+
+Header fields: `ADIF_VER`, `PROGRAMID`, `PROGRAMVERSION`, `CREATED_TIMESTAMP`, `<EOH>`.
+
+Per-QSO fields: `QSO_DATE`, `TIME_ON`, `CALL`, `MODE` (`FT8` only — no `SUBMODE`),
+`BAND` and/or `FREQ`, `GRIDSQUARE`, `MY_GRIDSQUARE`, `STATION_CALLSIGN`,
+`RST_SENT`, `RST_RCVD` (3-char FT8 reports, e.g. `-08`).
+
+When **POTA mode** is enabled in Settings at export time:
+
+- `MY_SIG` = `POTA`
+- `MY_SIG_INFO` = park reference (e.g. `US-3315`)
+
+Export fails closed (`AdifExportException`) if validation fails or POTA mode is on
+without a valid park reference.
+
+JVM unit tests: `AdifWriterTest`, `AdifValidatorTest`.
 
 ## Auto-log wiring
 
 `OperateViewModel.handleQsoComplete()` logs when `QsoMachine.state == Complete`,
-using rig frequency for `freqHz` and `Ft8DialBands` for band label.
+using rig frequency for `freqHz`, `Ft8DialBands` for band label, and station callsign from settings.
 
 ## Related docs
 
 - [APP.md](APP.md) — Log screen UI
-- [CORE.md](CORE.md) — `QsoSnapshot`
+- [CORE.md](CORE.md) — `QsoSnapshot`, `ActivationProfile`

@@ -12,6 +12,9 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import net.ft8vc.core.AnswerPolicy
+import net.ft8vc.core.DecodeViewMode
+import net.ft8vc.core.TxSlotParity
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "ft8vc_settings",
@@ -33,9 +36,20 @@ class SettingsRepository(context: Context) {
             txEnabledInSettings = prefs[Keys.TX_ENABLED] ?: false,
             autoSeqEnabled = prefs[Keys.AUTO_SEQ] ?: true,
             answerWhenCalledEnabled = prefs[Keys.ANSWER_WHEN_CALLED] ?: true,
+            autoAnswerCqEnabled = prefs[Keys.AUTO_ANSWER_CQ] ?: false,
+            answerPolicy = prefs[Keys.ANSWER_POLICY]?.let { AnswerPolicy.valueOf(it) }
+                ?: AnswerPolicy.FIRST,
+            maxUnansweredTxCycles = prefs[Keys.MAX_UNANSWERED_TX] ?: 5,
             waterfallBrightness = prefs[Keys.WATERFALL_BRIGHTNESS] ?: 0.6f,
             inputGain = prefs[Keys.INPUT_GAIN] ?: 1f,
             lastDialFreqHz = prefs[Keys.LAST_DIAL_FREQ_HZ],
+            potaModeEnabled = prefs[Keys.POTA_MODE] ?: false,
+            potaParkRef = prefs[Keys.POTA_PARK_REF] ?: "",
+            cq73OnlyFilter = prefs[Keys.CQ73_FILTER] ?: false,
+            decodeViewMode = prefs[Keys.DECODE_VIEW_MODE]?.let { DecodeViewMode.valueOf(it) }
+                ?: DecodeViewMode.OPERATE,
+            txSlotParity = prefs[Keys.TX_SLOT_PARITY]?.let { TxSlotParity.valueOf(it) }
+                ?: TxSlotParity.EVEN,
         )
     }
 
@@ -77,6 +91,20 @@ class SettingsRepository(context: Context) {
         appContext.settingsDataStore.edit { it[Keys.ANSWER_WHEN_CALLED] = enabled }
     }
 
+    suspend fun setAutoAnswerCqEnabled(enabled: Boolean) {
+        appContext.settingsDataStore.edit { it[Keys.AUTO_ANSWER_CQ] = enabled }
+    }
+
+    suspend fun setAnswerPolicy(policy: AnswerPolicy) {
+        appContext.settingsDataStore.edit { it[Keys.ANSWER_POLICY] = policy.name }
+    }
+
+    suspend fun setMaxUnansweredTxCycles(cycles: Int) {
+        appContext.settingsDataStore.edit {
+            it[Keys.MAX_UNANSWERED_TX] = cycles.coerceIn(0, 20)
+        }
+    }
+
     suspend fun setWaterfallBrightness(value: Float) {
         appContext.settingsDataStore.edit {
             it[Keys.WATERFALL_BRIGHTNESS] = value.coerceIn(0f, 1f)
@@ -95,6 +123,26 @@ class SettingsRepository(context: Context) {
         }
     }
 
+    suspend fun setPotaModeEnabled(enabled: Boolean) {
+        appContext.settingsDataStore.edit { it[Keys.POTA_MODE] = enabled }
+    }
+
+    suspend fun setPotaParkRef(ref: String) {
+        appContext.settingsDataStore.edit { it[Keys.POTA_PARK_REF] = ref.trim().uppercase() }
+    }
+
+    suspend fun setCq73OnlyFilter(enabled: Boolean) {
+        appContext.settingsDataStore.edit { it[Keys.CQ73_FILTER] = enabled }
+    }
+
+    suspend fun setDecodeViewMode(mode: DecodeViewMode) {
+        appContext.settingsDataStore.edit { it[Keys.DECODE_VIEW_MODE] = mode.name }
+    }
+
+    suspend fun setTxSlotParity(parity: TxSlotParity) {
+        appContext.settingsDataStore.edit { it[Keys.TX_SLOT_PARITY] = parity.name }
+    }
+
     private object Keys {
         val MY_CALL = stringPreferencesKey("my_call")
         val MY_GRID = stringPreferencesKey("my_grid")
@@ -105,9 +153,17 @@ class SettingsRepository(context: Context) {
         val TX_ENABLED = booleanPreferencesKey("tx_enabled")
         val AUTO_SEQ = booleanPreferencesKey("auto_seq")
         val ANSWER_WHEN_CALLED = booleanPreferencesKey("answer_when_called")
+        val AUTO_ANSWER_CQ = booleanPreferencesKey("auto_answer_cq")
+        val ANSWER_POLICY = stringPreferencesKey("answer_policy")
+        val MAX_UNANSWERED_TX = intPreferencesKey("max_unanswered_tx")
         val WATERFALL_BRIGHTNESS = floatPreferencesKey("waterfall_brightness")
         val INPUT_GAIN = floatPreferencesKey("input_gain")
         val LAST_DIAL_FREQ_HZ = longPreferencesKey("last_dial_freq_hz")
+        val POTA_MODE = booleanPreferencesKey("pota_mode")
+        val POTA_PARK_REF = stringPreferencesKey("pota_park_ref")
+        val CQ73_FILTER = booleanPreferencesKey("cq73_filter")
+        val DECODE_VIEW_MODE = stringPreferencesKey("decode_view_mode")
+        val TX_SLOT_PARITY = stringPreferencesKey("tx_slot_parity")
     }
 
     companion object {

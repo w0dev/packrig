@@ -21,24 +21,43 @@ class UsbAudioPlayback(private val context: Context) {
     /** Candidate playback rates and the upsample factor from 12 kHz. */
     private val rateOptions = listOf(48_000 to 4, 24_000 to 2, 12_000 to 1)
 
+    @Volatile
+    private var activeTrack: AudioTrack? = null
+
+    /** Stop in-progress [playBlocking] and release the current [AudioTrack]. */
+    fun stop() {
+        val track = activeTrack
+        if (track == null) return
+        runCatching {
+            if (track.playState == AudioTrack.PLAYSTATE_PLAYING) {
+                track.stop()
+            }
+        }
+        runCatching { track.release() }
+        if (activeTrack === track) {
+            activeTrack = null
+        }
+    }
+
     /**
      * Play [samples12k] to completion on the calling thread. [preferredDeviceId]
      * is an [AudioDeviceInfo] output id, or null for default routing.
+     * Returns false if playback was interrupted by [stop].
      */
-    fun playBlocking(samples12k: ShortArray, preferredDeviceId: Int?) {
-        if (samples12k.isEmpty()) return
+    fun playBlocking(samples12k: ShortArray, preferredDeviceId: Int?): Boolean {
+        if (samples12k.isEmpty()) return true
         val trackPair = openTrack(preferredDeviceId)
             ?: throw IllegalStateException("Unable to open any AudioTrack configuration")
         val (track, factor) = trackPair
         applyPreferredDevice(track, preferredDeviceId)
         val pcm = if (factor == 1) samples12k else Upsampler.linear(samples12k, factor)
+        var completed = false
         try {
-            // Full-scale output so the rig's data input has adequate drive; the
-            // station operator trims level on the rig (DATA GAIN) and antenna ALC.
             runCatching { track.setVolume(AudioTrack.getMaxVolume()) }
+            activeTrack = track
             track.play()
             var offset = 0
-            while (offset < pcm.size) {
+            while (offset < pcm.size && activeTrack === track) {
                 val written = track.write(pcm, offset, pcm.size - offset, AudioTrack.WRITE_BLOCKING)
                 if (written <= 0) {
                     Log.e(TAG, "AudioTrack.write error: $written")
@@ -46,11 +65,17 @@ class UsbAudioPlayback(private val context: Context) {
                 }
                 offset += written
             }
-            // Drain buffered audio before returning so PTT can release on time.
-            track.stop()
+            completed = offset >= pcm.size && activeTrack === track
+            if (activeTrack === track) {
+                track.stop()
+            }
         } finally {
+            if (activeTrack === track) {
+                activeTrack = null
+            }
             track.release()
         }
+        return completed
     }
 
     private fun openTrack(preferredDeviceId: Int?): Pair<AudioTrack, Int>? {

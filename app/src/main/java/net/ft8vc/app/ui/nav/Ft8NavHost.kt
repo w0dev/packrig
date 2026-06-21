@@ -23,6 +23,7 @@ import net.ft8vc.app.OperateViewModel
 import net.ft8vc.app.settings.SettingsScreen
 import net.ft8vc.app.ui.log.LogScreen
 import net.ft8vc.app.ui.operate.OperateScreen
+import net.ft8vc.app.ui.spectrum.SpectrumScreen
 import net.ft8vc.app.ui.theme.Ft8vcTheme
 
 @Composable
@@ -73,6 +74,9 @@ fun Ft8vcApp(
             ) {
                 composable(Ft8Destination.Operate.route) {
                     OperateScreen(vm = operateVm)
+                }
+                composable(Ft8Destination.Spectrum.route) {
+                    SpectrumScreen(vm = operateVm)
                 }
                 composable(Ft8Destination.Log.route) {
                     LogScreen(vm = logVm)

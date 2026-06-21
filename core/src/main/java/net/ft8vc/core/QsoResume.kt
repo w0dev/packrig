@@ -27,15 +27,14 @@ object QsoResume {
         val snr: Int,
     )
 
-    /** First directed resume opportunity in [decodes], or null. */
-    fun findOpportunity(myCall: String, decodes: List<QsoDecode>): Opportunity? {
-        if (myCall.isBlank()) return null
-        for (d in decodes) {
-            val opp = opportunityFromDecode(myCall, d) ?: continue
-            return opp
-        }
-        return null
-    }
+    /** Directed resume opportunity in [decodes], chosen by [policy], or null. */
+    fun findOpportunity(
+        myCall: String,
+        myGrid: String,
+        decodes: List<QsoDecode>,
+        policy: AnswerPolicy = AnswerPolicy.FIRST,
+        excludedDx: Set<String> = emptySet(),
+    ): Opportunity? = AnswerSelector.selectOpportunity(myCall, myGrid, decodes, policy, excludedDx)
 
     fun opportunityFromDecode(myCall: String, decode: QsoDecode): Opportunity? {
         if (myCall.isBlank()) return null

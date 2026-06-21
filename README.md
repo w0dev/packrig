@@ -15,16 +15,20 @@ distributed as signed APKs from GitHub Releases. Target field setup:
 
 ## Features
 
-Three tabs — **Operate**, **Log**, and **Settings** — cover a full portable FT8 session.
+Four tabs — **Operate**, **Spectrum**, **Log**, and **Settings** — cover a full portable FT8 session.
 
 ### Operate
 
 - USB audio RX from the Digirig (12 kHz, UTC slot-aligned decode)
-- Live waterfall with tap/drag TX frequency cursor
 - Decode list: CQ highlighted in green, traffic directed to you in amber
-- UTC slot countdown, rig frequency/mode, and QSO state in the status bar
-- Optional **CQ/73 only** filter to declutter the decode list during monitoring
+- UTC slot countdown, rig frequency/mode, **TX tone indicator**, and QSO state in the status bar
+- Optional **CQ/73 only** filter; **Operate** focus (CQ + replies to you + QSO partner) on decode list
 - Input level meter and gain control while operating
+
+### Spectrum
+
+- Full-screen waterfall on a dedicated tab; tap/drag TX frequency cursor
+- TX tone persists and shows on Operate and Spectrum
 
 ### TX and QSO automation
 
