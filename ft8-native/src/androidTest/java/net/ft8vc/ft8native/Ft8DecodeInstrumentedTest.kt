@@ -69,7 +69,7 @@ class Ft8DecodeInstrumentedTest {
 
         val results = Ft8Native.decode(wav.samples, wav.sampleRate)
 
-        // WSJT-X-like dump for eyeball parity checking against the same clip.
+        // Decode dump for manual review against the golden clip.
         Log.i(TAG, "Decoded ${results.size} message(s):")
         Log.i(TAG, "  SNR    dT   Freq  Message")
         results.sortedByDescending { it.score }.forEach { r ->

@@ -1,7 +1,7 @@
 package net.ft8vc.core
 
 /**
- * Operate-screen TX dropdown: idle shows free-text only; active QSO shows WSJT-X-style steps + free text.
+ * Operate-screen TX dropdown: idle shows free-text only; active QSO shows standard steps + free text.
  */
 object OperateTxOptions {
 

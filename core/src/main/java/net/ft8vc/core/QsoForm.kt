@@ -1,7 +1,7 @@
 package net.ft8vc.core
 
 /**
- * Editable QSO fields for the Operate control sheet (WSJT-X-style form).
+ * Editable QSO fields for the Operate control sheet.
  * Synced with [QsoMachine] while a QSO loop is running; held in UI state when idle.
  */
 data class QsoForm(

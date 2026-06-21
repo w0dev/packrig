@@ -4,15 +4,15 @@ package net.ft8vc.core
  * Display filter for the operate-screen decode list while monitoring.
  * Does not affect decoder output or [QsoMachine] inputs.
  *
- * **Operate** mode approximates FT8CN Calling + WSJT-X Rx Frequency:
- * - All CQ calls on the band (FT8CN auto-track CQ)
- * - Any decode to/from your callsign (FT8CN follow list semantics for self)
+ * **Operate** mode shows:
+ * - All CQ calls on the band
+ * - Any decode to/from your callsign
  * - Active QSO partner traffic
- * - Decodes within [TX_TONE_WINDOW_HZ] of your TX tone (WSJT-X Rx pane)
+ * - Decodes within [TX_TONE_WINDOW_HZ] of your TX tone
  */
 object MonitorDecodeFilter {
 
-    /** Hz either side of [txToneHz] — WSJT-X-style operating passband slice. */
+    /** Hz either side of [txToneHz] for the operating passband slice. */
     const val TX_TONE_WINDOW_HZ = 150
 
     private val WHITESPACE = Regex("\\s+")
@@ -23,7 +23,7 @@ object MonitorDecodeFilter {
         else -> false
     }
 
-    /** Directed FT8 message where [myCall] is the TO or FROM callsign (FT8CN Calling tab). */
+    /** Directed FT8 message where [myCall] is the TO or FROM callsign. */
     fun messageInvolvesMyCall(message: String, myCall: String): Boolean {
         if (myCall.isBlank()) return false
         val tokens = message.trim().split(WHITESPACE).filter { it.isNotEmpty() }

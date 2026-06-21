@@ -18,7 +18,6 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,11 +36,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.ft8vc.app.OperateUiState
 import net.ft8vc.app.OperateViewModel
 import net.ft8vc.app.ui.DialFrequencyDropdownField
-import net.ft8vc.app.ui.theme.Ft8Amber
 import net.ft8vc.app.ui.theme.Ft8Green
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AnswerPolicy
-import net.ft8vc.core.TxSlotParity
 import net.ft8vc.core.AppInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,20 +117,8 @@ fun SettingsScreen(vm: OperateViewModel) {
 
             SettingsSection("Audio") {
                 DevicePicker(state = state, onSelect = vm::selectDevice)
-                Text("Input level (attenuate if meter shows CLIP)")
-                Slider(
-                    value = state.inputGain,
-                    onValueChange = vm::setInputGain,
-                    valueRange = OperateUiState.INPUT_GAIN_MIN..1f,
-                )
                 Text(
-                    "${(state.inputGain * 100).toInt()}% — also on Operate screen while monitoring.",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    "Use a USB audio device (Digirig) for RX/TX.",
+                    "Use a USB audio device (Digirig) for RX/TX. Adjust input level on Operate while monitoring.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -208,40 +193,18 @@ fun SettingsScreen(vm: OperateViewModel) {
                         Text("Acknowledge license disclaimer")
                     }
                 }
-                Text("Default TX tone: ${state.txFreqHz} Hz", fontFamily = FontFamily.Monospace)
-                Slider(
-                    value = state.txFreqHz.toFloat(),
-                    onValueChange = { vm.setTxFreqHz(it.toInt()) },
-                    valueRange = 300f..3000f,
+                Text(
+                    "Set TX tone on the Spectrum tab (tap or drag the waterfall).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
             SettingsSection("Operating (auto TX)") {
-                AutoToggleRow(
-                    title = "Auto Seq",
-                    subtitle = "Advance an active QSO when the expected reply is decoded",
-                    checked = state.autoSeqEnabled,
-                    onCheckedChange = vm::setAutoSeqEnabled,
-                    enabled = state.txEnabled,
-                )
-                AutoToggleRow(
-                    title = "Answer when called",
-                    subtitle = "Start or resume when someone calls you (grid, report, etc.)",
-                    checked = state.answerWhenCalledEnabled,
-                    onCheckedChange = vm::setAnswerWhenCalledEnabled,
-                    enabled = state.txEnabled,
-                )
-                AutoToggleRow(
-                    title = "Auto answer CQ",
-                    subtitle = "Call stations that are CQing when idle (FT8CN-style hunt)",
-                    checked = state.autoAnswerCqEnabled,
-                    onCheckedChange = vm::setAutoAnswerCqEnabled,
-                    enabled = state.txEnabled,
-                )
-                TxSlotParityPicker(
-                    parity = state.txSlotParity,
-                    onSelect = vm::setTxSlotParity,
-                    enabled = state.txEnabled && !state.qsoActive,
+                Text(
+                    "Selection and limits below apply to all auto TX modes, not only CQ hunt.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 AnswerPolicyPicker(
                     policy = state.answerPolicy,
@@ -260,27 +223,36 @@ fun SettingsScreen(vm: OperateViewModel) {
                 ) {
                     Text("Clear abandoned-station blocklist")
                 }
-            }
-
-            SettingsSection("Display") {
-                Text("Waterfall brightness")
-                Slider(
-                    value = state.waterfallBrightness,
-                    onValueChange = vm::setWaterfallBrightness,
-                    valueRange = 0f..1f,
+                Text(
+                    "Auto behaviors",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                AutoToggleRow(
+                    title = "Auto Seq",
+                    subtitle = "Advance an active QSO when the expected reply is decoded",
+                    checked = state.autoSeqEnabled,
+                    onCheckedChange = vm::setAutoSeqEnabled,
+                    enabled = state.txEnabled,
+                )
+                AutoToggleRow(
+                    title = "Answer when called",
+                    subtitle = "Start or resume when someone calls you (grid, report, etc.)",
+                    checked = state.answerWhenCalledEnabled,
+                    onCheckedChange = vm::setAnswerWhenCalledEnabled,
+                    enabled = state.txEnabled,
+                )
+                AutoToggleRow(
+                    title = "Auto answer CQ",
+                    subtitle = "Call stations that are CQing when idle",
+                    checked = state.autoAnswerCqEnabled,
+                    onCheckedChange = vm::setAutoAnswerCqEnabled,
+                    enabled = state.txEnabled,
                 )
                 Text(
-                    "Adjust on the Spectrum tab.",
-                    style = MaterialTheme.typography.labelSmall,
+                    "Set TX slot (Even/Odd) on Operate when TX is enabled.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            SettingsSection("Advanced (bench TX)") {
-                ManualTxPanel(
-                    state = state,
-                    onMessageChange = vm::setTxMessage,
-                    onTransmit = vm::transmitNextSlot,
                 )
             }
 
@@ -423,41 +395,6 @@ private fun answerPolicyLabel(policy: AnswerPolicy): String = when (policy) {
     AnswerPolicy.FURTHEST -> "Furthest station (grid)"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TxSlotParityPicker(
-    parity: TxSlotParity,
-    onSelect: (TxSlotParity) -> Unit,
-    enabled: Boolean = true,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
-        OutlinedTextField(
-            value = "${parity.label} (${parity.utcHint} UTC)",
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = { Text("TX slot (Even/Odd)") },
-            supportingText = {
-                Text("WSJT-X-style TX period when calling CQ; answers use the opposite slot")
-            },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            TxSlotParity.entries.forEach { entry ->
-                DropdownMenuItem(
-                    text = { Text("${entry.label} (${entry.utcHint} UTC)") },
-                    onClick = {
-                        expanded = false
-                        onSelect(entry)
-                    },
-                )
-            }
-        }
-    }
-}
-
 private val MAX_UNANSWERED_TX_OPTIONS = listOf(0, 3, 5, 8, 10, 15)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -529,32 +466,5 @@ private fun PttPreferencePicker(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun ManualTxPanel(
-    state: OperateUiState,
-    onMessageChange: (String) -> Unit,
-    onTransmit: () -> Unit,
-) {
-    OutlinedTextField(
-        value = state.txMessage,
-        onValueChange = onMessageChange,
-        label = { Text("Manual TX message") },
-        enabled = state.txEnabled && !state.isTransmitting,
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    Button(
-        onClick = onTransmit,
-        enabled = state.txEnabled && !state.isTransmitting && !state.isCapturing,
-        modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(containerColor = Ft8Amber, contentColor = androidx.compose.ui.graphics.Color.Black),
-    ) {
-        Text("Transmit next slot")
-    }
-    state.txStatus?.let {
-        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
     }
 }

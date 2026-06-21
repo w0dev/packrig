@@ -5,6 +5,6 @@ enum class DecodeViewMode {
     /** Every decode in the passband. */
     ALL,
 
-    /** CQ, traffic directed to you, and active QSO partner (FT8CN Calling-style focus). */
+    /** CQ, traffic directed to you, and active QSO partner. */
     OPERATE,
 }

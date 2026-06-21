@@ -1,6 +1,6 @@
 package net.ft8vc.app.ui
 
-/** One WSJT-X-style FT8 dial preset (band label + VFO frequency). */
+/** One FT8 dial preset (band label + VFO frequency). */
 data class Ft8DialPreset(val label: String, val hz: Long) {
     val freqMhz: String get() = "%.3f MHz".format(hz / 1_000_000.0)
     val menuText: String get() = "$label  ·  $freqMhz"
@@ -10,8 +10,8 @@ data class Ft8DialPreset(val label: String, val hz: Long) {
 typealias DataBand = Ft8DialPreset
 
 /**
- * Common FT8 dial frequencies by band. Multiple entries per band mirror WSJT-X / FT8CN
- * (e.g. 20m: 14.071, 14.074, 14.090 MHz).
+ * Common FT8 dial frequencies by band. Multiple entries per band cover common operating
+ * spots (e.g. 20m: 14.071, 14.074, 14.090 MHz).
  */
 val Ft8DialPresets = listOf(
     Ft8DialPreset("160m", 1_840_000L),

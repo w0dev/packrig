@@ -2,7 +2,7 @@ package net.ft8vc.core
 
 /**
  * In-session blocklist for stations whose QSO was abandoned (no-reply timeout or user Abandon).
- * Prevents auto-resume to incomplete exchanges (FT8CN zombie-QSO class of bugs).
+ * Prevents auto-resume to incomplete exchanges after abandon or no-reply timeout.
  */
 class AbandonedPartners {
 

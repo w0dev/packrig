@@ -1,6 +1,6 @@
 package net.ft8vc.core
 
-/** User-facing TX step (WSJT-X-style generate menu). Maps to [QsoState] via [QsoFormLogic]. */
+/** User-facing TX step in the Operate message menu. Maps to [QsoState] via [QsoFormLogic]. */
 enum class QsoTxStep(val label: String) {
     Idle("Idle"),
     Cq("CQ"),

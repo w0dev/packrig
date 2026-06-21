@@ -16,9 +16,8 @@ data class WavData(
 }
 
 /**
- * Minimal reader for uncompressed 16-bit PCM WAV files (the format WSJT-X writes
- * and FT8 tooling expects). Stereo is downmixed to mono. Used to load golden test
- * clips for decoder regression tests.
+ * Minimal reader for uncompressed 16-bit PCM WAV files at 12 kHz mono. Stereo is
+ * downmixed to mono. Used to load golden test clips for decoder regression tests.
  */
 object WavIo {
 

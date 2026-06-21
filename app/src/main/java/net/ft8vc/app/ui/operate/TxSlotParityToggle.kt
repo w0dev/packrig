@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.ft8vc.core.TxSlotParity
 
-/** WSJT-X-style Even/Odd TX period picker (:00/:30 vs :15/:45). */
+/** Even/Odd TX period picker (:00/:30 vs :15/:45 UTC). */
 @Composable
 fun TxSlotParityToggle(
     selected: TxSlotParity,

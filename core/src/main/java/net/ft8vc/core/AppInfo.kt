@@ -16,7 +16,7 @@ object AppInfo {
     const val TAGLINE = "FT8, vibe-coded"
     const val VERSION_NAME = "1.0.0"
 
-    /** WSJT-X / FT8 internal audio sample rate. Everything DSP runs at this rate. */
+    /** FT8 internal audio sample rate. Everything DSP runs at this rate. */
     const val SAMPLE_RATE_HZ = 12_000
 
     /** FT8 transmit/receive slot length. */

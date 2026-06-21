@@ -8,7 +8,7 @@ enum class TxSlotParity(val bit: Int) {
 
     val label: String get() = if (this == EVEN) "Even" else "Odd"
 
-    /** WSJT-X-style hint: :00/:30 vs :15/:45 UTC seconds within the minute. */
+    /** UTC second hint within the minute: :00/:30 vs :15/:45. */
     val utcHint: String get() = if (this == EVEN) ":00/:30" else ":15/:45"
 
     companion object {

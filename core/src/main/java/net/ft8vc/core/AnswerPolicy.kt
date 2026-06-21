@@ -2,7 +2,7 @@ package net.ft8vc.core
 
 /** How to pick a station when multiple CQ answers or resume opportunities appear in one slot. */
 enum class AnswerPolicy {
-    /** First matching decode in slot order (WSJT-X “Call 1st”). */
+    /** First matching decode in slot order. */
     FIRST,
 
     /** Highest decoded SNR. */
