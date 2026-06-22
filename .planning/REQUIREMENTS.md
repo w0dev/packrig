@@ -153,24 +153,85 @@ Explicitly excluded for this milestone. Documented to prevent scope creep.
 
 ## Traceability
 
-Empty initially; populated by the roadmapper in Step 8.
+Populated by the roadmapper on 2026-06-21.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01..08 | — | Pending |
-| REFACTOR-01..09 | — | Pending |
-| SAFETY-01..10 | — | Pending |
-| RELY-01..07 | — | Pending |
-| UX-01..06 | — | Pending |
-| HYG-01..05 | — | Pending |
-| TEST-01..08 | — | Pending |
-| PARITY-01..03 | — | Pending |
+| FOUND-01 | Phase 0 | Pending |
+| FOUND-02 | Phase 0 | Pending |
+| FOUND-03 | Phase 0 | Pending |
+| FOUND-04 | Phase 0 | Pending |
+| FOUND-05 | Phase 0 | Pending |
+| FOUND-06 | Phase 0 | Pending |
+| FOUND-07 | Phase 0 | Pending |
+| FOUND-08 | Phase 0 | Pending |
+| REFACTOR-01 | Phase 1 | Pending |
+| REFACTOR-02 | Phase 2 | Pending |
+| REFACTOR-03 | Phase 3 | Pending |
+| REFACTOR-04 | Phase 4 | Pending |
+| REFACTOR-05 | Phase 5 | Pending |
+| REFACTOR-06 | Phase 5 | Pending |
+| REFACTOR-07 | Phase 4 | Pending |
+| REFACTOR-08 | Phase 4 | Pending |
+| REFACTOR-09 | Phase 5 | Pending |
+| SAFETY-01 | Phase 5 | Pending |
+| SAFETY-02 | Phase 5 | Pending |
+| SAFETY-03 | Phase 5 | Pending |
+| SAFETY-04 | Phase 5 | Pending |
+| SAFETY-05 | Phase 5 | Pending |
+| SAFETY-06 | Phase 5 | Pending |
+| SAFETY-07 | Phase 5 | Pending |
+| SAFETY-08 | Phase 5 | Pending |
+| SAFETY-09 | Phase 5 | Pending |
+| SAFETY-10 | Phase 5 | Pending |
+| RELY-01 | Phase 6 | Pending |
+| RELY-02 | Phase 6 | Pending |
+| RELY-03 | Phase 6 | Pending |
+| RELY-04 | Phase 6 | Pending |
+| RELY-05 | Phase 6 | Pending |
+| RELY-06 | Phase 5 | Pending |
+| RELY-07 | Phase 6 | Pending |
+| UX-01 | Phase 7 | Pending |
+| UX-02 | Phase 7 | Pending |
+| UX-03 | Phase 3 | Pending |
+| UX-04 | Phase 5 | Pending |
+| UX-05 | Phase 5 | Pending |
+| UX-06 | Phase 7 | Pending |
+| HYG-01 | Phase 7 | Pending |
+| HYG-02 | Phase 7 | Pending |
+| HYG-03 | Phase 7 | Pending |
+| HYG-04 | Phase 7 | Pending |
+| HYG-05 | Phase 7 | Pending |
+| TEST-01 | Phase 1 | Pending |
+| TEST-02 | Phase 2 | Pending |
+| TEST-03 | Phase 3 | Pending |
+| TEST-04 | Phase 4 | Pending |
+| TEST-05 | Phase 5 | Pending |
+| TEST-06 | Phase 0 | Pending |
+| TEST-07 | Phase 0 | Pending |
+| TEST-08 | Phase 0 | Pending |
+| PARITY-01 | Cross-cutting (every phase) | Pending |
+| PARITY-02 | Cross-cutting (every phase) | Pending |
+| PARITY-03 | Cross-cutting (every phase) | Pending |
 
 **Coverage:**
 - v1 requirements: 56 total (8 FOUND + 9 REFACTOR + 10 SAFETY + 7 RELY + 6 UX + 5 HYG + 8 TEST + 3 PARITY)
-- Mapped to phases: 0 (roadmapper to fill)
-- Unmapped: 56 ⚠️ (expected at this stage)
+- Mapped to specific phases: 53
+- Cross-cutting (applied at every phase boundary via promotion checklist): 3 (PARITY-01, PARITY-02, PARITY-03)
+- Unmapped: 0 ✓
+
+**Per-phase count:**
+- Phase 0 (Foundations): 11 (FOUND-01..08 + TEST-06..08)
+- Phase 1 (SettingsBridge): 2 (REFACTOR-01, TEST-01)
+- Phase 2 (RigSession): 2 (REFACTOR-02, TEST-02)
+- Phase 3 (DecodeController): 3 (REFACTOR-03, UX-03, TEST-03)
+- Phase 4 (QsoSessionController + qsoLock removal): 4 (REFACTOR-04, REFACTOR-07, REFACTOR-08, TEST-04)
+- Phase 5 (TxOrchestrator + RF Safety + combine): 17 (REFACTOR-05, REFACTOR-06, REFACTOR-09, SAFETY-01..10, RELY-06, UX-04, UX-05, TEST-05)
+- Phase 6 (Reliability Hardening): 6 (RELY-01..05, RELY-07)
+- Phase 7 (UX Polish + Hygiene + ADIF): 8 (UX-01, UX-02, UX-06, HYG-01..05)
+- **Total: 53 phase-mapped + 3 cross-cutting = 56 ✓**
 
 ---
+
 *Requirements defined: 2026-06-21*
-*Last updated: 2026-06-21 after initial definition*
+*Last updated: 2026-06-21 — traceability populated by roadmapper*
