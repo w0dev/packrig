@@ -20,7 +20,7 @@ integration with audio, rig, codec, and logbook modules.
 
 Compact, field-first layout (decode list gets maximum vertical space):
 
-- **Status bar (3 tight rows)** — dial MHz (tap to change band when CAT ready), mode, TX tone chip, POTA chip, compact **Halt** button; slot progress + UTC countdown + **Even/Odd TX slot** chips (WSJT-X-style :00/:30 vs :15/:45; countdown shows **TX Ns** until your next TX period); call/grid or QSO state, **speaker icon** (input gain, left of level meter), inline level meter while operating
+- **Status bar (3 tight rows)** — dial MHz (tap to change band when CAT ready), mode, TX tone chip, POTA chip, compact **Halt** button; slot progress + UTC countdown + **Even/Odd TX slot** chips (:00/:30 vs :15/:45; countdown shows **TX Ns** until your next TX period); call/grid or QSO state, **speaker icon** (input gain, left of level meter), inline level meter while operating
 - **Decode list** — single header row: **Band / Focus / CQ·73** chips, decode count, clear. Each row: UTC time, SNR, **distance (km)** when the message includes a 4-char grid, audio offset (Hz), message. CQ highlighted; tap to answer; QSO partner bold (**Focus** default: CQs, your-call traffic, QSO partner, ±150 Hz around TX tone; **Band** = full passband). **CQ·73** appears only on Band.
 - **TX message** — one row: monospace message field + **Text…** (idle) or **Msg ▾** (active QSO step menu). Short status line + **Auto** when overridden.
 - **Action bar** — one row: **Start/Stop**, **Start CQ** / **Stop QSO** + **Abandon** when applicable. **Start CQ** waits for your chosen Even/Odd TX period (no more timing the button press).
@@ -32,7 +32,7 @@ Compact, field-first layout (decode list gets maximum vertical space):
 Full-screen waterfall on its own tab (shared `OperateViewModel` — RX continues while viewing):
 
 - Tap or drag to set TX audio offset (Hz); persisted and shown on Operate status bar
-- **Dial** label (when CAT ready): tap to pick band / preset dial frequency; tunes rig via Digirig CAT (same presets as WSJT-X: e.g. 20m 14.074 and 14.090 MHz)
+- **Dial** label (when CAT ready): tap to pick band / preset dial frequency; tunes rig via Digirig CAT (common FT8 spots, e.g. 20m 14.074 and 14.090 MHz)
 - Waterfall brightness in Settings → Display
 
 ## Settings

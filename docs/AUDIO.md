@@ -5,9 +5,9 @@ waterfall spectrum display.
 
 ## Purpose
 
-The Digirig Mobile exposes a CM108 USB audio device. FT8 expects 12 kHz mono PCM
-(the same rate WSJT-X uses internally). This module captures at the device's native
-rate (typically 48 kHz), decimates to 12 kHz, and upsamples on playback.
+The Digirig Mobile exposes a CM108 USB audio device. FT8 protocol internals run at
+12 kHz mono PCM. This module captures at the device's native rate (typically 48 kHz),
+decimates to 12 kHz, and upsamples on playback.
 
 ## Architecture
 

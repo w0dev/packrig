@@ -15,14 +15,14 @@ Start here for component docs; existing setup guides remain at [SDK_SETUP.md](SD
 
 ## Architecture modules
 
-| Document | Module | Status |
-|----------|--------|--------|
-| [APP.md](APP.md) | `app/` — Operate / Log / Settings UI, ViewModels | v1.0 |
-| [CORE.md](CORE.md) | `core/` — Slot timing, QSO state machine, WAV I/O | Active |
-| [AUDIO.md](AUDIO.md) | `audio/` — USB capture/playback, DSP, waterfall | Phase 1 / 3 |
-| [FT8_NATIVE.md](FT8_NATIVE.md) | `ft8-native/` — NDK JNI bridge to `kgoba/ft8_lib` | Phase 2 |
-| [RIG.md](RIG.md) | `rig/` — Digirig PTT + FT-891 CAT over CP2102 | Phase 3 |
-| [DATA.md](DATA.md) | `data/` — Room logbook + ADIF export | v1.0 |
+| Document | Module |
+|----------|--------|
+| [APP.md](APP.md) | `app/` — Operate / Spectrum / Log / Settings UI, ViewModels |
+| [CORE.md](CORE.md) | `core/` — Slot timing, QSO state machine, activation profile, WAV I/O |
+| [AUDIO.md](AUDIO.md) | `audio/` — USB capture/playback, DSP, waterfall |
+| [FT8_NATIVE.md](FT8_NATIVE.md) | `ft8-native/` — NDK JNI bridge to `kgoba/ft8_lib` |
+| [RIG.md](RIG.md) | `rig/` — Digirig PTT + FT-891 CAT over CP2102 |
+| [DATA.md](DATA.md) | `data/` — Room logbook + ADIF export (incl. POTA fields) |
 
 ## Testing
 

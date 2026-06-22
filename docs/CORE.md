@@ -18,11 +18,10 @@ App-wide constants:
 
 | Constant | Value | Meaning |
 |----------|-------|---------|
-| `SAMPLE_RATE_HZ` | 12000 | WSJT-X / FT8 internal audio rate |
+| `SAMPLE_RATE_HZ` | 12000 | FT8 internal audio rate |
 | `SLOT_SECONDS` | 15 | FT8 slot length |
-| `VERSION_NAME` | `0.1.0-dev` | Display version |
-| `currentPhase` | `PHASE_5_RELEASE` | Development phase marker |
 | `VERSION_NAME` | `1.0.0` | Display version |
+| `currentPhase` | `PHASE_5_RELEASE` | Development phase marker |
 
 ### `SlotTiming` / `TxSlotParity` / `TxSlotSelection`
 
@@ -90,14 +89,14 @@ Display-only filters for the Operate decode list (decoder and [QsoMachine] still
 | Mode | Shows |
 |------|--------|
 | **Band** (`ALL`) | Every decode in the passband |
-| **Focus** (`OPERATE`, default) | All CQ calls; any decode to/from your callsign; active QSO partner; decodes within ±150 Hz of TX tone (WSJT-X Rx pane) |
+| **Focus** (`OPERATE`, default) | All CQ calls; any decode to/from your callsign; active QSO partner; decodes within ±150 Hz of TX tone |
 
 Optional **CQ·73** chip (Band mode only) narrows to CQ and sign-offs (plus partner during QSO). Persisted in DataStore.
 
 ### `QsoForm` / `QsoTxStep`
 
 Internal helpers for composing FT8 lines from step + fields (unit-tested). **`OperateTxOptions`**
-defines the Operate TX dropdown: free text only when idle; full WSJT-X step list during a QSO.
+defines the Operate TX dropdown: free text only when idle; full QSO step list during a QSO.
 The Operate screen shows a single message field with that menu — not separate report/grid controls.
 
 ### `QsoMachine`
@@ -124,7 +123,7 @@ States: `Idle`, `CallingCq`, `Answering`, `SendingReport`, `SendingRReport`,
 ### `WavIo`
 
 Minimal reader for uncompressed 16-bit PCM WAV files. Stereo is downmixed to mono.
-Used by instrumented decode tests to load golden clips exported from WSJT-X.
+Used by instrumented decode tests to load golden FT8 capture clips.
 
 ## Dependencies
 

@@ -149,7 +149,7 @@ Place test clips in `ft8-native/src/androidTest/assets/`:
 
 | File | Required | Description |
 |------|----------|-------------|
-| `ft8_test.wav` | For golden test | 12 kHz mono 16-bit PCM WAV of a real FT8 slot (~15 s). Export from WSJT-X or similar. |
+| `ft8_test.wav` | For golden test | 12 kHz mono 16-bit PCM WAV of a real FT8 slot (~15 s). Export from any FT8 capture tool. |
 | `ft8_test.expected.txt` | Optional | One expected message substring per line (e.g. a callsign or `CQ`). Each line must appear in some decode. |
 
 If `ft8_test.wav` is absent, `decodesGoldenWavIfPresent` **self-skips** via JUnit
