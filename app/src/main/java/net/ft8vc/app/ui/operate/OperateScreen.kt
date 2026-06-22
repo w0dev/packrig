@@ -36,11 +36,14 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.ft8vc.app.OperateViewModel
 import net.ft8vc.app.ui.DialFrequencyBottomSheet
-import net.ft8vc.app.ui.theme.Ft8vcTheme
+import net.ft8vc.core.StationProfileValidator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OperateScreen(vm: OperateViewModel) {
+fun OperateScreen(
+    vm: OperateViewModel,
+    onNavigateToSettings: () -> Unit = {},
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = context as? Activity
@@ -76,90 +79,86 @@ fun OperateScreen(vm: OperateViewModel) {
         onDispose { activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
 
-    LaunchedEffect(state.snackbarMessage, state.error) {
-        val msg = state.snackbarMessage ?: state.error
-        if (msg != null) {
-            snackbarHostState.showSnackbar(msg)
-            vm.clearSnackbar()
+    LaunchedEffect(Unit) {
+        vm.events.collect { event ->
+            snackbarHostState.showSnackbar(message = event.text, duration = event.tag.duration)
         }
     }
 
-    LaunchedEffect(state.qsoCompleteBanner) {
-        state.qsoCompleteBanner?.let {
-            snackbarHostState.showSnackbar(it)
-            kotlinx.coroutines.delay(5000)
-            vm.clearQsoBanner()
-        }
-    }
-
-    Ft8vcTheme(darkTheme = true) {
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(
-                        horizontal = Ft8Compact.screenPaddingH,
-                        vertical = Ft8Compact.screenPaddingV,
-                    ),
-                verticalArrangement = Arrangement.spacedBy(Ft8Compact.sectionSpacing),
-            ) {
-                OperateStatusBar(
-                    state = state,
-                    inputGain = state.inputGain,
-                    onInputGainChange = vm::setInputGain,
-                    onPotaChipClick = { showPotaSheet = true },
-                    onBandClick = if (state.catReady) {{ showBandSheet = true }} else null,
-                    onHaltTx = vm::haltTx,
-                    onTxSlotParityChange = vm::setTxSlotParity,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = Ft8Compact.decodePanelTopGap - Ft8Compact.sectionSpacing),
-                )
-                DecodeListPanel(
-                    decodes = state.decodes,
-                    myCall = state.myCall,
-                    txToneHz = state.txFreqHz,
-                    decodeViewMode = state.decodeViewMode,
-                    onDecodeViewModeChange = vm::setDecodeViewMode,
-                    cq73OnlyFilter = state.cq73OnlyFilter,
-                    onCq73OnlyFilterChange = vm::setCq73OnlyFilter,
-                    qsoDx = state.qsoDx,
-                    qsoActive = state.qsoActive,
-                    canAnswer = state.txEnabled && !state.qsoActive,
-                    canResume = state.txEnabled && !state.qsoActive,
-                    onClear = vm::clearDecodes,
-                    onAnswerCq = vm::answerCq,
-                    onResume = vm::resumeFromDecode,
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                )
-                OperateTxSelector(
-                    state = state,
-                    onMessageChange = vm::setOperateTxText,
-                    onSelectStep = vm::selectOperateTxStep,
-                    onResetMessage = vm::resetOperateTxText,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OperateControls(
-                    state = state,
-                    onToggleOperate = {
-                        if (state.isOperating) {
-                            vm.stopOperating()
-                        } else if (!state.licenseAcknowledged) {
-                            showLicenseDialog = true
-                        } else if (!hasPermission) {
-                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        } else {
-                            vm.startOperating()
-                        }
-                    },
-                    onStartCq = vm::startCq,
-                    onStopQso = vm::stopQso,
-                    onAbandonQso = vm::abandonQso,
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(
+                    horizontal = Ft8Compact.screenPaddingH,
+                    vertical = Ft8Compact.screenPaddingV,
+                ),
+            verticalArrangement = Arrangement.spacedBy(Ft8Compact.sectionSpacing),
+        ) {
+            OperateStatusBar(
+                state = state,
+                inputGain = state.inputGain,
+                onInputGainChange = vm::setInputGain,
+                onPotaChipClick = { showPotaSheet = true },
+                onBandClick = if (state.catReady) {{ showBandSheet = true }} else null,
+                onHaltTx = vm::haltTx,
+                onTxSlotParityChange = vm::setTxSlotParity,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            val stationComplete = StationProfileValidator.isComplete(state.myCall, state.myGrid)
+            if (!stationComplete) {
+                StationProfileBanner(onOpenSettings = onNavigateToSettings)
+            }
+            if (state.catReady && state.rigMode != null && state.rigMode != "DATA-U") {
+                RigModeWarningBanner(
+                    rigMode = state.rigMode ?: "?",
+                    onSetDataUsb = vm::setRigDataUsb,
                 )
             }
+            DecodeListPanel(
+                decodes = state.decodes,
+                myCall = state.myCall,
+                txToneHz = state.txFreqHz,
+                decodeViewMode = state.decodeViewMode,
+                onDecodeViewModeChange = vm::setDecodeViewMode,
+                cq73OnlyFilter = state.cq73OnlyFilter,
+                onCq73OnlyFilterChange = vm::setCq73OnlyFilter,
+                qsoDx = state.qsoDx,
+                qsoActive = state.qsoActive,
+                canAnswer = state.txEnabled && !state.qsoActive,
+                canResume = state.txEnabled && !state.qsoActive,
+                onClear = vm::clearDecodes,
+                onAnswerCq = vm::answerCq,
+                onResume = vm::resumeFromDecode,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+            )
+            OperateTxSelector(
+                state = state,
+                onMessageChange = vm::setOperateTxText,
+                onSelectStep = vm::selectOperateTxStep,
+                onResetMessage = vm::resetOperateTxText,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OperateControls(
+                state = state,
+                onToggleOperate = {
+                    if (state.isOperating) {
+                        vm.stopOperating()
+                    } else if (!state.licenseAcknowledged) {
+                        showLicenseDialog = true
+                    } else if (!hasPermission) {
+                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    } else {
+                        vm.startOperating()
+                    }
+                },
+                onStartCq = vm::startCq,
+                onStopQso = vm::stopQso,
+                onAbandonQso = vm::abandonQso,
+            )
         }
     }
 

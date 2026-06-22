@@ -18,12 +18,22 @@ object Ft8Compact {
     val screenPaddingH = 8.dp
     val screenPaddingV = 4.dp
     val sectionSpacing = 4.dp
-    /** Extra gap between status bar and decode list — avoids mis-taps on adjacent corner icons. */
-    val decodePanelTopGap = 8.dp
     val chipShape = RoundedCornerShape(4.dp)
-    val buttonHeight = 36.dp
+
+    /** Tap target for high-priority controls (Start, Halt, Start CQ, Stop QSO). */
+    val tapTargetPrimary = 40.dp
+
+    /** Tap target for compact controls (filter chips, parity chips, status-bar icons). */
+    val tapTargetCompact = 28.dp
+
+    /** Width cap for the POTA park-ref chip so a long ref truncates instead of pushing the row. */
+    val potaChipMaxWidth = 96.dp
+
+    @Deprecated("Use tapTargetPrimary.", ReplaceWith("tapTargetPrimary"))
+    val buttonHeight = tapTargetPrimary
     val buttonPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-    val fieldMinHeight = 36.dp
+    @Deprecated("Use tapTargetPrimary.", ReplaceWith("tapTargetPrimary"))
+    val fieldMinHeight = tapTargetPrimary
 }
 
 @Composable

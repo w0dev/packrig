@@ -72,7 +72,7 @@ portable FT8 session.
 - TX tone persists across tabs and shows on the Operate status bar
 - **Dial** label (when CAT is ready): tap to pick a band / preset FT8 dial
   frequency and tune the rig over CAT
-- Waterfall brightness in Settings → Display
+- Dark/Light mode toggle in Settings → Display (whole app commits to the choice)
 
 ### TX and QSO automation
 
@@ -88,7 +88,6 @@ portable FT8 session.
   blocklist so auto modes do not call them again until you clear it
 - **Stop QSO / Abandon** during a contact; resume on the next call
 - License acknowledgment gates the first TX
-- Manual TX message for bench testing (Settings → Advanced)
 
 ### Activation (POTA)
 
@@ -101,8 +100,8 @@ portable FT8 session.
 
 - Room-backed logbook; completed QSOs auto-log
 - **Export ADIF** (3.1.4) via Android share intent
-- Persisted station profile: call, grid, audio device, TX tone, waterfall
-  brightness, auto-TX preferences
+- Persisted station profile: call, grid, audio device, TX tone, theme choice,
+  auto-TX preferences
 
 ## Architecture
 

@@ -65,6 +65,8 @@ Pure Kotlin logic; no Android framework dependencies.
 | `SlotCollectorTest` | PCM slot accumulation and boundary flush |
 | `QsoMessagesTest` | FT8 message format/parse, CQ modifier |
 | `MonitorDecodeFilterTest` | Operate/All decode list display filters |
+| `DecodePrefixTest` | Non-color glyph prefix per row type |
+| `StationProfileValidatorTest` | Callsign and grid validation that gates transmit |
 | `AbandonedPartnersTest` | Session blocklist for abandoned incomplete QSOs |
 | `AnswerSelectorTest` | Pileup / CQ / resume selection by answer policy |
 | `MaidenheadGridTest` | 4-char grid validation and distance |

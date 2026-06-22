@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Button
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.ft8vc.app.OperateUiState
+import net.ft8vc.app.ui.WithTooltip
 import net.ft8vc.app.ui.theme.Ft8Amber
 import net.ft8vc.app.ui.theme.Ft8Green
 import net.ft8vc.app.ui.theme.Ft8Red
@@ -90,39 +92,45 @@ fun OperateStatusBar(
                 val parkLabel = state.potaParkRef.ifBlank { "POTA?" }
                 val validPark = state.potaParkRef.isNotBlank() &&
                     ActivationProfile.isValidParkRef(state.potaParkRef)
-                Surface(
-                    modifier = Modifier.clickable(onClick = onPotaChipClick),
-                    shape = Ft8Compact.chipShape,
-                    color = if (validPark) Ft8Green.copy(alpha = 0.2f) else Ft8Amber.copy(alpha = 0.2f),
-                ) {
-                    Text(
-                        text = parkLabel,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (validPark) Ft8Green else Ft8Amber,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                WithTooltip(text = "Tap to edit POTA park reference") {
+                    Surface(
+                        modifier = Modifier
+                            .widthIn(max = Ft8Compact.potaChipMaxWidth)
+                            .clickable(onClick = onPotaChipClick),
+                        shape = Ft8Compact.chipShape,
+                        color = if (validPark) Ft8Green.copy(alpha = 0.2f) else Ft8Amber.copy(alpha = 0.2f),
+                    ) {
+                        Text(
+                            text = parkLabel,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (validPark) Ft8Green else Ft8Amber,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.weight(1f))
-            if (state.isOperating && state.txEnabled) {
-                Button(
-                    onClick = onHaltTx,
-                    modifier = Modifier.height(Ft8Compact.buttonHeight),
-                    contentPadding = Ft8Compact.buttonPadding,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Ft8Red,
-                        contentColor = Color.Black,
-                    ),
-                ) {
-                    Text(
-                        text = if (state.isTransmitting) "HALT" else "Halt",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
+            if (state.isTransmitting) {
+                WithTooltip(text = "Cancel the in-progress transmission") {
+                    Button(
+                        onClick = onHaltTx,
+                        modifier = Modifier.height(Ft8Compact.tapTargetPrimary),
+                        contentPadding = Ft8Compact.buttonPadding,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Ft8Red,
+                            contentColor = Color.Black,
+                        ),
+                    ) {
+                        Text(
+                            text = "HALT",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
         }

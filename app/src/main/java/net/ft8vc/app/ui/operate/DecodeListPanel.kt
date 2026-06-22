@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,9 +31,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.ft8vc.app.DecodeRow
+import net.ft8vc.app.ui.WithTooltip
 import net.ft8vc.app.ui.theme.Ft8Amber
 import net.ft8vc.app.ui.theme.Ft8Green
 import net.ft8vc.core.DecodeDistance
+import net.ft8vc.core.DecodePrefix
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.MonitorDecodeFilter
 
@@ -89,22 +92,28 @@ fun DecodeListPanel(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                CompactFilterChip(
-                    selected = decodeViewMode == DecodeViewMode.ALL,
-                    onClick = { onDecodeViewModeChange(DecodeViewMode.ALL) },
-                    label = "Band",
-                )
-                CompactFilterChip(
-                    selected = decodeViewMode == DecodeViewMode.OPERATE,
-                    onClick = { onDecodeViewModeChange(DecodeViewMode.OPERATE) },
-                    label = "Focus",
-                )
-                if (decodeViewMode == DecodeViewMode.ALL) {
+                WithTooltip(text = "Show every decode in the receive passband") {
                     CompactFilterChip(
-                        selected = cq73OnlyFilter,
-                        onClick = { onCq73OnlyFilterChange(!cq73OnlyFilter) },
-                        label = "CQ·73",
+                        selected = decodeViewMode == DecodeViewMode.ALL,
+                        onClick = { onDecodeViewModeChange(DecodeViewMode.ALL) },
+                        label = "Band",
                     )
+                }
+                WithTooltip(text = "Hide chatter — show CQs, traffic to you, partner, and signals near TX tone") {
+                    CompactFilterChip(
+                        selected = decodeViewMode == DecodeViewMode.OPERATE,
+                        onClick = { onDecodeViewModeChange(DecodeViewMode.OPERATE) },
+                        label = "Focus",
+                    )
+                }
+                if (decodeViewMode == DecodeViewMode.ALL) {
+                    WithTooltip(text = "Show only CQ calls and sign-offs (73 / RR73)") {
+                        CompactFilterChip(
+                            selected = cq73OnlyFilter,
+                            onClick = { onCq73OnlyFilterChange(!cq73OnlyFilter) },
+                            label = "CQ·73",
+                        )
+                    }
                 }
                 Text(
                     text = decodeCountLabel,
@@ -214,11 +223,19 @@ private fun DecodeRowItem(
         dimmed -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         else -> MaterialTheme.colorScheme.onSurface
     }
+    val prefix = DecodePrefix.prefixFor(
+        message = row.message,
+        isCq = row.isCq,
+        isToMe = row.isToMe,
+        qsoActive = qsoActive,
+        qsoDx = qsoDx,
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 40.dp)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(vertical = 1.dp),
+            .padding(horizontal = 2.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -247,7 +264,7 @@ private fun DecodeRowItem(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = row.message,
+            text = "$prefix${row.message}",
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,
             fontWeight = if (isPartner) FontWeight.Bold else FontWeight.Normal,

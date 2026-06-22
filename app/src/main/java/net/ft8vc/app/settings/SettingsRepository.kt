@@ -26,8 +26,8 @@ class SettingsRepository(context: Context) {
 
     val settings: Flow<StationSettings> = appContext.settingsDataStore.data.map { prefs ->
         StationSettings(
-            myCall = prefs[Keys.MY_CALL] ?: "TEST",
-            myGrid = prefs[Keys.MY_GRID] ?: "FN31",
+            myCall = prefs[Keys.MY_CALL] ?: "",
+            myGrid = prefs[Keys.MY_GRID] ?: "",
             txToneHz = prefs[Keys.TX_TONE_HZ] ?: 1000,
             selectedAudioDeviceId = prefs[Keys.AUDIO_DEVICE_ID],
             pttPreference = prefs[Keys.PTT_PREFERENCE]?.let { PttPreference.valueOf(it) }
@@ -40,7 +40,6 @@ class SettingsRepository(context: Context) {
             answerPolicy = prefs[Keys.ANSWER_POLICY]?.let { AnswerPolicy.valueOf(it) }
                 ?: AnswerPolicy.FIRST,
             maxUnansweredTxCycles = prefs[Keys.MAX_UNANSWERED_TX] ?: 5,
-            waterfallBrightness = prefs[Keys.WATERFALL_BRIGHTNESS] ?: 0.6f,
             inputGain = prefs[Keys.INPUT_GAIN] ?: 1f,
             lastDialFreqHz = prefs[Keys.LAST_DIAL_FREQ_HZ],
             potaModeEnabled = prefs[Keys.POTA_MODE] ?: false,
@@ -50,6 +49,7 @@ class SettingsRepository(context: Context) {
                 ?: DecodeViewMode.OPERATE,
             txSlotParity = prefs[Keys.TX_SLOT_PARITY]?.let { TxSlotParity.valueOf(it) }
                 ?: TxSlotParity.EVEN,
+            useDarkTheme = prefs[Keys.USE_DARK_THEME] ?: true,
         )
     }
 
@@ -105,12 +105,6 @@ class SettingsRepository(context: Context) {
         }
     }
 
-    suspend fun setWaterfallBrightness(value: Float) {
-        appContext.settingsDataStore.edit {
-            it[Keys.WATERFALL_BRIGHTNESS] = value.coerceIn(0f, 1f)
-        }
-    }
-
     suspend fun setInputGain(value: Float) {
         appContext.settingsDataStore.edit {
             it[Keys.INPUT_GAIN] = value.coerceIn(INPUT_GAIN_MIN, 1f)
@@ -143,6 +137,10 @@ class SettingsRepository(context: Context) {
         appContext.settingsDataStore.edit { it[Keys.TX_SLOT_PARITY] = parity.name }
     }
 
+    suspend fun setUseDarkTheme(value: Boolean) {
+        appContext.settingsDataStore.edit { it[Keys.USE_DARK_THEME] = value }
+    }
+
     private object Keys {
         val MY_CALL = stringPreferencesKey("my_call")
         val MY_GRID = stringPreferencesKey("my_grid")
@@ -156,7 +154,6 @@ class SettingsRepository(context: Context) {
         val AUTO_ANSWER_CQ = booleanPreferencesKey("auto_answer_cq")
         val ANSWER_POLICY = stringPreferencesKey("answer_policy")
         val MAX_UNANSWERED_TX = intPreferencesKey("max_unanswered_tx")
-        val WATERFALL_BRIGHTNESS = floatPreferencesKey("waterfall_brightness")
         val INPUT_GAIN = floatPreferencesKey("input_gain")
         val LAST_DIAL_FREQ_HZ = longPreferencesKey("last_dial_freq_hz")
         val POTA_MODE = booleanPreferencesKey("pota_mode")
@@ -164,6 +161,7 @@ class SettingsRepository(context: Context) {
         val CQ73_FILTER = booleanPreferencesKey("cq73_filter")
         val DECODE_VIEW_MODE = stringPreferencesKey("decode_view_mode")
         val TX_SLOT_PARITY = stringPreferencesKey("tx_slot_parity")
+        val USE_DARK_THEME = booleanPreferencesKey("use_dark_theme")
     }
 
     companion object {

@@ -31,9 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import net.ft8vc.app.OperateUiState
+import net.ft8vc.app.ui.WithTooltip
 import net.ft8vc.app.ui.theme.Ft8Amber
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.OperateTxOptions
@@ -116,12 +116,14 @@ fun OperateTxSelector(
                 modifier = Modifier.weight(1f),
             )
             if (state.operateTxEdited || customMode) {
-                TextButton(
-                    onClick = onResetMessage,
-                    enabled = !state.isTransmitting,
-                    modifier = Modifier.height(28.dp),
-                ) {
-                    Text("Auto", style = MaterialTheme.typography.labelSmall)
+                WithTooltip(text = "Reset TX message to the auto-sequenced value") {
+                    TextButton(
+                        onClick = onResetMessage,
+                        enabled = !state.isTransmitting,
+                        modifier = Modifier.height(28.dp),
+                    ) {
+                        Text("Auto", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
@@ -143,7 +145,7 @@ private fun CompactTxField(
         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
     }
     Surface(
-        modifier = modifier.heightIn(min = Ft8Compact.fieldMinHeight),
+        modifier = modifier.heightIn(min = Ft8Compact.tapTargetPrimary),
         shape = Ft8Compact.chipShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
         border = BorderStroke(1.dp, borderColor),
@@ -195,20 +197,18 @@ private fun TxStepMenuButton(
                 }
             },
             enabled = enabled,
-            modifier = Modifier.height(Ft8Compact.fieldMinHeight),
+            modifier = Modifier.height(Ft8Compact.tapTargetPrimary),
             contentPadding = Ft8Compact.buttonPadding,
         ) {
             Text(label, style = MaterialTheme.typography.labelSmall)
             if (qsoActive) {
-                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                Icon(Icons.Default.ArrowDropDown, contentDescription = "TX message options")
             }
         }
         if (qsoActive) {
-            val menuUp = (menuEntries.size.coerceAtMost(8) * 48 + 12).dp
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                offset = DpOffset(0.dp, -menuUp),
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
                     .heightIn(max = 260.dp),

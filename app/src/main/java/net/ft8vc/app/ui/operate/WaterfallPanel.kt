@@ -87,9 +87,9 @@ private fun FrequencyAxis(maxFreqHz: Int) {
         modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
     ) {
-        ticks.forEach {
+        ticks.forEachIndexed { index, hz ->
             Text(
-                "$it",
+                text = if (index == ticks.lastIndex) "$hz Hz" else "$hz",
                 style = MaterialTheme.typography.labelSmall,
                 fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

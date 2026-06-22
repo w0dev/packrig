@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import net.ft8vc.app.ui.WithTooltip
 import net.ft8vc.core.TxSlotParity
 
 /** Even/Odd TX period picker (:00/:30 vs :15/:45 UTC). */
@@ -28,18 +29,22 @@ fun TxSlotParityToggle(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TxParityChip(
-            label = "Even",
-            selected = selected == TxSlotParity.EVEN,
-            onClick = { onSelect(TxSlotParity.EVEN) },
-            enabled = enabled,
-        )
-        TxParityChip(
-            label = "Odd",
-            selected = selected == TxSlotParity.ODD,
-            onClick = { onSelect(TxSlotParity.ODD) },
-            enabled = enabled,
-        )
+        WithTooltip(text = "Transmit on :00/:30 (Even) UTC slots") {
+            TxParityChip(
+                label = "Even",
+                selected = selected == TxSlotParity.EVEN,
+                onClick = { onSelect(TxSlotParity.EVEN) },
+                enabled = enabled,
+            )
+        }
+        WithTooltip(text = "Transmit on :15/:45 (Odd) UTC slots") {
+            TxParityChip(
+                label = "Odd",
+                selected = selected == TxSlotParity.ODD,
+                onClick = { onSelect(TxSlotParity.ODD) },
+                enabled = enabled,
+            )
+        }
     }
 }
 

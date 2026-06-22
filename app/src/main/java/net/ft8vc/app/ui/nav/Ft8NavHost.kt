@@ -36,7 +36,7 @@ fun Ft8vcApp(
     val currentRoute = backStack?.destination?.route
     val operateState by operateVm.state.collectAsStateWithLifecycle()
 
-    Ft8vcTheme {
+    Ft8vcTheme(darkTheme = operateState.useDarkTheme) {
         Scaffold(
             bottomBar = {
                 NavigationBar {
@@ -73,7 +73,18 @@ fun Ft8vcApp(
                 modifier = Modifier.padding(padding),
             ) {
                 composable(Ft8Destination.Operate.route) {
-                    OperateScreen(vm = operateVm)
+                    OperateScreen(
+                        vm = operateVm,
+                        onNavigateToSettings = {
+                            navController.navigate(Ft8Destination.Settings.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                    )
                 }
                 composable(Ft8Destination.Spectrum.route) {
                     SpectrumScreen(vm = operateVm)

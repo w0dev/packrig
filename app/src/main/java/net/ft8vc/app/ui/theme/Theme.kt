@@ -1,6 +1,5 @@
 package net.ft8vc.app.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -25,15 +24,20 @@ private val LightColors = lightColorScheme(
     secondary = Ft8Blue,
     tertiary = Ft8Lime,
     error = Ft8Red,
+    background = BackgroundLight,
+    surface = SurfaceLight,
+    surfaceVariant = SurfaceVariantLight,
+    onPrimary = OnSurfaceLight,
+    onBackground = OnSurfaceLight,
+    onSurface = OnSurfaceLight,
+    onSurfaceVariant = OnSurfaceMutedLight,
 )
 
 @Composable
 fun Ft8vcTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    // The operating UI is dark-first (waterfall readability). Light scheme is a
-    // courtesy fallback for non-operating screens.
     val colorScheme = if (darkTheme) DarkColors else LightColors
     MaterialTheme(
         colorScheme = colorScheme,

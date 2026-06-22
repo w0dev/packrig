@@ -115,6 +115,16 @@ fun SettingsScreen(vm: OperateViewModel) {
                 }
             }
 
+            SettingsSection("Display") {
+                AutoToggleRow(
+                    title = "Dark mode",
+                    subtitle = "Use the dark color scheme across the entire app",
+                    checked = state.useDarkTheme,
+                    onCheckedChange = vm::setUseDarkTheme,
+                    enabled = true,
+                )
+            }
+
             SettingsSection("Audio") {
                 DevicePicker(state = state, onSelect = vm::selectDevice)
                 Text(
@@ -158,15 +168,11 @@ fun SettingsScreen(vm: OperateViewModel) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                Text(
-                    "USB: ${vm.usbDiagnostics()}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 PttPreferencePicker(
                     preference = state.pttPreference,
                     onSelect = vm::setPttPreference,
                 )
+                UsbDiagnosticsExpandable(diagnostics = vm.usbDiagnostics())
             }
 
             SettingsSection("TX") {
@@ -448,23 +454,62 @@ private fun PttPreferencePicker(
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
-            value = preference.name,
+            value = preference.displayName,
             onValueChange = {},
             readOnly = true,
             label = { Text("PTT preference") },
+            supportingText = { Text(preference.description) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             PttPreference.entries.forEach { pref ->
                 DropdownMenuItem(
-                    text = { Text(pref.name) },
+                    text = {
+                        Column {
+                            Text(pref.displayName, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                pref.description,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
                     onClick = {
                         expanded = false
                         onSelect(pref)
                     },
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun UsbDiagnosticsExpandable(diagnostics: String) {
+    var expanded by remember { mutableStateOf(false) }
+    Column {
+        TextButton(
+            onClick = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = if (expanded) "Hide USB diagnostics" else "Show USB diagnostics",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Text(text = if (expanded) "▴" else "▾", style = MaterialTheme.typography.labelMedium)
+        }
+        if (expanded) {
+            Text(
+                text = diagnostics,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

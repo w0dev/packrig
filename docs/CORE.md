@@ -78,6 +78,14 @@ Used for CQ pileups ([QsoMachine] calling CQ), answer-when-called ([QsoResume]),
 
 [DecodeDistance] extracts a 4-char grid from CQ/grid-reply messages and computes great-circle km from your grid for the Operate decode list (reports and RRR show no distance).
 
+### `StationProfileValidator`
+
+Validates the operator's callsign and Maidenhead grid before transmit. `isValidCall` accepts 3–10 characters of alphanumerics and `/` and requires at least one digit and one letter (so portable suffixes like `W0DEV/P` and placeholders like `TEST` work correctly). `isValidGrid` defers to [MaidenheadGrid] for 4-char grids and accepts a 6-char extension. `isComplete(call, grid)` is the single guard used in [OperateViewModel] to gate **Start CQ**, **Answer CQ**, and **Resume QSO**.
+
+### `DecodePrefix`
+
+Returns a single-glyph prefix for a decode message — `●` (CQ), `→` (directed to my call, idle), `▸` (active QSO partner) — so the row type is visible without relying on color. Used by the Operate decode list.
+
 ### `AbandonedPartners`
 
 In-session blocklist for incomplete QSO partners. After **Abandon** or a no-reply timeout, a callsign is excluded from auto-resume, auto-answer-CQ, and CQ pileup selection until the user taps to resume manually or clears the blocklist in Settings.

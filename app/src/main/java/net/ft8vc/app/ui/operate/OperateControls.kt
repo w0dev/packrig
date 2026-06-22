@@ -24,6 +24,7 @@ import net.ft8vc.app.OperateUiState
 import net.ft8vc.app.ui.theme.Ft8Amber
 import net.ft8vc.app.ui.theme.Ft8Green
 import net.ft8vc.app.ui.theme.Ft8Red
+import net.ft8vc.core.StationProfileValidator
 
 @Composable
 fun CompactLevelBar(levelDbfs: Float, clip: Boolean, modifier: Modifier = Modifier) {
@@ -79,7 +80,7 @@ fun OperateControls(
             enabled = !state.isTransmitting,
             modifier = Modifier
                 .weight(1f)
-                .height(Ft8Compact.buttonHeight),
+                .height(Ft8Compact.tapTargetPrimary),
             contentPadding = Ft8Compact.buttonPadding,
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (state.isOperating) Ft8Red else Ft8Green,
@@ -98,7 +99,7 @@ fun OperateControls(
                     onClick = onStopQso,
                     modifier = Modifier
                         .weight(1f)
-                        .height(Ft8Compact.buttonHeight),
+                        .height(Ft8Compact.tapTargetPrimary),
                     contentPadding = Ft8Compact.buttonPadding,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -111,19 +112,20 @@ fun OperateControls(
                     onClick = onAbandonQso,
                     modifier = Modifier
                         .weight(1f)
-                        .height(Ft8Compact.buttonHeight),
+                        .height(Ft8Compact.tapTargetPrimary),
                     contentPadding = Ft8Compact.buttonPadding,
                     colors = ButtonDefaults.buttonColors(containerColor = Ft8Red, contentColor = Color.Black),
                 ) {
                     Text("Abandon", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
                 }
             } else {
+                val stationComplete = StationProfileValidator.isComplete(state.myCall, state.myGrid)
                 Button(
                     onClick = onStartCq,
-                    enabled = !state.isTransmitting,
+                    enabled = !state.isTransmitting && stationComplete,
                     modifier = Modifier
                         .weight(1f)
-                        .height(Ft8Compact.buttonHeight),
+                        .height(Ft8Compact.tapTargetPrimary),
                     contentPadding = Ft8Compact.buttonPadding,
                     colors = ButtonDefaults.buttonColors(containerColor = Ft8Green, contentColor = Color.Black),
                 ) {

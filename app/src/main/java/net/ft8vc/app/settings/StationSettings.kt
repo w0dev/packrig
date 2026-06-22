@@ -5,16 +5,16 @@ import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.TxSlotParity
 
 /** PTT keying strategy for the Digirig serial port. */
-enum class PttPreference {
-    AUTO,
-    CAT,
-    RTS,
+enum class PttPreference(val displayName: String, val description: String) {
+    AUTO("Auto", "CAT if the rig answers, RTS fallback otherwise"),
+    CAT("CAT (TX1/TX0)", "Software keying over serial — rig must respond to CAT"),
+    RTS("RTS only", "Hardware keying via the Digirig serial RTS line"),
 }
 
 /** Persisted station and operating preferences. */
 data class StationSettings(
-    val myCall: String = "TEST",
-    val myGrid: String = "FN31",
+    val myCall: String = "",
+    val myGrid: String = "",
     val txToneHz: Int = 1000,
     val selectedAudioDeviceId: Int? = null,
     val pttPreference: PttPreference = PttPreference.AUTO,
@@ -26,7 +26,6 @@ data class StationSettings(
     val answerPolicy: AnswerPolicy = AnswerPolicy.FIRST,
     /** 0 = no limit; abandon QSO after this many TX cycles without decode progress. */
     val maxUnansweredTxCycles: Int = 5,
-    val waterfallBrightness: Float = 0.6f,
     /** RX PCM scale 0.1–1.0; attenuate when the level meter clips. */
     val inputGain: Float = 1f,
     val lastDialFreqHz: Long? = null,
@@ -36,4 +35,6 @@ data class StationSettings(
     val decodeViewMode: DecodeViewMode = DecodeViewMode.OPERATE,
     /** Transmit on even (:00/:30) or odd (:15/:45) UTC slots when calling CQ. */
     val txSlotParity: TxSlotParity = TxSlotParity.EVEN,
+    /** Render the entire UI in the dark color scheme. Defaults to true (field-first). */
+    val useDarkTheme: Boolean = true,
 )
