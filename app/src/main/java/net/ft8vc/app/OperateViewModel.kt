@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import net.ft8vc.app.controllers.DecodeController
+import net.ft8vc.app.controllers.QsoSessionController
 import net.ft8vc.app.controllers.RigSession
 import net.ft8vc.app.controllers.SettingsBridge
 import net.ft8vc.app.ui.Waterfall
@@ -13,26 +14,13 @@ import net.ft8vc.audio.AudioInputs
 import net.ft8vc.audio.AudioOutputs
 import net.ft8vc.audio.UsbAudioCapture
 import net.ft8vc.audio.UsbAudioPlayback
-import net.ft8vc.core.ActivationProfile
-import net.ft8vc.core.AbandonedPartners
 import net.ft8vc.core.AnswerPolicy
-import net.ft8vc.core.AnswerSelector
 import net.ft8vc.core.AppInfo
 import net.ft8vc.core.DecodeViewMode
-import net.ft8vc.core.QsoDecode
-import net.ft8vc.core.QsoForm
-import net.ft8vc.core.QsoFormLogic
-import net.ft8vc.core.QsoMachine
-import net.ft8vc.core.QsoMessages
-import net.ft8vc.core.QsoResume
-import net.ft8vc.core.QsoRx
-import net.ft8vc.core.QsoState
+import net.ft8vc.core.QsoSnapshot
 import net.ft8vc.core.QsoTxStep
 import net.ft8vc.core.SlotTiming
-import net.ft8vc.core.StationProfileValidator
 import net.ft8vc.core.TxSlotParity
-import net.ft8vc.core.TxSlotSelection
-import net.ft8vc.core.QsoRole
 import net.ft8vc.data.Logbook
 import net.ft8vc.data.RoomLogbook
 import net.ft8vc.data.db.Ft8vcDatabase
@@ -42,8 +30,6 @@ import net.ft8vc.ft8native.Ft8Native
 import net.ft8vc.rig.Ft891Cat
 import net.ft8vc.rig.RigController
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -51,12 +37,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
+import kotlinx.coroutines.withContext
 import java.util.Locale
-import java.util.TimeZone
 
 /**
  * Single orchestrator for the Operate / Spectrum / Log / Settings screens.
@@ -109,25 +92,17 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         decodeController.spectrumSink = it::addColumn
     }
     val maxAudioFreqHz: Int = decodeController.maxAudioFreqHz
-    private val utcClockFormat = SimpleDateFormat("HH:mm:ss", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
+
+    private val qsoSession = QsoSessionController(
+        scope = viewModelScope,
+        transmitFn = ::transmitForQsoLoop,
+        onQsoComplete = ::onQsoComplete,
+        notifyFn = ::notify,
+        resumeCaptureIfNeeded = ::resumeCaptureIfNeededForQso,
+    )
 
     private var txThread: Thread? = null
-    private var slotClockJob: Job? = null
-    private var qsoTxParity: Int? = null
-
-    private val qsoLock = Any()
-    private var qso: QsoMachine? = null
-    @Volatile private var qsoRunning = false
-    private var qsoThread: Thread? = null
-    private var lastLoggedKey: String? = null
-
     private var lastDialFreqHz: Long? = null
-    private val abandonedPartners = AbandonedPartners()
-
-    /** When false, [operateTxText] tracks auto-composed messages from the QSO machine. */
-    private var operateTxUserEdited = false
 
     init {
         waterfall.floorOffsetDb = WATERFALL_FLOOR_OFFSET_DB_DEFAULT
@@ -160,11 +135,19 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 decodeController.setInputGain(s.inputGain)
                 decodeController.setStationContext(s.myCall, s.myGrid)
+                qsoSession.updateStationProfile(s.myCall, s.myGrid, s.potaModeEnabled, s.potaParkRef)
+                qsoSession.setTxEnabled(s.txEnabledInSettings)
+                qsoSession.setAutoSeqEnabled(s.autoSeqEnabled)
+                qsoSession.setAnswerWhenCalledEnabled(s.answerWhenCalledEnabled)
+                qsoSession.setAutoAnswerCqEnabled(s.autoAnswerCqEnabled)
+                qsoSession.setAnswerPolicy(s.answerPolicy)
+                qsoSession.setMaxUnansweredTxCycles(s.maxUnansweredTxCycles)
+                qsoSession.setDefaultTxSlotParity(s.txSlotParity)
             }
         }
         viewModelScope.launch {
             settingsBridge.stationIdentityChanged.collect {
-                refreshOperateTxFromStation()
+                qsoSession.refreshOperateTxFromStation()
             }
         }
         viewModelScope.launch {
@@ -194,8 +177,30 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
+            qsoSession.slice.collect { q ->
+                _state.update {
+                    it.copy(
+                        qsoActive = q.qsoActive,
+                        qsoState = q.qsoState,
+                        qsoDx = q.qsoDx,
+                        operateTxText = q.operateTxText,
+                        operateTxStep = q.operateTxStep,
+                        operateTxEdited = q.operateTxEdited,
+                        operateTxForm = q.operateTxForm,
+                        nextTxMessage = q.nextTxMessage,
+                        activeTxSlotParity = q.activeTxSlotParity,
+                        slotIndex = q.slotIndex,
+                        secondsToNextSlot = q.secondsToNextSlot,
+                        isTxSlot = q.isTxSlot,
+                        secondsUntilOurTxSlot = q.secondsUntilOurTxSlot,
+                        utcClock = q.utcClock,
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
             decodeController.decodesOut.collect { batch ->
-                onDecodeBatch(batch.decodes, batch.slotParity)
+                qsoSession.onDecodeBatch(batch.decodes, batch.slotParity)
             }
         }
         viewModelScope.launch {
@@ -204,33 +209,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         refreshDevices()
-        startSlotClock()
-    }
-
-    private fun startSlotClock() {
-        slotClockJob?.cancel()
-        slotClockJob = viewModelScope.launch {
-            while (isActive) {
-                val now = System.currentTimeMillis()
-                val parity = qsoTxParity ?: _state.value.txSlotParity.bit
-                val isTx = SlotTiming.slotIndexInMinute(now) % 2 == parity
-                _state.update {
-                    it.copy(
-                        slotIndex = SlotTiming.slotIndexInMinute(now),
-                        secondsToNextSlot = SlotTiming.secondsUntilNextSlot(now),
-                        secondsUntilOurTxSlot = if (isTx) {
-                            SlotTiming.secondsUntilNextSlot(now)
-                        } else {
-                            ((TxSlotSelection.millisUntilNextTxSlot(now, parity) + 999) / 1000).toInt()
-                        },
-                        utcClock = utcClockFormat.format(Date(now)),
-                        isTxSlot = isTx,
-                        activeTxSlotParity = qsoTxParity?.let(TxSlotParity::fromBit),
-                    )
-                }
-                delay(250)
-            }
-        }
     }
 
     fun refreshDevices() {
@@ -282,10 +260,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settingsRepo.setMaxUnansweredTxCycles(cycles) }
     }
 
-    fun clearAbandonedPartners() {
-        abandonedPartners.clear()
-        notify("Cleared abandoned-station blocklist")
-    }
+    fun clearAbandonedPartners() = qsoSession.clearAbandonedPartners()
 
     fun setCq73OnlyFilter(enabled: Boolean) {
         _state.update { it.copy(cq73OnlyFilter = enabled) }
@@ -306,27 +281,22 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun setPotaModeEnabled(enabled: Boolean) {
         if (_state.value.potaModeEnabled != enabled) {
             _state.update { it.copy(potaModeEnabled = enabled) }
-            refreshOperateTxFromStation()
+            pushStationProfileToQsoSession()
+            qsoSession.refreshOperateTxFromStation()
         }
         viewModelScope.launch { settingsRepo.setPotaModeEnabled(enabled) }
     }
 
     fun setPotaParkRef(ref: String) {
-        _state.update { it.copy(potaParkRef = ref.trim().uppercase(Locale.US)) }
+        val normalized = ref.trim().uppercase(Locale.US)
+        _state.update { it.copy(potaParkRef = normalized) }
+        pushStationProfileToQsoSession()
         viewModelScope.launch { settingsRepo.setPotaParkRef(ref) }
     }
 
     fun setPttPreference(pref: PttPreference) {
         _state.update { it.copy(pttPreference = pref) }
         viewModelScope.launch { settingsRepo.setPttPreference(pref) }
-    }
-
-    private fun effectiveCqModifier(): String? =
-        ActivationProfile.cqModifier(_state.value.potaModeEnabled)
-
-    private fun newQsoMachine(): QsoMachine {
-        val s = _state.value
-        return QsoMachine(s.myCall, s.myGrid, effectiveCqModifier())
     }
 
     fun acknowledgeLicense() {
@@ -337,7 +307,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val normalized = call.trim().uppercase(Locale.US)
         val changed = _state.value.myCall != normalized
         _state.update { it.copy(myCall = normalized) }
-        if (changed) refreshOperateTxFromStation()
+        if (changed) {
+            pushStationProfileToQsoSession()
+            qsoSession.refreshOperateTxFromStation()
+        }
         viewModelScope.launch { settingsRepo.setMyCall(call) }
     }
 
@@ -345,8 +318,16 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val normalized = grid.trim().uppercase(Locale.US)
         val changed = _state.value.myGrid != normalized
         _state.update { it.copy(myGrid = normalized) }
-        if (changed) refreshOperateTxFromStation()
+        if (changed) {
+            pushStationProfileToQsoSession()
+            qsoSession.refreshOperateTxFromStation()
+        }
         viewModelScope.launch { settingsRepo.setMyGrid(grid) }
+    }
+
+    private fun pushStationProfileToQsoSession() {
+        val s = _state.value
+        qsoSession.updateStationProfile(s.myCall, s.myGrid, s.potaModeEnabled, s.potaParkRef)
     }
 
     fun setTxMessage(message: String) {
@@ -390,15 +371,15 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         _state.update {
             it.copy(isOperating = true, isCapturing = true, operateStatus = "Operating")
         }
-        operateTxUserEdited = false
-        syncOperateTxText(defaultOperateTxText())
-        publishQsoState()
+        qsoSession.setOperating(true)
+        qsoSession.refreshOperateTxFromStation()
     }
 
     fun stopOperating() {
         haltTxInternal(announce = false)
         stopCapture()
         _state.update { it.copy(isOperating = false, operateStatus = null) }
+        qsoSession.setOperating(false)
     }
 
     /** Immediately stop RF output: release PTT, stop audio, cancel pending and active QSO TX. */
@@ -411,9 +392,12 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         playback.stop()
         rigSession.releasePttBlocking()
         cancelTx()
-        stopQso()
+        qsoSession.stopQso()
         _state.update {
-            it.copy(txStatus = if (wasTransmitting) "TX halted" else it.txStatus)
+            it.copy(
+                isTransmitting = false,
+                txStatus = if (wasTransmitting) "TX halted" else it.txStatus,
+            )
         }
         if (announce) notify("Transmit halted")
     }
@@ -498,62 +482,42 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         setRigFrequency(hz)
     }
 
+    // ── UI actions: thin delegators to QsoSessionController ─────────────
+
     fun startCq() {
-        val s = _state.value
-        if (!hasValidStationProfile(s)) return
-        if (s.potaModeEnabled && !ActivationProfile.isValidParkRef(s.potaParkRef)) {
-            notify("Set a valid POTA park reference in Settings (e.g. US-3315)", SnackbarEvent.Tag.ERROR)
-            return
-        }
-        if (!s.txEnabled) {
-            notify("Enable TX in Settings first", SnackbarEvent.Tag.ERROR)
-            return
-        }
-        if (!s.isOperating) startOperating()
-        if (!operateTxUserEdited) {
-            syncOperateTxText(defaultOperateTxText())
-        }
-        val machine = newQsoMachine()
-        machine.startCq()
-        applyOperateTxOverride(machine)
-        startQsoLoop(machine)
+        if (!_state.value.isOperating) startOperating()
+        qsoSession.startCq()
     }
 
-    fun setOperateTxText(text: String) {
-        operateTxUserEdited = true
-        _state.update {
-            it.copy(operateTxText = text, operateTxStep = QsoTxStep.Custom, operateTxEdited = true)
-        }
-        synchronized(qsoLock) {
-            qso?.setCustomMessage(text.trim().takeIf { it.isNotEmpty() })
-        }
+    fun answerCq(row: DecodeRow) {
+        if (!_state.value.isOperating) startOperating()
+        qsoSession.answerCq(row)
     }
 
-    fun selectOperateTxStep(step: QsoTxStep) {
-        if (step == QsoTxStep.Custom) {
-            operateTxUserEdited = true
-            _state.update { it.copy(operateTxStep = QsoTxStep.Custom, operateTxEdited = true) }
-            return
-        }
-        val composed = composeOperateTxForStep(step) ?: return
-        operateTxUserEdited = true
-        _state.update {
-            it.copy(
-                operateTxStep = step,
-                operateTxText = composed,
-                operateTxEdited = true,
-            )
-        }
-        synchronized(qsoLock) {
-            qso?.setCustomMessage(composed)
-        }
+    fun resumeFromDecode(row: DecodeRow) {
+        if (!_state.value.isOperating) startOperating()
+        qsoSession.resumeFromDecode(row)
     }
 
-    fun resetOperateTxText() {
-        operateTxUserEdited = false
-        synchronized(qsoLock) { qso?.clearCustomMessage() }
-        syncOperateTxText(autoOperateTxText())
+    fun stopQso() {
+        playback.stop()
+        rigSession.releasePttBlocking()
+        cancelTx()
+        qsoSession.stopQso()
+        _state.update { it.copy(isTransmitting = false) }
     }
+
+    fun abandonQso() {
+        playback.stop()
+        rigSession.releasePttBlocking()
+        cancelTx()
+        qsoSession.abandonQso()
+        _state.update { it.copy(isTransmitting = false) }
+    }
+
+    fun setOperateTxText(text: String) = qsoSession.setOperateTxText(text)
+    fun selectOperateTxStep(step: QsoTxStep) = qsoSession.selectOperateTxStep(step)
+    fun resetOperateTxText() = qsoSession.resetOperateTxText()
 
     fun transmitOperateTxOnce() {
         if (!_state.value.txEnabled || _state.value.isTransmitting) return
@@ -577,247 +541,31 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         }, "ft8vc-tx-operate").also { it.start() }
     }
 
-    private fun defaultOperateTxText(): String {
-        val s = _state.value
-        return QsoMessages.cq(s.myCall, s.myGrid, effectiveCqModifier())
-    }
+    // ── Callbacks injected into QsoSessionController ────────────────────
 
-    private fun autoOperateTxText(): String? =
-        synchronized(qsoLock) { qso?.txMessage() } ?: defaultOperateTxText()
-
-    private fun composeOperateTxForStep(step: QsoTxStep): String? {
-        val s = _state.value
-        return QsoFormLogic.compose(
-            s.myCall,
-            s.myGrid,
-            effectiveCqModifier(),
-            s.operateTxForm.copy(txStep = step),
-        )
-    }
-
-    private fun currentAutoTxStep(): QsoTxStep =
-        synchronized(qsoLock) {
-            qso?.let { QsoFormLogic.stepFromState(it.state) }
-        } ?: QsoTxStep.Cq
-
-    private fun currentOperateTxForm(): QsoForm =
-        synchronized(qsoLock) {
-            qso?.let { QsoFormLogic.fromMachine(it) }
-        } ?: QsoForm()
-
-    private fun applyOperateTxOverride(machine: QsoMachine) {
-        if (!operateTxUserEdited) return
-        val text = _state.value.operateTxText.trim()
-        if (text.isNotEmpty()) {
-            machine.setCustomMessage(text)
-        }
-    }
-
-    private fun refreshOperateTxFromStation() {
-        if (operateTxUserEdited) return
-        syncOperateTxText(if (qsoRunning) autoOperateTxText() else defaultOperateTxText())
-    }
-
-    private fun syncOperateTxText(auto: String?, step: QsoTxStep = currentAutoTxStep()) {
-        val message = auto ?: defaultOperateTxText()
-        if (!operateTxUserEdited) {
-            _state.update {
-                it.copy(
-                    operateTxText = message,
-                    operateTxStep = step,
-                    operateTxEdited = false,
-                )
-            }
-        }
-    }
-
-    /** Tap a decode directed at us to resume the QSO sequence (e.g. after Stop QSO). */
-    fun resumeFromDecode(row: DecodeRow) {
-        val s = _state.value
-        if (!hasValidStationProfile(s)) return
-        if (!s.txEnabled) {
-            notify("Enable TX in Settings first", SnackbarEvent.Tag.ERROR)
-            return
-        }
-        val opp = QsoResume.opportunityFromDecode(s.myCall, QsoDecode(row.message, row.snr)) ?: run {
-            notify("Not a directed message to ${s.myCall}", SnackbarEvent.Tag.ERROR)
-            return
-        }
-        if (!s.isOperating) startOperating()
-        abandonedPartners.allowResume(opp.dxCall)
-        resumeFromOpportunity(opp, "Resuming QSO with ${opp.dxCall}", row.slotParity)
-    }
-
-    fun answerCq(row: DecodeRow) {
-        val s = _state.value
-        if (!hasValidStationProfile(s)) return
-        if (!s.txEnabled) {
-            notify("Enable TX in Settings first", SnackbarEvent.Tag.ERROR)
-            return
-        }
-        val cq = QsoMessages.parse(row.message) as? QsoRx.Cq ?: run {
-            notify("Not a CQ: ${row.message}", SnackbarEvent.Tag.ERROR)
-            return
-        }
-        if (!s.isOperating) startOperating()
-        notify("Answering ${cq.call}")
-        val machine = newQsoMachine()
-        machine.answerCq(cq.call, cq.grid, row.snr)
-        startQsoLoop(machine, hearingSlotParity = row.slotParity)
-    }
-
-    fun stopQso() {
-        playback.stop()
-        rigSession.releasePttBlocking()
-        cancelTx()
-        qsoRunning = false
-        qsoThread?.interrupt()
-        qsoThread = null
-        qsoTxParity = null
-        synchronized(qsoLock) { qso = null }
-        operateTxUserEdited = false
-        _state.update {
-            it.copy(
-                isTransmitting = false,
-                qsoActive = false,
-                qsoState = null,
-                qsoDx = null,
-                nextTxMessage = null,
-                operateTxText = defaultOperateTxText(),
-                operateTxStep = QsoTxStep.Cq,
-                operateTxEdited = false,
-                operateTxForm = QsoForm(),
-                activeTxSlotParity = null,
-            )
-        }
-        if (_state.value.isOperating && !_state.value.isCapturing) {
-            resumeCapture()
-        }
-    }
-
-    /** Stop and block auto-resume to this partner for the rest of the operating session. */
-    fun abandonQso() {
-        val dx = synchronized(qsoLock) { qso?.dxCall }
-        if (dx != null) abandonedPartners.abandon(dx)
-        stopQso()
-        notify(dx?.let { call -> "Abandoned QSO with $call" } ?: "QSO stopped")
-    }
-
-    private fun excludedDx(): Set<String> = abandonedPartners.snapshot()
-
-    private fun hasValidStationProfile(s: OperateUiState): Boolean {
-        if (!StationProfileValidator.isValidCall(s.myCall)) {
-            notify(
-                "Set a valid callsign in Settings before transmitting",
-                SnackbarEvent.Tag.ERROR,
-            )
-            return false
-        }
-        if (!StationProfileValidator.isValidGrid(s.myGrid)) {
-            notify(
-                "Set a valid 4- or 6-char grid in Settings before transmitting",
-                SnackbarEvent.Tag.ERROR,
-            )
-            return false
-        }
-        return true
-    }
-
-    private fun abandonQsoForNoReply() {
-        val dx = synchronized(qsoLock) { qso?.dxCall }
-        if (dx != null) abandonedPartners.abandon(dx)
-        stopQso()
-        notify(
-            when {
-                dx != null -> "No reply from $dx — QSO abandoned"
-                else -> "No answers — stopped calling CQ"
-            },
-        )
-    }
-
-    private fun startQsoLoop(machine: QsoMachine, hearingSlotParity: Int? = null) {
-        stopQso()
-        synchronized(qsoLock) { qso = machine }
-        qsoRunning = true
-        qsoTxParity = resolveTxParity(machine, hearingSlotParity)
-        publishQsoState()
-
-        qsoThread = Thread({
+    private suspend fun transmitForQsoLoop(message: String): Boolean {
+        return withContext(Dispatchers.IO) {
             try {
-                val txParity = qsoTxParity ?: return@Thread
-                while (qsoRunning) {
-                    val wait = SlotTiming.millisUntilNextSlot(System.currentTimeMillis())
-                    if (wait > 0) Thread.sleep(wait)
-                    if (!qsoRunning) break
-
-                    val slotStart = SlotTiming.slotStart(System.currentTimeMillis())
-                    val ourTx = SlotTiming.slotIndexInMinute(slotStart) % 2 == txParity
-                    if (!ourTx) continue
-
-                    Thread.sleep(OperateUiState.QSO_TX_GRACE_MS)
-                    if (!qsoRunning) break
-
-                    val message = synchronized(qsoLock) { qso?.txMessage() }
-                    if (message == null) break
-
-                    transmitMessageNow(message)
-                    val noReplyLimitHit = synchronized(qsoLock) {
-                        qso?.recordTransmitted()
-                        qso?.noReplyLimitExceeded(_state.value.maxUnansweredTxCycles) == true
-                    }
-                    publishQsoState()
-
-                    if (noReplyLimitHit) {
-                        abandonQsoForNoReply()
-                        break
-                    }
-
-                    val complete = synchronized(qsoLock) { qso?.state == QsoState.Complete }
-                    if (complete) {
-                        handleQsoComplete()
-                        break
-                    }
-                }
-            } catch (_: InterruptedException) {
+                transmitMessageNow(message)
+                true
             } catch (t: Throwable) {
-                notify(t.message ?: "QSO failed", SnackbarEvent.Tag.ERROR)
-            } finally {
-                qsoRunning = false
-                qsoTxParity = null
-                if (!Thread.currentThread().isInterrupted) {
-                    if (_state.value.isOperating && !_state.value.isCapturing && !_state.value.isTransmitting) {
-                        beginCapture()
-                    }
-                    publishQsoState()
-                }
+                notify(t.message ?: "Transmit failed", SnackbarEvent.Tag.ERROR)
+                false
             }
-        }, "ft8vc-qso").also { it.start() }
-    }
-
-    private fun resolveTxParity(machine: QsoMachine, hearingSlotParity: Int?): Int {
-        if (hearingSlotParity != null && machine.role == QsoRole.Answerer) {
-            return TxSlotSelection.answerParity(hearingSlotParity)
         }
-        return _state.value.txSlotParity.bit
     }
 
-    private fun handleQsoComplete() {
-        val snapshot = synchronized(qsoLock) {
-            qso?.snapshot(System.currentTimeMillis())
-        } ?: return
-        val key = "${snapshot.dxCall}:${snapshot.completedAtEpochMs}"
-        if (key == lastLoggedKey) return
-        lastLoggedKey = key
-
+    private suspend fun onQsoComplete(snapshot: QsoSnapshot) {
         val freq = _state.value.rigFreqHz
         val band = bandLabelForFreq(freq)
         val contact = QsoContact.fromSnapshot(snapshot, freq, band)
+        withContext(Dispatchers.IO) { logbook.log(contact) }
+    }
 
-        viewModelScope.launch(Dispatchers.IO) {
-            logbook.log(contact)
+    private fun resumeCaptureIfNeededForQso() {
+        if (_state.value.isOperating && !_state.value.isCapturing && !_state.value.isTransmitting) {
+            beginCapture()
         }
-
-        notify("QSO complete with ${snapshot.dxCall} — logged", SnackbarEvent.Tag.QSO_COMPLETE)
     }
 
     private fun transmitMessageNow(message: String) {
@@ -840,53 +588,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 txStatus = if (completed) "Sent: $message" else "TX halted",
             )
         }
-        if (resume && (qsoRunning || _state.value.isOperating)) resumeCapture()
-    }
-
-    private fun publishQsoState() {
-        val machineSnapshot = synchronized(qsoLock) {
-            qso?.let { m -> Triple(m.state, m.dxCall, m.isActive) to QsoFormLogic.fromMachine(m) }
-        }
-        if (machineSnapshot == null) {
-            val nextMsg = defaultOperateTxText()
-            syncOperateTxText(nextMsg, QsoTxStep.Cq)
-            _state.update {
-                it.copy(
-                    qsoActive = false,
-                    qsoState = null,
-                    qsoDx = null,
-                    nextTxMessage = nextMsg,
-                    operateTxForm = QsoForm(),
-                )
-            }
-            return
-        }
-        val (triple, form) = machineSnapshot
-        val (st, dx, active) = triple
-        val autoStep = QsoFormLogic.stepFromState(st)
-        val nextMsg = synchronized(qsoLock) { qso?.txMessage() }
-        syncOperateTxText(nextMsg, autoStep)
-        _state.update {
-            it.copy(
-                qsoActive = active,
-                qsoState = qsoStateLabel(st, dx),
-                qsoDx = dx,
-                nextTxMessage = nextMsg,
-                operateTxEdited = operateTxUserEdited,
-                operateTxForm = form,
-            )
-        }
-    }
-
-    private fun qsoStateLabel(state: QsoState, dx: String?): String = when (state) {
-        QsoState.Idle -> "${_state.value.myCall} ${_state.value.myGrid}"
-        QsoState.CallingCq -> if (effectiveCqModifier() != null) "Calling CQ POTA…" else "Calling CQ…"
-        QsoState.Answering -> "Answering ${dx ?: "?"}…"
-        QsoState.SendingReport -> "QSO ${dx ?: "?"} — Report"
-        QsoState.SendingRReport -> "QSO ${dx ?: "?"} — R-report"
-        QsoState.SendingRoger -> "QSO ${dx ?: "?"} — RRR"
-        QsoState.SendingSeventyThree -> "QSO ${dx ?: "?"} — 73"
-        QsoState.Complete -> "QSO complete${dx?.let { " with $it" } ?: ""}"
+        if (resume && (_state.value.qsoActive || _state.value.isOperating)) resumeCapture()
     }
 
     fun transmitNextSlot() {
@@ -963,70 +665,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(isCapturing = false) }
     }
 
-    private fun onDecodeBatch(slotDecodes: List<QsoDecode>, slotParity: Int) {
-        val s = _state.value
-        if (qsoRunning && s.autoSeqEnabled) {
-            val excluded = excludedDx()
-            val advanced = synchronized(qsoLock) {
-                qso?.onDecodes(slotDecodes, s.answerPolicy, excluded) ?: false
-            }
-            if (advanced) {
-                operateTxUserEdited = false
-                publishQsoState()
-                val complete = synchronized(qsoLock) { qso?.state == QsoState.Complete }
-                if (complete) handleQsoComplete()
-            }
-        } else if (!qsoRunning && s.isOperating && s.txEnabled && s.myCall.isNotBlank()) {
-            if (s.answerWhenCalledEnabled) {
-                tryAnswerWhenCalled(slotDecodes, slotParity)
-            }
-            if (!qsoRunning && s.autoAnswerCqEnabled) {
-                tryAutoAnswerCq(slotDecodes, slotParity)
-            }
-        }
-    }
-
-    private fun tryAnswerWhenCalled(slotDecodes: List<QsoDecode>, hearingSlotParity: Int) {
-        if (qsoRunning || slotDecodes.isEmpty()) return
-        val s = _state.value
-        val opp = QsoResume.findOpportunity(
-            s.myCall,
-            s.myGrid,
-            slotDecodes,
-            s.answerPolicy,
-            excludedDx(),
-        ) ?: return
-        resumeFromOpportunity(opp, "Answering ${opp.dxCall}", hearingSlotParity)
-    }
-
-    private fun tryAutoAnswerCq(slotDecodes: List<QsoDecode>, hearingSlotParity: Int) {
-        if (qsoRunning || slotDecodes.isEmpty()) return
-        val s = _state.value
-        val picked = AnswerSelector.selectCq(
-            s.myCall,
-            s.myGrid,
-            slotDecodes,
-            s.answerPolicy,
-            excludedDx(),
-        ) ?: return
-        val cq = QsoMessages.parse(picked.message) as? QsoRx.Cq ?: return
-        if (!s.isOperating) startOperating()
-        notify("Answering ${cq.call}")
-        val machine = newQsoMachine()
-        machine.answerCq(cq.call, cq.grid, picked.snr)
-        startQsoLoop(machine, hearingSlotParity = hearingSlotParity)
-    }
-
-    private fun resumeFromOpportunity(opp: QsoResume.Opportunity, snackbar: String, hearingSlotParity: Int) {
-        val machine = newQsoMachine()
-        QsoResume.apply(machine, opp)
-        notify(snackbar)
-        startQsoLoop(
-            machine,
-            hearingSlotParity = if (machine.role == QsoRole.Answerer) hearingSlotParity else null,
-        )
-    }
-
     fun clearDecodes() {
         decodeController.clearDecodes()
     }
@@ -1035,10 +673,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         playback.stop()
         rigSession.releasePttBlocking()
         stopOperating()
-        slotClockJob?.cancel()
         capture.stop()
         rig.close()
         decodeController.close()
+        qsoSession.close()
         rigSession.close()
         super.onCleared()
     }
