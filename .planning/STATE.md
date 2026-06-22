@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+current_phase: 0
+current_phase_name: Foundations
+status: executing
+last_updated: "2026-06-22T05:02:59.742Z"
+progress:
+  total_phases: 8
+  completed_phases: 0
+  total_plans: 5
+  completed_plans: 0
+  percent: 0
+---
+
 # State: FT8VC — v1.x Code Health Milestone
 
 **Last Updated:** 2026-06-21 (initial creation by roadmapper)
@@ -6,15 +22,15 @@
 
 **Core Value:** The rig still keys, decodes still arrive, and QSOs still complete on a real FT-891 + Digirig in the field — every change in this milestone must preserve that.
 
-**Current Focus:** Refactor the monolithic `OperateViewModel` (1,135 LOC) into 5 focused controllers (SettingsBridge, RigSession, DecodeController, QsoSessionController, TxOrchestrator); migrate from Executors + manual threads + `Thread.sleep` to structured coroutines on dedicated dispatchers; close the worst RF-safety, reliability, and hygiene gaps from the 2026-06-21 CONCERNS audit; bring every extracted controller under test. No feature surface expansion.
+**Current Focus:** Phase 0 — Foundations
 
 **Milestone:** v1.x Code Health (rolling on `unstable`; promotion to stable `main` happens only when the milestone is verified end-to-end on the reference FT-891 + Digirig rig).
 
 ## Current Position
 
-**Phase:** — (no phase started yet)
-**Plan:** — (no plan started yet)
-**Status:** Roadmap created; awaiting `/gsd-plan-phase 0` to begin Phase 0 (Foundations).
+**Phase:** 0 (Foundations) — EXECUTING
+**Plan:** 1 of 5
+**Status:** Executing Phase 0
 
 **Progress:** [░░░░░░░░] 0/8 phases complete
 
@@ -63,6 +79,7 @@ None.
 **Resume point:** Begin Phase 0 planning via `/gsd-plan-phase 0`.
 
 **Files of record:**
+
 - `.planning/PROJECT.md` — milestone scope, core value, constraints, key decisions
 - `.planning/REQUIREMENTS.md` — 56 v1 requirements with phase traceability
 - `.planning/ROADMAP.md` — 8 phases with goals and success criteria
