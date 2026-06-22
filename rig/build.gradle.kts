@@ -26,4 +26,7 @@ kotlin {
 dependencies {
     implementation(project(":core"))
     testImplementation(libs.junit)
+    testImplementation(libs.turbine)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
