@@ -1,0 +1,12 @@
+// Canonical golden-trace fixture — exercises one full answerer QSO cycle.
+// myCall = W0DEV, dxCall = K1ABC, dxGrid = FN42; dummy-load TX assumed.
+// Phase 0 smoke test (FOUND-06) — proves the harness works end-to-end before the real-rig baseline (FOUND-07) arrives.
+{"ts_ms": 0, "kind": "TRACE_START", "payload": {"my_call": "W0DEV", "my_grid": "EM26"}}
+{"ts_ms": 15000, "kind": "DECODE_BATCH", "payload": {"slot_start_ms": "15000"}, "decodes": [{"message": "CQ K1ABC FN42", "snr": -8, "dt": 0.5, "freq_hz": 1500.0, "score": 120}]}
+{"ts_ms": 15010, "kind": "UI_ACTION", "payload": {"action": "answer_cq", "dx_call": "K1ABC", "dx_grid": "FN42", "snr": "-8"}}
+{"ts_ms": 30000, "kind": "TX_SLOT", "payload": {"slot_index": "1"}}
+{"ts_ms": 45000, "kind": "DECODE_BATCH", "payload": {"slot_start_ms": "45000"}, "decodes": [{"message": "W0DEV K1ABC -09", "snr": -9, "dt": 0.4, "freq_hz": 1500.0, "score": 110}]}
+{"ts_ms": 60000, "kind": "TX_SLOT", "payload": {"slot_index": "2"}}
+{"ts_ms": 75000, "kind": "DECODE_BATCH", "payload": {"slot_start_ms": "75000"}, "decodes": [{"message": "W0DEV K1ABC RR73", "snr": -7, "dt": 0.5, "freq_hz": 1500.0, "score": 125}]}
+{"ts_ms": 90000, "kind": "TX_SLOT", "payload": {"slot_index": "3"}}
+{"ts_ms": 90100, "kind": "TRACE_END", "payload": {}}
