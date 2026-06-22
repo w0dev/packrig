@@ -23,7 +23,7 @@ These three requirements are **not** owned by a single phase. They are the non-n
 - [x] **Phase 0: Foundations** — Test seams, fakes, golden-trace harness, baselines, and promotion checklist — nothing else ships without these
 - [x] **Phase 1: Extract SettingsBridge** — Lowest-coupling controller first; proves the slice/combine pattern
 - [x] **Phase 2: Extract RigSession** — CAT polling, dial preset, busy flag, PTT routing on `catDispatcher`
-- [ ] **Phase 3: Extract DecodeController** — RX path, slot collector, JNI decode on `decodeDispatcher`; ImmutableList + stable keys prep
+- [x] **Phase 3: Extract DecodeController** — RX path, slot collector, JNI decode on `decodeDispatcher`; ImmutableList + stable keys prep
 - [ ] **Phase 4: Extract QsoSessionController + Remove qsoLock** — Highest-coupling controller; eliminates `@Volatile + synchronized` mixed pattern; `Thread.sleep` → `delay`; JNI cancellation discipline
 - [ ] **Phase 5: Extract TxOrchestrator + RF Safety + combine Assembly** — Highest-stakes phase; 4-layer PTT defense, watchdog, emergency-halt state machine, USB-disconnect routing, license re-check on reconnect, combine flow assembly, native lib load/version handshake
 - [ ] **Phase 6: Reliability Hardening (CAT + Audio)** — Layered CAT timeout guards, port close+reopen, AudioRecord hot-swap recovery, decode-loop failure counter chip
@@ -178,7 +178,7 @@ These three requirements are **not** owned by a single phase. They are the non-n
 | 0. Foundations | 5/5 | Complete | 2026-06-21 |
 | 1. Extract SettingsBridge | 1/1 | Complete | 2026-06-22 |
 | 2. Extract RigSession | 1/1 | Complete | 2026-06-22 |
-| 3. Extract DecodeController | 0/? | Not started | - |
+| 3. Extract DecodeController | 1/1 | Complete | 2026-06-22 |
 | 4. Extract QsoSessionController + Remove qsoLock | 0/? | Not started | - |
 | 5. Extract TxOrchestrator + RF Safety + combine Assembly | 0/? | Not started | - |
 | 6. Reliability Hardening (CAT + Audio) | 0/? | Not started | - |

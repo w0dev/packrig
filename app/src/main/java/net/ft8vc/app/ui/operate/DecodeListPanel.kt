@@ -154,7 +154,7 @@ fun DecodeListPanel(
                         .weight(1f)
                         .padding(horizontal = 6.dp),
                 ) {
-                    items(visibleDecodes) { row ->
+                    items(visibleDecodes, key = { it.id }) { row ->
                         DecodeRowItem(
                             row = row,
                             qsoDx = qsoDx,

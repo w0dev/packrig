@@ -1,20 +1,7 @@
 package net.ft8vc.ft8native.fakes
 
 import net.ft8vc.ft8native.Ft8DecodeResult
-
-/**
- * Production-side seam Phase 3's DecodeController and Phase 5's TxOrchestrator
- * will take as a constructor parameter. Mirrors the public surface of the
- * `Ft8Native` singleton — same four members — so a thin Ft8NativeAdapter
- * (introduced in a later phase) can bridge production code to this contract
- * without touching the JNI layer in Phase 0.
- */
-interface Ft8DecoderApi {
-    fun isAvailable(): Boolean
-    fun version(): String
-    fun decode(samples: ShortArray, sampleRate: Int = 12_000): Array<Ft8DecodeResult>
-    fun encode(message: String, freqHz: Float = 1000f, sampleRate: Int = 12_000): ShortArray
-}
+import net.ft8vc.ft8native.Ft8DecoderApi
 
 /**
  * One decode invocation recorded by [Ft8DecoderFake] for assertion.

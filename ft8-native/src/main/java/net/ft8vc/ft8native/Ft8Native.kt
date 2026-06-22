@@ -8,7 +8,7 @@ import android.util.Log
  * Wraps kgoba/ft8_lib. [decode] takes one slot of 12 kHz mono PCM and returns
  * the messages found in it. Encode/TX is added in Phase 3.
  */
-object Ft8Native {
+object Ft8Native : Ft8DecoderApi {
 
     private const val TAG = "Ft8Native"
 
@@ -20,10 +20,10 @@ object Ft8Native {
         false
     }
 
-    fun isAvailable(): Boolean = loaded
+    override fun isAvailable(): Boolean = loaded
 
     /** Native build identifier, or a fallback string if the library is unavailable. */
-    fun version(): String =
+    override fun version(): String =
         if (loaded) {
             runCatching { nativeVersion() }.getOrDefault("error")
         } else {
@@ -35,7 +35,7 @@ object Ft8Native {
      * ideally ~15 seconds aligned to the UTC slot boundary. Returns an empty array
      * if nothing decodes or the native library is unavailable.
      */
-    fun decode(samples: ShortArray, sampleRate: Int = 12_000): Array<Ft8DecodeResult> =
+    override fun decode(samples: ShortArray, sampleRate: Int): Array<Ft8DecodeResult> =
         if (loaded) {
             runCatching { nativeDecode(samples, sampleRate) }.getOrDefault(emptyArray())
         } else {
@@ -48,7 +48,7 @@ object Ft8Native {
      * transmission is centered in the slot. Returns an empty array if the message
      * can't be encoded (e.g. invalid callsign) or the native library is missing.
      */
-    fun encode(message: String, freqHz: Float = 1000f, sampleRate: Int = 12_000): ShortArray =
+    override fun encode(message: String, freqHz: Float, sampleRate: Int): ShortArray =
         if (loaded) {
             runCatching { nativeEncode(message, freqHz, sampleRate) }.getOrDefault(ShortArray(0))
         } else {

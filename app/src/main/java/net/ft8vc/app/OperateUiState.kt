@@ -1,5 +1,8 @@
 package net.ft8vc.app
 
+import androidx.compose.runtime.Immutable
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.audio.AudioInputDevice
 import net.ft8vc.core.AnswerPolicy
@@ -9,7 +12,10 @@ import net.ft8vc.core.QsoForm
 import net.ft8vc.core.QsoTxStep
 import net.ft8vc.core.TxSlotParity
 
+@Immutable
 data class DecodeRow(
+    /** Stable key for Compose LazyColumn: slotStart * 1000 + indexInSlot. */
+    val id: Long,
     val timeUtc: String,
     val snr: Int,
     val dtSeconds: Float,
@@ -57,8 +63,9 @@ data class OperateUiState(
     val clip: Boolean = false,
     val sampleRateHz: Int = AppInfo.SAMPLE_RATE_HZ,
     val waterfallVersion: Long = 0L,
-    val decodes: List<DecodeRow> = emptyList(),
+    val decodes: ImmutableList<DecodeRow> = persistentListOf(),
     val lastSlotDecodeCount: Int = -1,
+    val decodeFailureCount: Long = 0L,
     val inputGain: Float = 1f,
 
     // ── Tx (transmit settings + composed message) ─────────────────────────

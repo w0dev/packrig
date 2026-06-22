@@ -3,22 +3,21 @@ package net.ft8vc.app
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import net.ft8vc.app.controllers.DecodeController
 import net.ft8vc.app.controllers.RigSession
 import net.ft8vc.app.controllers.SettingsBridge
+import net.ft8vc.app.ui.Waterfall
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.app.settings.SettingsRepository
-import net.ft8vc.app.ui.Waterfall
 import net.ft8vc.audio.AudioInputs
 import net.ft8vc.audio.AudioOutputs
 import net.ft8vc.audio.UsbAudioCapture
 import net.ft8vc.audio.UsbAudioPlayback
-import net.ft8vc.audio.dsp.SpectrumProcessor
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AbandonedPartners
 import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.AnswerSelector
 import net.ft8vc.core.AppInfo
-import net.ft8vc.core.DecodeDistance
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.QsoDecode
 import net.ft8vc.core.QsoForm
@@ -29,7 +28,6 @@ import net.ft8vc.core.QsoResume
 import net.ft8vc.core.QsoRx
 import net.ft8vc.core.QsoState
 import net.ft8vc.core.QsoTxStep
-import net.ft8vc.core.SlotCollector
 import net.ft8vc.core.SlotTiming
 import net.ft8vc.core.StationProfileValidator
 import net.ft8vc.core.TxSlotParity
@@ -59,7 +57,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import java.util.concurrent.Executors
 
 /**
  * Single orchestrator for the Operate / Spectrum / Log / Settings screens.
@@ -104,23 +101,18 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         catControl = rig,
         digirigPresenceProvider = { rig.isDigirigReady },
     )
-    private val spectrum = SpectrumProcessor(sampleRate = AppInfo.SAMPLE_RATE_HZ)
-    private val slotCollector = SlotCollector(AppInfo.SAMPLE_RATE_HZ)
-    private val decodeExecutor = Executors.newSingleThreadExecutor()
-    private val utcTimeFormat = SimpleDateFormat("HHmmss", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
+    private val decodeController = DecodeController(
+        decoder = Ft8Native,
+        scope = viewModelScope,
+    )
+    val waterfall = Waterfall(bins = decodeController.binCount).also {
+        decodeController.spectrumSink = it::addColumn
     }
+    val maxAudioFreqHz: Int = decodeController.maxAudioFreqHz
     private val utcClockFormat = SimpleDateFormat("HH:mm:ss", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
 
-    val waterfall = Waterfall(bins = spectrum.binCount)
-    val maxAudioFreqHz: Int = spectrum.freqForBin(spectrum.binCount).toInt()
-
-    private var levelEma = OperateUiState.SILENCE_DBFS
-    @Volatile private var inputGain = 1f
-    private var gainScratch: ShortArray? = null
-    private var lastUiUpdateNs = 0L
     private var txThread: Thread? = null
     private var slotClockJob: Job? = null
     private var qsoTxParity: Int? = null
@@ -166,7 +158,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         useDarkTheme = s.useDarkTheme,
                     )
                 }
-                inputGain = s.inputGain.coerceIn(OperateUiState.INPUT_GAIN_MIN, 1f)
+                decodeController.setInputGain(s.inputGain)
+                decodeController.setStationContext(s.myCall, s.myGrid)
             }
         }
         viewModelScope.launch {
@@ -184,6 +177,25 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         rigMode = r.rigMode ?: it.rigMode,
                     )
                 }
+            }
+        }
+        viewModelScope.launch {
+            decodeController.slice.collect { d ->
+                _state.update {
+                    it.copy(
+                        decodes = d.decodes,
+                        lastSlotDecodeCount = d.lastSlotDecodeCount,
+                        levelDbfs = d.levelDbfs,
+                        clip = d.clip,
+                        waterfallVersion = d.waterfallVersion,
+                        decodeFailureCount = d.decodeFailureCount,
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            decodeController.decodesOut.collect { batch ->
+                onDecodeBatch(batch.decodes, batch.slotParity)
             }
         }
         viewModelScope.launch {
@@ -354,7 +366,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setInputGain(gain: Float) {
         val g = gain.coerceIn(OperateUiState.INPUT_GAIN_MIN, 1f)
-        inputGain = g
+        decodeController.setInputGain(g)
         _state.update { it.copy(inputGain = g) }
         viewModelScope.launch { settingsRepo.setInputGain(g) }
     }
@@ -371,7 +383,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun startOperating() {
         if (_state.value.isOperating) return
         waterfall.clear()
-        slotCollector.reset()
+        decodeController.reset()
         prepareRig()
         restoreLastBandIfNeeded()
         beginCapture()
@@ -932,7 +944,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun beginCapture() {
         try {
-            capture.start(_state.value.selectedDeviceId, ::onFrames)
+            capture.start(_state.value.selectedDeviceId, decodeController::onFrames)
             _state.update { it.copy(isCapturing = true) }
         } catch (t: Throwable) {
             _state.update { it.copy(isCapturing = false, isOperating = false) }
@@ -947,88 +959,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun stopCapture() {
         capture.stop()
-        slotCollector.reset()
-        _state.update {
-            it.copy(isCapturing = false, levelDbfs = OperateUiState.SILENCE_DBFS, clip = false)
-        }
+        decodeController.reset()
+        _state.update { it.copy(isCapturing = false) }
     }
 
-    private fun onFrames(frames: ShortArray) {
-        val pcm = scaledFrames(frames, inputGain)
-        var sumSq = 0.0
-        var peak = 0
-        for (s in pcm) {
-            val a = if (s.toInt() == Short.MIN_VALUE.toInt()) Short.MAX_VALUE.toInt() else Math.abs(s.toInt())
-            if (a > peak) peak = a
-            sumSq += s.toDouble() * s.toDouble()
-        }
-        val rms = Math.sqrt(sumSq / frames.size)
-        val instDb = (20.0 * Math.log10(rms / 32768.0 + 1e-9)).toFloat()
-        levelEma += 0.3f * (instDb - levelEma)
-        val clip = peak >= 32000
-
-        spectrum.process(pcm) { column -> waterfall.addColumn(column) }
-        slotCollector.add(pcm, System.currentTimeMillis()) { samples, slotStart ->
-            decodeExecutor.execute { decodeSlot(samples, slotStart) }
-        }
-
-        val now = System.nanoTime()
-        if (now - lastUiUpdateNs >= 30_000_000L) {
-            lastUiUpdateNs = now
-            _state.update {
-                it.copy(
-                    levelDbfs = levelEma.coerceIn(OperateUiState.SILENCE_DBFS, 0f),
-                    clip = clip,
-                    waterfallVersion = it.waterfallVersion + 1,
-                )
-            }
-        }
-    }
-
-    private fun scaledFrames(frames: ShortArray, gain: Float): ShortArray {
-        if (gain >= 0.999f) return frames
-        val scratch = gainScratch?.takeIf { it.size >= frames.size }
-            ?: ShortArray(frames.size).also { gainScratch = it }
-        for (i in frames.indices) {
-            val v = (frames[i] * gain).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
-            scratch[i] = v.toShort()
-        }
-        return scratch
-    }
-
-    private fun decodeSlot(samples: ShortArray, slotStartEpochMs: Long) {
-        val results = Ft8Native.decode(samples, AppInfo.SAMPLE_RATE_HZ)
-        val time = utcTimeFormat.format(Date(slotStartEpochMs))
-        val myCall = _state.value.myCall
-        val myGrid = _state.value.myGrid
-        val slotDecodes = results.map { r ->
-            QsoDecode(r.message.trim(), r.snr)
-        }
-        val slotParity = TxSlotSelection.slotParity(slotStartEpochMs)
-        val rows = results
-            .sortedByDescending { it.score }
-            .map { r ->
-                val message = r.message.trim()
-                DecodeRow(
-                    timeUtc = time,
-                    snr = r.snr,
-                    dtSeconds = r.dtSeconds,
-                    freqHz = Math.round(r.freqHz),
-                    message = message,
-                    isCq = message.startsWith("CQ"),
-                    isToMe = QsoResume.isDirectedToMe(myCall, message),
-                    distanceKm = DecodeDistance.kmFromMessage(myGrid, message),
-                    slotParity = slotParity,
-                )
-            }
-        _state.update { s ->
-            val combined = rows + s.decodes
-            s.copy(
-                decodes = combined.take(OperateUiState.MAX_DECODE_ROWS),
-                lastSlotDecodeCount = rows.size,
-            )
-        }
-
+    private fun onDecodeBatch(slotDecodes: List<QsoDecode>, slotParity: Int) {
         val s = _state.value
         if (qsoRunning && s.autoSeqEnabled) {
             val excluded = excludedDx()
@@ -1093,7 +1028,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearDecodes() {
-        _state.update { it.copy(decodes = emptyList(), lastSlotDecodeCount = -1) }
+        decodeController.clearDecodes()
     }
 
     override fun onCleared() {
@@ -1103,7 +1038,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         slotClockJob?.cancel()
         capture.stop()
         rig.close()
-        decodeExecutor.shutdownNow()
+        decodeController.close()
         rigSession.close()
         super.onCleared()
     }
