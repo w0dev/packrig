@@ -3,6 +3,7 @@ package net.ft8vc.app
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import net.ft8vc.app.controllers.RigSession
 import net.ft8vc.app.controllers.SettingsBridge
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.app.settings.SettingsRepository
@@ -98,10 +99,14 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private val capture = UsbAudioCapture(app)
     private val playback = UsbAudioPlayback(app)
     private val rig = RigController(app)
+    private val rigSession = RigSession(
+        rig = rig,
+        catControl = rig,
+        digirigPresenceProvider = { rig.isDigirigReady },
+    )
     private val spectrum = SpectrumProcessor(sampleRate = AppInfo.SAMPLE_RATE_HZ)
     private val slotCollector = SlotCollector(AppInfo.SAMPLE_RATE_HZ)
     private val decodeExecutor = Executors.newSingleThreadExecutor()
-    private val catExecutor = Executors.newSingleThreadExecutor()
     private val utcTimeFormat = SimpleDateFormat("HHmmss", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
@@ -167,6 +172,18 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             settingsBridge.stationIdentityChanged.collect {
                 refreshOperateTxFromStation()
+            }
+        }
+        viewModelScope.launch {
+            rigSession.slice.collect { r ->
+                _state.update {
+                    it.copy(
+                        catBusy = r.catBusy,
+                        catStatus = r.catStatus ?: it.catStatus,
+                        rigFreqHz = r.rigFreqHz ?: it.rigFreqHz,
+                        rigMode = r.rigMode ?: it.rigMode,
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -380,7 +397,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private fun haltTxInternal(announce: Boolean) {
         val wasTransmitting = _state.value.isTransmitting
         playback.stop()
-        rig.releasePtt()
+        rigSession.releasePttBlocking()
         cancelTx()
         stopQso()
         _state.update {
@@ -399,10 +416,12 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         txStatus = "CP2102 serial not found (PTT no-op). USB: $usb",
                     )
                 }
+                rigSession.refreshDigirigPresence()
             }
             RigController.State.Ready -> {
                 _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready") }
-                catExecutor.execute {
+                rigSession.refreshDigirigPresence()
+                viewModelScope.launch(rigSession.catDispatcher) {
                     val method = rig.configurePttFromCatProbe()
                     _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
                     onRigReady()
@@ -418,7 +437,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         return@ensureReady
                     }
                     _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready") }
-                    catExecutor.execute {
+                    rigSession.refreshDigirigPresence()
+                    viewModelScope.launch(rigSession.catDispatcher) {
                         val method = rig.configurePttFromCatProbe()
                         _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
                         onRigReady()
@@ -436,61 +456,28 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun readRig() {
         if (!rig.isCatReady) return
-        runCat("Reading rig…") {
-            val freq = rig.frequencyHz()
-            val mode = rig.mode()
-            _state.update {
-                it.copy(
-                    rigFreqHz = freq ?: it.rigFreqHz,
-                    rigMode = mode?.label ?: it.rigMode,
-                    catStatus = if (freq == null && mode == null) "No CAT reply" else "Rig in sync",
-                )
-            }
-            freq?.let { hz -> viewModelScope.launch { settingsRepo.setLastDialFreqHz(hz) } }
+        viewModelScope.launch {
+            val freq = rigSession.readRig()
+            if (freq != null) settingsRepo.setLastDialFreqHz(freq)
         }
     }
 
     fun setRigFrequency(hz: Long) {
         if (!rig.isCatReady) return
-        runCat("Tuning…") {
-            if (rig.setFrequencyHz(hz)) {
-                val freq = rig.frequencyHz()
-                _state.update { it.copy(rigFreqHz = freq ?: hz, catStatus = "Tuned") }
-                viewModelScope.launch { settingsRepo.setLastDialFreqHz(freq ?: hz) }
-            } else {
-                _state.update { it.copy(catStatus = "Tune rejected") }
+        viewModelScope.launch {
+            if (rigSession.setFrequency(hz)) {
+                val actual = rigSession.slice.value.rigFreqHz ?: hz
+                settingsRepo.setLastDialFreqHz(actual)
             }
         }
     }
 
     fun setRigDataUsb() {
         if (!rig.isCatReady) return
-        runCat("Setting DATA-U…") {
-            if (rig.setMode(Ft891Cat.Mode.DATA_USB)) {
-                val mode = rig.mode()
-                _state.update {
-                    it.copy(rigMode = mode?.label ?: Ft891Cat.Mode.DATA_USB.label, catStatus = "Mode set")
-                }
-            } else {
-                _state.update { it.copy(catStatus = "Mode set rejected") }
-            }
-        }
+        viewModelScope.launch { rigSession.setMode(Ft891Cat.Mode.DATA_USB) }
     }
 
     fun usbDiagnostics(): String = rig.usbDeviceSummary()
-
-    private fun runCat(busyStatus: String, block: () -> Unit) {
-        _state.update { it.copy(catBusy = true, catStatus = busyStatus) }
-        catExecutor.execute {
-            try {
-                block()
-            } catch (t: Throwable) {
-                _state.update { it.copy(catStatus = t.message ?: "CAT error") }
-            } finally {
-                _state.update { it.copy(catBusy = false) }
-            }
-        }
-    }
 
     private fun restoreLastBandIfNeeded() {
         val hz = lastDialFreqHz ?: return
@@ -669,7 +656,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun stopQso() {
         playback.stop()
-        rig.releasePtt()
+        rigSession.releasePttBlocking()
         cancelTx()
         qsoRunning = false
         qsoThread?.interrupt()
@@ -829,11 +816,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         if (resume) stopCapture()
         _state.update { it.copy(isTransmitting = true, txStatus = "TX: $message") }
         val outputId = AudioOutputs.firstUsb(getApplication())?.id
-        rig.keyPtt()
+        rigSession.keyPttBlocking()
         val completed = try {
             playback.playBlocking(pcm, outputId)
         } finally {
-            rig.releasePtt()
+            rigSession.releasePttBlocking()
         }
         _state.update {
             it.copy(
@@ -916,11 +903,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 if (resumeCapture) stopCapture()
                 _state.update { it.copy(isTransmitting = true, txStatus = "Transmitting…") }
                 val outputId = AudioOutputs.firstUsb(getApplication())?.id
-                rig.keyPtt()
+                rigSession.keyPttBlocking()
                 val completed = try {
                     playback.playBlocking(pcm, outputId)
                 } finally {
-                    rig.releasePtt()
+                    rigSession.releasePttBlocking()
                 }
                 if (resumeCapture && !Thread.currentThread().isInterrupted) resumeCapture()
                 _state.update {
@@ -1111,13 +1098,13 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         playback.stop()
-        rig.releasePtt()
+        rigSession.releasePttBlocking()
         stopOperating()
         slotClockJob?.cancel()
         capture.stop()
         rig.close()
         decodeExecutor.shutdownNow()
-        catExecutor.shutdownNow()
+        rigSession.close()
         super.onCleared()
     }
 
