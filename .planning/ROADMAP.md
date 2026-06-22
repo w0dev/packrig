@@ -20,8 +20,8 @@ These three requirements are **not** owned by a single phase. They are the non-n
 
 ## Phases
 
-- [ ] **Phase 0: Foundations** — Test seams, fakes, golden-trace harness, baselines, and promotion checklist — nothing else ships without these
-- [ ] **Phase 1: Extract SettingsBridge** — Lowest-coupling controller first; proves the slice/combine pattern
+- [x] **Phase 0: Foundations** — Test seams, fakes, golden-trace harness, baselines, and promotion checklist — nothing else ships without these
+- [x] **Phase 1: Extract SettingsBridge** — Lowest-coupling controller first; proves the slice/combine pattern
 - [ ] **Phase 2: Extract RigSession** — CAT polling, dial preset, busy flag, PTT routing on `catDispatcher`
 - [ ] **Phase 3: Extract DecodeController** — RX path, slot collector, JNI decode on `decodeDispatcher`; ImmutableList + stable keys prep
 - [ ] **Phase 4: Extract QsoSessionController + Remove qsoLock** — Highest-coupling controller; eliminates `@Volatile + synchronized` mixed pattern; `Thread.sleep` → `delay`; JNI cancellation discipline
@@ -175,8 +175,8 @@ These three requirements are **not** owned by a single phase. They are the non-n
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 0. Foundations | 0/5 | Plans created | - |
-| 1. Extract SettingsBridge | 0/? | Not started | - |
+| 0. Foundations | 5/5 | Complete | 2026-06-21 |
+| 1. Extract SettingsBridge | 1/1 | Complete | 2026-06-22 |
 | 2. Extract RigSession | 0/? | Not started | - |
 | 3. Extract DecodeController | 0/? | Not started | - |
 | 4. Extract QsoSessionController + Remove qsoLock | 0/? | Not started | - |

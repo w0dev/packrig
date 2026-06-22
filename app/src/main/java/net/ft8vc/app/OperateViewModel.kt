@@ -3,9 +3,9 @@ package net.ft8vc.app
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import net.ft8vc.app.controllers.SettingsBridge
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.app.settings.SettingsRepository
-import net.ft8vc.app.settings.StationSettings
 import net.ft8vc.app.ui.Waterfall
 import net.ft8vc.audio.AudioInputs
 import net.ft8vc.audio.AudioOutputs
@@ -82,6 +82,7 @@ import java.util.concurrent.Executors
 class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private val settingsRepo = SettingsRepository(app)
+    private val settingsBridge = SettingsBridge(settingsRepo, viewModelScope)
     private val logbook: Logbook = RoomLogbook(Ft8vcDatabase.get(app))
 
     private val _state = MutableStateFlow(OperateUiState())
@@ -134,9 +135,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     init {
         waterfall.floorOffsetDb = WATERFALL_FLOOR_OFFSET_DB_DEFAULT
         viewModelScope.launch {
-            settingsRepo.settings.collect { s ->
+            settingsBridge.slice.collect { s ->
                 lastDialFreqHz = s.lastDialFreqHz
-                val prev = _state.value
                 _state.update { current ->
                     current.copy(
                         myCall = s.myCall,
@@ -161,10 +161,12 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         useDarkTheme = s.useDarkTheme,
                     )
                 }
-                if (stationIdentityChanged(prev, s)) {
-                    refreshOperateTxFromStation()
-                }
                 inputGain = s.inputGain.coerceIn(OperateUiState.INPUT_GAIN_MIN, 1f)
+            }
+        }
+        viewModelScope.launch {
+            settingsBridge.stationIdentityChanged.collect {
+                refreshOperateTxFromStation()
             }
         }
         viewModelScope.launch {
@@ -616,11 +618,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         if (operateTxUserEdited) return
         syncOperateTxText(if (qsoRunning) autoOperateTxText() else defaultOperateTxText())
     }
-
-    private fun stationIdentityChanged(prev: OperateUiState, settings: StationSettings): Boolean =
-        prev.myCall != settings.myCall ||
-            prev.myGrid != settings.myGrid ||
-            prev.potaModeEnabled != settings.potaModeEnabled
 
     private fun syncOperateTxText(auto: String?, step: QsoTxStep = currentAutoTxStep()) {
         val message = auto ?: defaultOperateTxText()
