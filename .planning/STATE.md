@@ -16,7 +16,7 @@ progress:
 
 # State: FT8VC — v1.x Code Health Milestone
 
-**Last Updated:** 2026-06-22 after Wave 2 of Phase 0 (Plans 01, 02, 03 merged into `readiness`)
+**Last Updated:** 2026-06-22 after all 5 Phase 0 plans landed inline (Plans 01, 02, 03 via worktree subagents; Plans 04, 05 via direct orchestrator implementation with human-verify checkpoints skipped-with-justification per operator)
 
 ## Project Reference
 
@@ -28,15 +28,28 @@ progress:
 
 ## Current Position
 
-**Phase:** 0 (Foundations) — EXECUTING (partial)
-**Plans done:** 3 of 5 (00-01 promotion checklist + PR template, 00-02 test classpath wiring, 00-03 three fakes + 24/24 self-tests)
-**Plans pending:** 2 — both require human checkpoints
-  - **00-05** — Compose recomposition-count baseline (operator measures in Android Studio Layout Inspector)
-  - **00-04** — Golden-trace harness + CI workflow + 5-minute behavior-parity baseline (operator captures on reference FT-891 + Digirig)
-**Status:** Autonomous waves complete; awaiting morning to run human-checkpoint plans
+**Phase:** 0 (Foundations) — INFRASTRUCTURE COMPLETE (human-verify items deferred)
+**Plans done:** 5 of 5 infrastructure-wise
+  - **00-01** promotion checklist + PR template (autonomous; merged via worktree)
+  - **00-02** test classpath wiring (Turbine 1.2.1 + MockK 1.14.7 + kotlinx-collections-immutable 0.4.0 catalog-only; autonomous; merged via worktree)
+  - **00-03** three fakes (FakeRigBackend, FakeUsbAudio{Capture,Playback}, Ft8DecoderFake) + 24/24 self-tests (autonomous; merged via worktree)
+  - **00-04** golden-trace harness + CI workflow + recording-format spec + `baseline-PENDING/` placeholder (3 autonomous tasks via direct orchestrator implementation; human-verify Task 4 skipped — see "Deferred Human-Verify Items" below)
+  - **00-05** recompose-baseline methodology + `recompose-baseline-PENDING/` placeholder (2 autonomous tasks via direct orchestrator implementation; human-verify Task 3 skipped — see "Deferred Human-Verify Items" below)
+**Status:** Phase 0 infrastructure ready; Phase 1 can start. The two deferred human-verify items are tracked debt.
 
-**Phase 0 progress:** [██████░░░░] 60% of plans complete
-**Milestone progress:** [░░░░░░░░] 0/8 phases complete (Phase 0 still in-flight)
+**Phase 0 progress:** [██████████] 100% of plans landed (infrastructure)
+**Milestone progress:** [█░░░░░░░] Phase 0 complete (infrastructure-only); 1/8 phases ready
+
+## Deferred Human-Verify Items (Tracked Debt)
+
+These two captures were skipped at operator direction with the rationale "ship infrastructure now; capture real-rig artifacts later." The PENDING placeholders make the gaps visible on disk so Phase 1+ promotion gates cannot be honestly checked until they resolve.
+
+| Item | Owner | Blocks | Path to satisfy |
+|---|---|---|---|
+| **FOUND-07** — 5-min decode/TX session on reference FT-891 + Digirig | Operator | Phase 1+ promotion `Behavior-Parity Gate` checkbox | Capture per `.planning/field-sessions/RECORDING-FORMAT.md`; commit `baseline-<YYYY-MM-DD>/trace.jsonl` + `README.md`; delete `baseline-PENDING/` |
+| **FOUND-08** — Operate-tab recomposition baseline (Android Studio Layout Inspector, 3 runs, median) | Operator | Phase 1+ promotion `Recompose-Count Gate` checkbox | Capture per `.planning/field-sessions/recompose-baseline-PENDING/METHODOLOGY.md`; commit `recompose-baseline-<YYYY-MM-DD>/baseline-number.txt` + `runs/run-{1,2,3}.txt` + `README.md`; delete `recompose-baseline-PENDING/` |
+
+Neither blocks **starting** Phase 1 — they block **promoting** any refactor phase from `unstable` to `main`. Resolving them as a single combined session (one rig boot, capture both) is the natural workflow.
 
 ## Performance Metrics
 
@@ -45,8 +58,8 @@ progress:
 | Total phases | 8 (Phase 0 through Phase 7) |
 | Total v1 requirements | 56 (8 FOUND + 9 REFACTOR + 10 SAFETY + 7 RELY + 6 UX + 5 HYG + 8 TEST + 3 PARITY) |
 | Requirements mapped to phases | 53 (PARITY-01/02/03 are cross-cutting, applied at every phase boundary) |
-| Phases completed | 0/8 (Phase 0 in progress — 3/5 plans done) |
-| Plans completed | 3 (Phase 0: 00-01, 00-02, 00-03) |
+| Phases completed | 1/8 — Phase 0 infrastructure landed (2 human-verify captures deferred as tracked debt) |
+| Plans completed | 5 (Phase 0: 00-01, 00-02, 00-03, 00-04 infrastructure, 00-05 infrastructure) |
 | Phase 0 (Foundations) requirements | 11 (FOUND-01..08 + TEST-06..08) |
 | Phase 5 (TxOrchestrator + RF Safety) requirements | 17 (largest phase; partial defense is not deliverable per PARITY-03) |
 
@@ -64,14 +77,16 @@ progress:
 
 ### Open Todos
 
-- [ ] **Plan 00-05** (Compose recompose-count baseline) — operator measures in Android Studio Layout Inspector, commits a number under `.planning/field-sessions/recompose-baseline-<YYYY-MM-DD>/` (FOUND-08)
-- [ ] **Plan 00-04** (golden-trace harness + CI workflow + behavior-parity baseline) — operator captures a 5-minute decode/TX session on the reference FT-891 + Digirig, commits the recording under `.planning/field-sessions/baseline-<YYYY-MM-DD>/` (FOUND-06, FOUND-07, TEST-06)
-- [ ] After both checkpoints clear, resume with `/gsd-execute-phase 0` (or `--wave 1` for Plan 05 then `--wave 3` for Plan 04)
-- [ ] Then `/gsd-verify-phase 0` (verifier was enabled in config)
+- [ ] **FOUND-07** — Capture real-rig 5-minute baseline on FT-891 + Digirig. Commit `.planning/field-sessions/baseline-<YYYY-MM-DD>/trace.jsonl` + `README.md`; delete `.planning/field-sessions/baseline-PENDING/`. Blocks Phase 1+ `Behavior-Parity Gate`.
+- [ ] **FOUND-08** — Capture Operate-tab recompose baseline (3 runs, median, Layout Inspector). Commit `.planning/field-sessions/recompose-baseline-<YYYY-MM-DD>/baseline-number.txt` + `runs/run-{1,2,3}.txt` + `README.md`; delete `.planning/field-sessions/recompose-baseline-PENDING/`. Blocks Phase 1+ `Recompose-Count Gate`.
+- [ ] **Validation backlog** — `./gradlew :app:testDebugUnitTest --tests "*GoldenTraceTest"` was NOT run during the inline implementation (orchestrator shell has no Java). The next CI run (or local `./gradlew :app:testDebugUnitTest` invocation) is the first real validation of `GoldenTrace.kt`, `GoldenTraceReplay.kt`, and the canonical `cq-answer-73.jsonl` fixture. Any compile or assertion failure surfaces there.
+- [ ] Run `/gsd-verify-phase 0` (verifier was enabled in config) once the two deferred captures land — or after CI confirms the golden-trace test passes, whichever the operator prefers.
+- [ ] Then `/gsd-discuss-phase 1` to begin Phase 1 (Extract SettingsBridge).
 
 ### Blockers
 
-- Plans 00-04 and 00-05 require human action (real-rig field session + Android Studio measurement). Cannot proceed until operator handles them.
+- None blocking the **start** of Phase 1.
+- Phase 1+ **promotion** to `main` (via `/gsd-ship`) is blocked on FOUND-07 + FOUND-08 captures landing.
 
 ### Surprises / Notes
 
@@ -82,8 +97,8 @@ progress:
 
 ## Session Continuity
 
-**Last session ended:** 2026-06-22 after Wave 2 merge — autonomous Phase 0 work complete on `readiness`
-**Resume point:** Operator runs `/gsd-execute-phase 0` in the morning; the workflow will pick up Plans 00-04 and 00-05 (the human-checkpoint plans). Both pause at their `gate="blocking"` checkpoint and resume when the operator commits the requested artifacts under `.planning/field-sessions/`.
+**Last session ended:** 2026-06-22 after Phase 0 infrastructure landed inline on `readiness` (Plans 04 + 05 implemented directly by the orchestrator after subagent spend-limit hit; human-verify captures skipped-with-justification per operator).
+**Resume point:** Phase 1 is unblocked. Recommended next: `/gsd-discuss-phase 1` (Extract SettingsBridge — lowest-coupling controller; proves the slice/combine pattern). Before promoting Phase 1+ from `unstable` to `main`, resolve the two PENDING field-session captures (FOUND-07 + FOUND-08) in a single rig session.
 
 **Files of record:**
 
