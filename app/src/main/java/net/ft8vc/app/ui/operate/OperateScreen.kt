@@ -51,8 +51,18 @@ fun OperateScreen(
     var showBandSheet by remember { mutableStateOf(false) }
     var showPotaSheet by remember { mutableStateOf(false) }
     var showLicenseDialog by remember { mutableStateOf(false) }
+    var pendingTxAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val potaSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var parkRefDraft by remember(state.potaParkRef) { mutableStateOf(state.potaParkRef) }
+
+    fun gateOnLicense(action: () -> Unit) {
+        if (state.licenseAcknowledged) {
+            action()
+        } else {
+            pendingTxAction = action
+            showLicenseDialog = true
+        }
+    }
 
     var hasPermission by remember {
         mutableStateOf(
@@ -131,8 +141,8 @@ fun OperateScreen(
                 canAnswer = state.txEnabled && !state.qsoActive,
                 canResume = state.txEnabled && !state.qsoActive,
                 onClear = vm::clearDecodes,
-                onAnswerCq = vm::answerCq,
-                onResume = vm::resumeFromDecode,
+                onAnswerCq = { row -> gateOnLicense { vm.answerCq(row) } },
+                onResume = { row -> gateOnLicense { vm.resumeFromDecode(row) } },
                 modifier = Modifier.fillMaxWidth().weight(1f),
             )
             OperateTxSelector(
@@ -147,15 +157,13 @@ fun OperateScreen(
                 onToggleOperate = {
                     if (state.isOperating) {
                         vm.stopOperating()
-                    } else if (!state.licenseAcknowledged) {
-                        showLicenseDialog = true
                     } else if (!hasPermission) {
                         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     } else {
                         vm.startOperating()
                     }
                 },
-                onStartCq = vm::startCq,
+                onStartCq = { gateOnLicense { vm.startCq() } },
                 onStopQso = vm::stopQso,
                 onAbandonQso = vm::abandonQso,
             )
@@ -164,27 +172,32 @@ fun OperateScreen(
 
     if (showLicenseDialog) {
         AlertDialog(
-            onDismissRequest = { showLicenseDialog = false },
-            title = { Text("Amateur radio license required") },
+            onDismissRequest = {
+                showLicenseDialog = false
+                pendingTxAction = null
+            },
+            title = { Text("Confirm before transmitting") },
             text = {
                 Text(
-                    "Transmitting requires a valid amateur radio license. Test TX into a " +
-                        "dummy load first. You are responsible for lawful operation.",
+                    "Transmitting requires a valid amateur radio license for your " +
+                        "jurisdiction. You are responsible for lawful operation; this " +
+                        "app and its authors are not.",
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     vm.acknowledgeLicense()
                     showLicenseDialog = false
-                    if (!hasPermission) {
-                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                    } else {
-                        vm.startOperating()
-                    }
+                    val action = pendingTxAction
+                    pendingTxAction = null
+                    action?.invoke()
                 }) { Text("I understand") }
             },
             dismissButton = {
-                TextButton(onClick = { showLicenseDialog = false }) { Text("Cancel") }
+                TextButton(onClick = {
+                    showLicenseDialog = false
+                    pendingTxAction = null
+                }) { Text("Cancel") }
             },
         )
     }

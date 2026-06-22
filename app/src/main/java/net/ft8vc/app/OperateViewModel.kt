@@ -143,7 +143,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         myGrid = s.myGrid,
                         txFreqHz = s.txToneHz,
                         licenseAcknowledged = s.licenseAcknowledged,
-                        txEnabled = s.licenseAcknowledged && s.txEnabledInSettings,
+                        txEnabled = s.txEnabledInSettings,
                         autoSeqEnabled = s.autoSeqEnabled,
                         answerWhenCalledEnabled = s.answerWhenCalledEnabled,
                         autoAnswerCqEnabled = s.autoAnswerCqEnabled,
@@ -351,10 +351,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startOperating() {
         if (_state.value.isOperating) return
-        if (!_state.value.licenseAcknowledged) {
-            notify("Acknowledge the license disclaimer first (Settings)", SnackbarEvent.Tag.ERROR)
-            return
-        }
         waterfall.clear()
         slotCollector.reset()
         prepareRig()

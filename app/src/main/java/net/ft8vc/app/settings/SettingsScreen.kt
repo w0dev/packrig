@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -45,7 +44,6 @@ import net.ft8vc.core.AppInfo
 @Composable
 fun SettingsScreen(vm: OperateViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
-    var showLicenseReset by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Settings") }) },
@@ -184,23 +182,25 @@ fun SettingsScreen(vm: OperateViewModel) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Enable transmit", fontWeight = FontWeight.SemiBold)
                         Text(
-                            if (state.licenseAcknowledged) "Licensed use — dummy load first" else "Acknowledge license below",
+                            "Allow the app to key the radio",
                             style = MaterialTheme.typography.labelSmall,
                         )
                     }
                     Switch(
                         checked = state.txEnabled,
                         onCheckedChange = vm::setTxEnabled,
-                        enabled = state.licenseAcknowledged && !state.isTransmitting,
+                        enabled = !state.isTransmitting,
                     )
-                }
-                if (!state.licenseAcknowledged) {
-                    Button(onClick = { showLicenseReset = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Acknowledge license disclaimer")
-                    }
                 }
                 Text(
                     "Set TX tone on the Spectrum tab (tap or drag the waterfall).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "Transmitting requires a valid amateur radio license for your " +
+                        "jurisdiction. You are responsible for lawful operation; this " +
+                        "app and its authors are not.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -274,22 +274,6 @@ fun SettingsScreen(vm: OperateViewModel) {
         }
     }
 
-    if (showLicenseReset) {
-        AlertDialog(
-            onDismissRequest = { showLicenseReset = false },
-            title = { Text("License acknowledgment") },
-            text = { Text("I hold a valid amateur radio license and will test into a dummy load.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.acknowledgeLicense()
-                    showLicenseReset = false
-                }) { Text("Acknowledge") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLicenseReset = false }) { Text("Cancel") }
-            },
-        )
-    }
 }
 
 @Composable
