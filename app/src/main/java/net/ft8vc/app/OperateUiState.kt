@@ -26,8 +26,8 @@ data class DecodeRow(
     val isToMe: Boolean = false,
     /** Great-circle km when message carries a 4-char grid; null otherwise. */
     val distanceKm: Int? = null,
-    /** 0 = even slot (:00/:30), 1 = odd — UTC period when this decode was received. */
-    val slotParity: Int = 0,
+    /** UTC slot parity (Even/Odd) when this decode was received. */
+    val slotParity: TxSlotParity = TxSlotParity.EVEN,
 )
 
 /**
@@ -136,11 +136,13 @@ data class OperateUiState(
     // ── Misc ──────────────────────────────────────────────────────────────
     val operateStatus: String? = null,
     val contactCount: Int = 0,
+    /** Phase 7 (UX-06): epoch ms of the most recent successful ADIF auto-backup, null if never. */
+    val lastAdifBackupAtMs: Long? = null,
 ) {
     companion object {
         const val INPUT_GAIN_MIN = 0.1f
         const val SILENCE_DBFS = -100f
-        const val MAX_DECODE_ROWS = 300
+        const val MAX_DECODE_ROWS = 500
         const val DEFAULT_TX_MESSAGE = ""
         const val DEFAULT_TX_FREQ_HZ = 1000
         const val DEFAULT_MY_CALL = ""

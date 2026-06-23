@@ -247,7 +247,7 @@ data class DecodeSlice(
 
 data class DecodeBatch(
     val slotStartEpochMs: Long,
-    val slotParity: Int,
+    val slotParity: net.ft8vc.core.TxSlotParity,
     val decodes: List<QsoDecode>,
 )
 

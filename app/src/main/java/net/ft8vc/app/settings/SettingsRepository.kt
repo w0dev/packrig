@@ -50,6 +50,7 @@ class SettingsRepository(context: Context) {
             txSlotParity = prefs[Keys.TX_SLOT_PARITY]?.let { TxSlotParity.valueOf(it) }
                 ?: TxSlotParity.EVEN,
             useDarkTheme = prefs[Keys.USE_DARK_THEME] ?: true,
+            lastAdifBackupAtMs = prefs[Keys.LAST_ADIF_BACKUP_AT_MS],
         )
     }
 
@@ -141,6 +142,11 @@ class SettingsRepository(context: Context) {
         appContext.settingsDataStore.edit { it[Keys.USE_DARK_THEME] = value }
     }
 
+    /** Phase 7 (UX-06, HYG-04): epoch ms of the most recent successful ADIF auto-backup. */
+    suspend fun setLastAdifBackupAtMs(value: Long) {
+        appContext.settingsDataStore.edit { it[Keys.LAST_ADIF_BACKUP_AT_MS] = value }
+    }
+
     private object Keys {
         val MY_CALL = stringPreferencesKey("my_call")
         val MY_GRID = stringPreferencesKey("my_grid")
@@ -162,6 +168,7 @@ class SettingsRepository(context: Context) {
         val DECODE_VIEW_MODE = stringPreferencesKey("decode_view_mode")
         val TX_SLOT_PARITY = stringPreferencesKey("tx_slot_parity")
         val USE_DARK_THEME = booleanPreferencesKey("use_dark_theme")
+        val LAST_ADIF_BACKUP_AT_MS = longPreferencesKey("last_adif_backup_at_ms")
     }
 
     companion object {

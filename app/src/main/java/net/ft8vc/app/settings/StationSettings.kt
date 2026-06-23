@@ -37,4 +37,6 @@ data class StationSettings(
     val txSlotParity: TxSlotParity = TxSlotParity.EVEN,
     /** Render the entire UI in the dark color scheme. Defaults to true (field-first). */
     val useDarkTheme: Boolean = true,
+    /** Phase 7: epoch ms of the most recent successful ADIF auto-backup, or null if none yet. */
+    val lastAdifBackupAtMs: Long? = null,
 )

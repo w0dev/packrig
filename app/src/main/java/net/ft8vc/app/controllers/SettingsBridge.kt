@@ -50,6 +50,7 @@ class SettingsBridge(
             prev.potaModeEnabled != s.potaModeEnabled
 
     private fun StationSettings.toSlice() = SettingsSlice(
+        lastAdifBackupAtMs = lastAdifBackupAtMs,
         myCall = myCall,
         myGrid = myGrid,
         txToneHz = txToneHz,
@@ -95,4 +96,5 @@ data class SettingsSlice(
     val decodeViewMode: DecodeViewMode = DecodeViewMode.OPERATE,
     val txSlotParity: TxSlotParity = TxSlotParity.EVEN,
     val useDarkTheme: Boolean = true,
+    val lastAdifBackupAtMs: Long? = null,
 )

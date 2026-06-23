@@ -16,22 +16,28 @@ enum class TxSlotParity(val bit: Int) {
     }
 }
 
+/**
+ * Phase 7 (HYG-03): TxSlotSelection now speaks [TxSlotParity] end-to-end.
+ * Raw `Int` 0/1 for parity appears only at I/O boundaries (legacy bit
+ * persistence in [TxSlotParity.bit] / [TxSlotParity.fromBit]).
+ */
 object TxSlotSelection {
 
-    fun slotParity(epochMillisUtc: Long): Int =
-        SlotTiming.slotIndexInMinute(epochMillisUtc) % 2
+    fun slotParity(epochMillisUtc: Long): TxSlotParity =
+        TxSlotParity.fromBit(SlotTiming.slotIndexInMinute(epochMillisUtc) % 2)
 
     /** Parity for calling CQ — follows the operator's Even/Odd preference. */
-    fun parityForCallingCq(preference: TxSlotParity): Int = preference.bit
+    fun parityForCallingCq(preference: TxSlotParity): TxSlotParity = preference
 
     /** Answer on the opposite period from the slot where the CQ/report was heard. */
-    fun answerParity(hearingSlotParity: Int): Int = (hearingSlotParity + 1) % 2
+    fun answerParity(hearingSlotParity: TxSlotParity): TxSlotParity =
+        if (hearingSlotParity == TxSlotParity.EVEN) TxSlotParity.ODD else TxSlotParity.EVEN
 
-    fun isTxSlot(epochMillisUtc: Long, txParity: Int): Boolean =
+    fun isTxSlot(epochMillisUtc: Long, txParity: TxSlotParity): Boolean =
         slotParity(epochMillisUtc) == txParity
 
     /** Milliseconds until the start of the next slot matching [txParity]. */
-    fun millisUntilNextTxSlot(epochMillisUtc: Long, txParity: Int): Long {
+    fun millisUntilNextTxSlot(epochMillisUtc: Long, txParity: TxSlotParity): Long {
         var next = SlotTiming.nextSlotStart(epochMillisUtc)
         while (slotParity(next) != txParity) {
             next += SlotTiming.SLOT_MS

@@ -9,26 +9,26 @@ class TxSlotSelectionTest {
 
     @Test
     fun parityForCallingCq_usesPreference() {
-        assertEquals(0, TxSlotSelection.parityForCallingCq(TxSlotParity.EVEN))
-        assertEquals(1, TxSlotSelection.parityForCallingCq(TxSlotParity.ODD))
+        assertEquals(TxSlotParity.EVEN, TxSlotSelection.parityForCallingCq(TxSlotParity.EVEN))
+        assertEquals(TxSlotParity.ODD, TxSlotSelection.parityForCallingCq(TxSlotParity.ODD))
     }
 
     @Test
     fun answerParity_oppositeOfHeardSlot() {
-        assertEquals(1, TxSlotSelection.answerParity(0))
-        assertEquals(0, TxSlotSelection.answerParity(1))
+        assertEquals(TxSlotParity.ODD, TxSlotSelection.answerParity(TxSlotParity.EVEN))
+        assertEquals(TxSlotParity.EVEN, TxSlotSelection.answerParity(TxSlotParity.ODD))
     }
 
     @Test
     fun millisUntilNextTxSlot_waitsForMatchingParity() {
         val t = 7_000L
-        assertEquals(8_000L, TxSlotSelection.millisUntilNextTxSlot(t, TxSlotParity.ODD.bit))
-        assertEquals(23_000L, TxSlotSelection.millisUntilNextTxSlot(t, TxSlotParity.EVEN.bit))
+        assertEquals(8_000L, TxSlotSelection.millisUntilNextTxSlot(t, TxSlotParity.ODD))
+        assertEquals(23_000L, TxSlotSelection.millisUntilNextTxSlot(t, TxSlotParity.EVEN))
     }
 
     @Test
     fun isTxSlot_evenAtZeroSeconds() {
-        assertTrue(TxSlotSelection.isTxSlot(0L, TxSlotParity.EVEN.bit))
-        assertFalse(TxSlotSelection.isTxSlot(0L, TxSlotParity.ODD.bit))
+        assertTrue(TxSlotSelection.isTxSlot(0L, TxSlotParity.EVEN))
+        assertFalse(TxSlotSelection.isTxSlot(0L, TxSlotParity.ODD))
     }
 }

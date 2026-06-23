@@ -136,7 +136,7 @@ class QsoSessionControllerTest {
         // Now feed a directed reply from K1ABC and verify machine advances.
         controller.onDecodeBatch(
             listOf(QsoDecode("W0DEV K1ABC -10", -10)),
-            slotParity = 0,
+            slotParity = TxSlotParity.EVEN,
         )
         // After advance: machine should be in SendingReport (we got their grid via answerCq,
         // then their directed reply gives us their report). The exact state depends on the
@@ -149,7 +149,7 @@ class QsoSessionControllerTest {
         // Directed message to us → should auto-resume into QSO.
         controller.onDecodeBatch(
             listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
-            slotParity = 0,
+            slotParity = TxSlotParity.EVEN,
         )
         assertTrue(controller.slice.value.qsoActive)
         assertEquals("K1ABC", controller.slice.value.qsoDx)
@@ -160,7 +160,7 @@ class QsoSessionControllerTest {
         controller.setAutoAnswerCqEnabled(false)
         controller.onDecodeBatch(
             listOf(QsoDecode("CQ K1ABC FN42", -10)),
-            slotParity = 0,
+            slotParity = TxSlotParity.EVEN,
         )
         assertFalse(controller.slice.value.qsoActive)
     }
@@ -170,7 +170,7 @@ class QsoSessionControllerTest {
         controller.setAutoAnswerCqEnabled(true)
         controller.onDecodeBatch(
             listOf(QsoDecode("CQ K1ABC FN42", -10)),
-            slotParity = 0,
+            slotParity = TxSlotParity.EVEN,
         )
         assertTrue(controller.slice.value.qsoActive)
         assertEquals("K1ABC", controller.slice.value.qsoDx)
@@ -180,14 +180,14 @@ class QsoSessionControllerTest {
     fun abandonQso_blocksLaterAutoResume() = runTest {
         controller.onDecodeBatch(
             listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
-            slotParity = 0,
+            slotParity = TxSlotParity.EVEN,
         )
         assertEquals("K1ABC", controller.slice.value.qsoDx)
         controller.abandonQso()
         // Second directed message from same caller should NOT auto-resume.
         controller.onDecodeBatch(
             listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
-            slotParity = 0,
+            slotParity = TxSlotParity.EVEN,
         )
         assertFalse(controller.slice.value.qsoActive)
     }

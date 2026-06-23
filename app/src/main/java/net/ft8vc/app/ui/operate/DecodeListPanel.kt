@@ -136,6 +136,14 @@ fun DecodeListPanel(
                     )
                 }
             }
+            if (decodes.size >= net.ft8vc.app.OperateUiState.MAX_DECODE_ROWS) {
+                Text(
+                    text = "showing last ${net.ft8vc.app.OperateUiState.MAX_DECODE_ROWS} — older cleared",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+            }
             if (visibleDecodes.isEmpty()) {
                 Text(
                     text = emptyDecodeMessage(

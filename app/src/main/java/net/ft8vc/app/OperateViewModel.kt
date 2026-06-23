@@ -170,6 +170,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         pttPreference = s.pttPreference,
                         lastDialFreqHz = s.lastDialFreqHz,
                         useDarkTheme = s.useDarkTheme,
+                        lastAdifBackupAtMs = s.lastAdifBackupAtMs,
                     )
                 }
                 decodeController.setInputGain(s.inputGain)
@@ -630,6 +631,20 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val band = bandLabelForFreq(freq)
         val contact = QsoContact.fromSnapshot(snapshot, freq, band)
         withContext(Dispatchers.IO) { logbook.log(contact) }
+        // Phase 7 (HYG-04): atomic ADIF auto-export on ApplicationScope so the
+        // backup outlives this ViewModel if the user pauses the app mid-write.
+        AdifAutoBackup.scheduleBackupAfterQso(getApplication(), logbook, settingsRepo)
+    }
+
+    /** Phase 7 (UX-06): user-triggered backup from the Settings → Logbook row. */
+    fun backupAdifNow() {
+        viewModelScope.launch {
+            val result = AdifAutoBackup.backupNow(getApplication(), logbook, settingsRepo)
+            notify(
+                if (result != null) "ADIF backup written" else "ADIF backup failed",
+                if (result != null) SnackbarEvent.Tag.TRANSIENT else SnackbarEvent.Tag.ERROR,
+            )
+        }
     }
 
     private fun resumeCaptureIfNeededForQso() {

@@ -113,7 +113,7 @@ class QsoSessionController(
     private var qso: QsoMachine? = null
     private var qsoLoopJob: Job? = null
     private var slotClockJob: Job? = null
-    private var qsoTxParity: Int? = null
+    private var qsoTxParity: TxSlotParity? = null
     private var lastLoggedKey: String? = null
     private var operateTxUserEdited: Boolean = false
 
@@ -274,7 +274,7 @@ class QsoSessionController(
         }
     }
 
-    fun onDecodeBatch(decodes: List<QsoDecode>, slotParity: Int) {
+    fun onDecodeBatch(decodes: List<QsoDecode>, slotParity: TxSlotParity) {
         scope.launch(qsoDispatcher) {
             val running = qsoLoopJob?.isActive == true
             if (running && autoSeqEnabled) {
@@ -296,7 +296,7 @@ class QsoSessionController(
 
     // ── Internal: QSO loop ──────────────────────────────────────────────
 
-    private suspend fun startQsoLoop(machine: QsoMachine, hearingSlotParity: Int?) {
+    private suspend fun startQsoLoop(machine: QsoMachine, hearingSlotParity: TxSlotParity?) {
         stopQsoInternal()
         qso = machine
         qsoTxParity = resolveTxParity(machine, hearingSlotParity)
@@ -311,7 +311,7 @@ class QsoSessionController(
                     if (!isActive) break
 
                     val slotStart = SlotTiming.slotStart(clock())
-                    val ourTx = SlotTiming.slotIndexInMinute(slotStart) % 2 == txParity
+                    val ourTx = TxSlotSelection.slotParity(slotStart) == txParity
                     if (!ourTx) continue
 
                     delay(OperateUiState.QSO_TX_GRACE_MS)
@@ -390,7 +390,7 @@ class QsoSessionController(
     private suspend fun resumeFromOpportunity(
         opp: QsoResume.Opportunity,
         snackbar: String,
-        hearingSlotParity: Int,
+        hearingSlotParity: TxSlotParity,
     ) {
         val machine = newQsoMachine()
         QsoResume.apply(machine, opp)
@@ -401,7 +401,7 @@ class QsoSessionController(
         )
     }
 
-    private suspend fun tryAnswerWhenCalled(decodes: List<QsoDecode>, hearingSlotParity: Int) {
+    private suspend fun tryAnswerWhenCalled(decodes: List<QsoDecode>, hearingSlotParity: TxSlotParity) {
         if (qsoLoopJob?.isActive == true || decodes.isEmpty()) return
         val opp = QsoResume.findOpportunity(
             myCall,
@@ -413,7 +413,7 @@ class QsoSessionController(
         resumeFromOpportunity(opp, "Answering ${opp.dxCall}", hearingSlotParity)
     }
 
-    private suspend fun tryAutoAnswerCq(decodes: List<QsoDecode>, hearingSlotParity: Int) {
+    private suspend fun tryAutoAnswerCq(decodes: List<QsoDecode>, hearingSlotParity: TxSlotParity) {
         if (qsoLoopJob?.isActive == true || decodes.isEmpty()) return
         val picked = AnswerSelector.selectCq(
             myCall,
@@ -455,11 +455,11 @@ class QsoSessionController(
         if (text.isNotEmpty()) machine.setCustomMessage(text)
     }
 
-    private fun resolveTxParity(machine: QsoMachine, hearingSlotParity: Int?): Int {
+    private fun resolveTxParity(machine: QsoMachine, hearingSlotParity: TxSlotParity?): TxSlotParity {
         if (hearingSlotParity != null && machine.role == QsoRole.Answerer) {
             return TxSlotSelection.answerParity(hearingSlotParity)
         }
-        return defaultTxSlotParity.bit
+        return defaultTxSlotParity
     }
 
     private fun syncOperateTxText(auto: String?, step: QsoTxStep = currentAutoTxStep()) {
@@ -536,8 +536,8 @@ class QsoSessionController(
         slotClockJob = scope.launch {
             while (isActive) {
                 val now = clock()
-                val parity = qsoTxParity ?: defaultTxSlotParity.bit
-                val isTx = SlotTiming.slotIndexInMinute(now) % 2 == parity
+                val parity = qsoTxParity ?: defaultTxSlotParity
+                val isTx = TxSlotSelection.slotParity(now) == parity
                 _slice.update {
                     it.copy(
                         slotIndex = SlotTiming.slotIndexInMinute(now),
@@ -549,7 +549,7 @@ class QsoSessionController(
                         },
                         utcClock = utcClockFormat.format(Date(now)),
                         isTxSlot = isTx,
-                        activeTxSlotParity = qsoTxParity?.let(TxSlotParity::fromBit),
+                        activeTxSlotParity = qsoTxParity,
                     )
                 }
                 delay(slotClockIntervalMs)

@@ -8,6 +8,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.ft8vc.app.OperateUiState
+import net.ft8vc.core.TxSlotParity
 import net.ft8vc.ft8native.Ft8DecodeResult
 import net.ft8vc.ft8native.Ft8DecoderApi
 import net.ft8vc.ft8native.fakes.Ft8DecoderFake
@@ -182,7 +183,7 @@ class DecodeControllerTest {
             val batch = awaitItem()
             // Slot parity is 0 (even) or 1 (odd); whichever it is, must be consistent
             // with TxSlotSelection — we just assert it's a valid value.
-            assertTrue(batch.slotParity == 0 || batch.slotParity == 1)
+            assertTrue(batch.slotParity == TxSlotParity.EVEN || batch.slotParity == TxSlotParity.ODD)
             cancelAndIgnoreRemainingEvents()
         }
     }

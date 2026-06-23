@@ -262,6 +262,30 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
             }
 
+            SettingsSection("Logbook") {
+                val lastBackupLabel = state.lastAdifBackupAtMs?.let { ms ->
+                    val ageMs = System.currentTimeMillis() - ms
+                    when {
+                        ageMs < 60_000 -> "Last backup: just now"
+                        ageMs < 3_600_000 -> "Last backup: ${ageMs / 60_000} min ago"
+                        ageMs < 86_400_000 -> "Last backup: ${ageMs / 3_600_000} h ago"
+                        else -> "Last backup: ${ageMs / 86_400_000} d ago"
+                    }
+                } ?: "Last backup: never"
+                Text(lastBackupLabel, style = MaterialTheme.typography.bodySmall)
+                Button(
+                    onClick = vm::backupAdifNow,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Backup now")
+                }
+                Text(
+                    "ADIF auto-exports after every QSO to app-private external storage.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             SettingsSection("About") {
                 Text("${AppInfo.APP_NAME} ${AppInfo.VERSION_NAME}")
                 Text(AppInfo.TAGLINE, style = MaterialTheme.typography.bodySmall)
