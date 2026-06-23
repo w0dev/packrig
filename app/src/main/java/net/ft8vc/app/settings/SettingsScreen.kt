@@ -255,6 +255,15 @@ fun SettingsScreen(vm: OperateViewModel) {
                     onCheckedChange = vm::setAutoAnswerCqEnabled,
                     enabled = state.txEnabled,
                 )
+                AutoToggleRow(
+                    title = "Late-start TX (up to 7s into slot)",
+                    subtitle = "Send a truncated waveform so a late Answer/Resume still goes out this slot",
+                    checked = state.lateStartTxEnabled,
+                    onCheckedChange = vm::setLateStartTxEnabled,
+                    // Per spec: toggle is visible and editable regardless of license; the
+                    // license gate already blocks TX downstream via AppRfState.READY.
+                    enabled = true,
+                )
                 Text(
                     "Set TX slot (Even/Odd) on Operate when TX is enabled.",
                     style = MaterialTheme.typography.bodySmall,
