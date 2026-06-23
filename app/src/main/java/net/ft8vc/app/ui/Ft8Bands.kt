@@ -43,3 +43,15 @@ fun dialLabelText(hz: Long?): String =
     dialPresetForFreq(hz)?.let { "Dial ${it.freqMhz}" }
         ?: hz?.let { "Dial %.3f MHz".format(it / 1_000_000.0) }
         ?: "Dial —"
+
+/**
+ * Returns the band label of the dial preset whose frequency is closest to [hz],
+ * provided it's within 200 kHz. Use when you need a band classification for an
+ * arbitrary rig frequency (worked-before lookups, etc.) — for exact preset
+ * matching prefer [bandLabelForFreq].
+ */
+fun bandLabelForFreqLoose(hz: Long?): String? {
+    if (hz == null) return null
+    val best = Ft8DialPresets.minByOrNull { kotlin.math.abs(it.hz - hz) } ?: return null
+    return if (kotlin.math.abs(best.hz - hz) <= 200_000L) best.label else null
+}
