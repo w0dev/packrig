@@ -64,13 +64,34 @@ class FakeUsbAudioPlayback : UsbAudioPlaybackFake {
     @Volatile
     private var halted: Boolean = false
 
+    @Volatile
+    private var nextThrowable: Throwable? = null
+
+    private val latchLock = Any()
+    private var blockLatch: java.util.concurrent.CountDownLatch? = null
+
     override fun playBlocking(samples12k: ShortArray, preferredDeviceId: Int?): Boolean {
+        // Throw injection: consume once, then throw (simulates playback crash).
+        nextThrowable?.let { t -> nextThrowable = null; throw t }
+
         if (failFast) {
             synchronized(recordsLock) {
                 records += PlaybackRecord(samples12k.copyOf(), preferredDeviceId, halted = true)
             }
             return false
         }
+
+        // Latch-based block: suspends until releaseBlockLatch() or stop() is called.
+        val latch = synchronized(latchLock) { blockLatch }
+        if (latch != null) {
+            latch.await(30, java.util.concurrent.TimeUnit.SECONDS)
+            val wasHalted = halted
+            synchronized(recordsLock) {
+                records += PlaybackRecord(samples12k.copyOf(), preferredDeviceId, halted = wasHalted)
+            }
+            return !wasHalted
+        }
+
         halted = false
         if (blockingMs > 0L) {
             val deadline = System.nanoTime() + blockingMs * 1_000_000L
@@ -87,6 +108,7 @@ class FakeUsbAudioPlayback : UsbAudioPlaybackFake {
 
     override fun stop() {
         halted = true
+        synchronized(latchLock) { blockLatch }?.countDown()
     }
 
     fun playbackRecordsSnapshot(): List<PlaybackRecord> =
@@ -99,5 +121,27 @@ class FakeUsbAudioPlayback : UsbAudioPlaybackFake {
 
     fun configureFailFastReturn(enable: Boolean) {
         failFast = enable
+    }
+
+    /**
+     * Configure the fake to throw [t] on the next [playBlocking] call. Consumed once.
+     * Simulates a mid-playback crash (Layer-a PTT defense scenario).
+     */
+    fun configureNextPlayThrows(t: Throwable) {
+        nextThrowable = t
+    }
+
+    /**
+     * Install a [java.util.concurrent.CountDownLatch] that [playBlocking] will
+     * block on indefinitely. Call [releaseBlockLatch] (or [stop]) from another
+     * thread to unblock. Simulates a hung playback thread for Layer-b/c/d tests.
+     */
+    fun configureBlockLatch(latch: java.util.concurrent.CountDownLatch) {
+        synchronized(latchLock) { blockLatch = latch }
+    }
+
+    /** Release the blocking latch installed by [configureBlockLatch]. */
+    fun releaseBlockLatch() {
+        synchronized(latchLock) { blockLatch }?.countDown()
     }
 }
