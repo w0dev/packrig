@@ -764,7 +764,9 @@ AutoToggleRow(
     subtitle = "Send a truncated waveform so a late Answer/Resume still goes out this slot",
     checked = state.lateStartTxEnabled,
     onCheckedChange = vm::setLateStartTxEnabled,
-    enabled = state.txEnabled,
+    // Per spec: toggle is visible and editable regardless of license; the
+    // license gate already blocks TX downstream via AppRfState.READY.
+    enabled = true,
 )
 ```
 
@@ -888,9 +890,10 @@ class LateTxPlanTest {
 
     @Test
     fun walkThroughExample_t3200() {
-        // Spec walk-through: t=3.200 → offsetSymbols=13, waitMs=80
+        // Spec walk-through: t=3.200 → offsetSymbols=13, waitMs=60
+        // (key moment = 1180 + 13×160 = 3260; wait = 3260 - 3200 = 60ms)
         val plan = computeLateTxPlan(3_200L, toggleEnabled = true)
-        assertEquals(LateTxPlan.Late(offsetSymbols = 13, waitMs = 80L), plan)
+        assertEquals(LateTxPlan.Late(offsetSymbols = 13, waitMs = 60L), plan)
     }
 }
 ```

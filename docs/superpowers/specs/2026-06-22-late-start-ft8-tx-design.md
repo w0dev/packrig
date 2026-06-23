@@ -117,8 +117,8 @@ Concrete walk-through for the operator tapping Answer at `t_in_slot = 3.200 s` w
 
 2. **Compute the plan.** `computeLateTxPlan(tapTsMs - slotStartMs = 3200, toggleEnabled = true)`:
    - `offsetSymbols = ceil((3.200 - 1.180) / 0.160) = ceil(12.625) = 13` — round **up** to land on the next safe symbol boundary (never emit a fractional-symbol head).
-   - `waitMs = round((1.180 + 13 × 0.160 - 3.200) × 1000) = round(0.080 × 1000) = 80 ms`.
-   - Returns `LateTxPlan.Late(offsetSymbols = 13, waitMs = 80)`.
+   - `waitMs = round((1.180 + 13 × 0.160 - 3.200) × 1000) = round(0.060 × 1000) = 60 ms`.
+   - Returns `LateTxPlan.Late(offsetSymbols = 13, waitMs = 60)`.
 
 3. **Encode (on encode dispatcher).** `Ft8Native.encode(message, txFreqHz, 12000, offsetSymbols = 13)` → JNI runs full `ftx_message_encode` + `ft8_encode` over all 79 symbols (FEC intact), then `synth_gfsk` emits PCM for symbols `[13, 79)` = 66 symbols × 1920 samples/symbol = **126,720 samples** (≈ 10.56 s of 12 kHz audio). No silence padding — the v1.0 padding existed because the v1.0 path was always called at slot boundary; late-TX is called mid-slot so the operator wants audio *now*.
 
