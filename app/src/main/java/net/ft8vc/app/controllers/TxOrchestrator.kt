@@ -396,3 +396,55 @@ data class TxLogEvent(
     val freqHz: Int,
     val message: String,
 )
+
+/**
+ * Late-start TX decision derived from how far into the slot the operator tapped.
+ *
+ * - [Normal] — route through the unchanged v1.0 TX path (no truncation).
+ * - [Deferred] — defer to the next slot via existing `transmitAfterSlotBoundary` queueing.
+ * - [Late] — emit a truncated waveform starting at `offsetSymbols`, after waiting `waitMs`
+ *   to land the first emitted sample on a symbol boundary.
+ *
+ * Computed by [computeLateTxPlan] from `t_in_slot` and the Settings toggle.
+ */
+sealed interface LateTxPlan {
+    object Normal : LateTxPlan
+    object Deferred : LateTxPlan
+    data class Late(val offsetSymbols: Int, val waitMs: Long) : LateTxPlan
+}
+
+/**
+ * Decide whether a transmit request at slot-relative time [tInSlotMs] should
+ * run through the v1.0 path, defer to the next slot, or fire late with a
+ * truncated waveform.
+ *
+ * Constants are derived in the spec — see
+ * `docs/superpowers/specs/2026-06-22-late-start-ft8-tx-design.md` §Symbol-clock math.
+ *
+ * - `t < 1340` (one symbol period past waveform start): [Normal]
+ * - `1340 ≤ t ≤ 7000`: [Late] with `offsetSymbols ∈ [1, 37]`
+ * - `t > 7000`: [Deferred]
+ * - `toggleEnabled == false`: always [Normal] (PARITY-01 escape hatch)
+ */
+internal fun computeLateTxPlan(tInSlotMs: Long, toggleEnabled: Boolean): LateTxPlan {
+    if (!toggleEnabled) return LateTxPlan.Normal
+    if (tInSlotMs < LATE_TX_FLOOR_MS) return LateTxPlan.Normal
+    if (tInSlotMs > LATE_TX_CUTOFF_MS) return LateTxPlan.Deferred
+
+    // (tInSlot - waveformStart) / symbolPeriod, rounded UP so the first emitted
+    // sample is never inside a partial symbol.
+    val rawOffset = (tInSlotMs - WAVEFORM_START_MS).toDouble() / SYMBOL_PERIOD_MS
+    val offsetSymbols = kotlin.math.ceil(rawOffset).toInt().coerceAtLeast(1)
+    val keyMomentInSlot = WAVEFORM_START_MS + offsetSymbols * SYMBOL_PERIOD_MS
+    val waitMs = (keyMomentInSlot - tInSlotMs).coerceAtLeast(0L)
+    return LateTxPlan.Late(offsetSymbols = offsetSymbols, waitMs = waitMs)
+}
+
+// Constants — see spec §Symbol-clock math.
+internal const val WAVEFORM_START_MS = 1180L
+internal const val SYMBOL_PERIOD_MS = 160L
+internal const val LATE_TX_FLOOR_MS = WAVEFORM_START_MS + SYMBOL_PERIOD_MS  // 1340
+internal const val LATE_TX_CUTOFF_MS = 7000L
+internal const val LATE_TX_DRIFT_ABORT_MS = 80L
+internal const val FT8_NN = 79
+internal const val SAMPLES_PER_SYMBOL = 1920
