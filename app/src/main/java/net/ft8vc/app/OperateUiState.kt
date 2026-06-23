@@ -28,6 +28,10 @@ data class DecodeRow(
     val distanceKm: Int? = null,
     /** UTC slot parity (Even/Odd) when this decode was received. */
     val slotParity: TxSlotParity = TxSlotParity.EVEN,
+    /** Whether this row was received (RX) or synthesized from our own TX. */
+    val source: net.ft8vc.core.DecodeRowSource = net.ft8vc.core.DecodeRowSource.Rx,
+    /** Whether the sender's callsign has been worked before. */
+    val workedBefore: net.ft8vc.core.WorkedBefore = net.ft8vc.core.WorkedBefore.Never,
 )
 
 /**
