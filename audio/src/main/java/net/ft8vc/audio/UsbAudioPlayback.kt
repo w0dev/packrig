@@ -16,7 +16,7 @@ import net.ft8vc.core.AppInfo
  * USB interfaces usually run at 48 kHz, so [playBlocking] upsamples before
  * writing to [AudioTrack].
  */
-class UsbAudioPlayback(private val context: Context) {
+class UsbAudioPlayback(private val context: Context) : UsbPlaybackApi {
 
     /** Candidate playback rates and the upsample factor from 12 kHz. */
     private val rateOptions = listOf(48_000 to 4, 24_000 to 2, 12_000 to 1)
@@ -25,7 +25,7 @@ class UsbAudioPlayback(private val context: Context) {
     private var activeTrack: AudioTrack? = null
 
     /** Stop in-progress [playBlocking] and release the current [AudioTrack]. */
-    fun stop() {
+    override fun stop() {
         val track = activeTrack
         if (track == null) return
         runCatching {
@@ -44,7 +44,7 @@ class UsbAudioPlayback(private val context: Context) {
      * is an [AudioDeviceInfo] output id, or null for default routing.
      * Returns false if playback was interrupted by [stop].
      */
-    fun playBlocking(samples12k: ShortArray, preferredDeviceId: Int?): Boolean {
+    override fun playBlocking(samples12k: ShortArray, preferredDeviceId: Int?): Boolean {
         if (samples12k.isEmpty()) return true
         val trackPair = openTrack(preferredDeviceId)
             ?: throw IllegalStateException("Unable to open any AudioTrack configuration")

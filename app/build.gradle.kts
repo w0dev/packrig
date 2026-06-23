@@ -109,6 +109,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(testFixtures(project(":rig")))
     testImplementation(testFixtures(project(":ft8-native")))
+    testImplementation(testFixtures(project(":audio")))
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.espresso.core)
