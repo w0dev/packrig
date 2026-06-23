@@ -9,7 +9,9 @@ import net.ft8vc.app.controllers.QsoSessionController
 import net.ft8vc.app.controllers.RigSession
 import net.ft8vc.app.controllers.SettingsBridge
 import net.ft8vc.app.controllers.TxOrchestrator
+import net.ft8vc.app.controllers.WorkedBeforeCache
 import net.ft8vc.app.ui.Waterfall
+import net.ft8vc.app.ui.bandLabelForFreqLoose
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.app.settings.SettingsRepository
 import net.ft8vc.audio.AudioInputs
@@ -42,6 +44,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
@@ -60,6 +63,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private val settingsRepo = SettingsRepository(app)
     private val settingsBridge = SettingsBridge(settingsRepo, viewModelScope)
     private val logbook: Logbook = RoomLogbook(Ft8vcDatabase.get(app))
+    private val workedBeforeCache = WorkedBeforeCache(logbook)
 
     /**
      * Phase 5 (REFACTOR-06) follow-up — combine() flow assembly.
@@ -113,7 +117,17 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private val decodeController = DecodeController(
         decoder = Ft8Native,
         scope = viewModelScope,
+        workedBeforeLookup = { call ->
+            // Synchronous wrapper around the suspending in-memory cache. Safe on
+            // the decode dispatcher: first lookup per call hits Room once, every
+            // subsequent lookup is an in-memory map read. Decode batches arrive
+            // at 15-second intervals.
+            runBlocking { workedBeforeCache.classify(call, currentBandLabel()) }
+        },
     )
+
+    private fun currentBandLabel(): String? =
+        bandLabelForFreqLoose(state.value.rigFreqHz)
     val waterfall = Waterfall(bins = decodeController.binCount).also {
         decodeController.spectrumSink = it::addColumn
     }
@@ -298,6 +312,28 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             decodeController.decodesOut.collect { batch ->
                 qsoSession.onDecodeBatch(batch.decodes, batch.slotParity)
+            }
+        }
+        viewModelScope.launch {
+            txOrchestrator.txLog.collect { ev ->
+                val timeUtc = java.time.Instant.ofEpochMilli(ev.utcMillis)
+                    .atZone(java.time.ZoneOffset.UTC)
+                    .toLocalTime()
+                    .withNano(0)
+                    .toString()
+                val row = DecodeRow(
+                    id = ev.utcMillis,
+                    timeUtc = timeUtc,
+                    snr = 0,
+                    dtSeconds = 0f,
+                    freqHz = ev.freqHz,
+                    message = ev.message,
+                    isCq = false,
+                    isToMe = false,
+                    distanceKm = null,
+                    source = net.ft8vc.core.DecodeRowSource.Tx,
+                )
+                decodeController.appendSyntheticRow(row)
             }
         }
         viewModelScope.launch {
@@ -629,6 +665,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val band = bandLabelForFreq(freq)
         val contact = QsoContact.fromSnapshot(snapshot, freq, band)
         withContext(Dispatchers.IO) { logbook.log(contact) }
+        workedBeforeCache.invalidate(contact.dxCall)
         // Phase 7 (HYG-04): atomic ADIF auto-export on ApplicationScope so the
         // backup outlives this ViewModel if the user pauses the app mid-write.
         AdifAutoBackup.scheduleBackupAfterQso(getApplication(), logbook, settingsRepo)
@@ -712,6 +749,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         decodeController.close()
         qsoSession.close()
         rigSession.close()
+        runBlocking { workedBeforeCache.clear() }
         super.onCleared()
     }
 

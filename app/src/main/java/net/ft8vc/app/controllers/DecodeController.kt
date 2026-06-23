@@ -21,9 +21,12 @@ import net.ft8vc.audio.dsp.SpectrumProcessor
 import net.ft8vc.core.AppInfo
 import net.ft8vc.core.DecodeDistance
 import net.ft8vc.core.QsoDecode
+import net.ft8vc.core.QsoMessages
 import net.ft8vc.core.QsoResume
+import net.ft8vc.core.QsoRx
 import net.ft8vc.core.SlotCollector
 import net.ft8vc.core.TxSlotSelection
+import net.ft8vc.core.WorkedBefore
 import net.ft8vc.ft8native.Ft8DecoderApi
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -60,6 +63,18 @@ class DecodeController(
     val decodeDispatcher: CoroutineDispatcher = executor.asCoroutineDispatcher(),
     private val clock: () -> Long = { System.currentTimeMillis() },
     sampleRateHz: Int = AppInfo.SAMPLE_RATE_HZ,
+    /**
+     * Synchronous worked-before classifier. Receives the parsed sender callsign
+     * (uppercase, no modifiers) and returns the row's [WorkedBefore] tag. The
+     * default returns [WorkedBefore.Never] so unit tests / fixtures don't need
+     * to thread a logbook through.
+     *
+     * The VM wraps a suspending in-memory cache via `runBlocking` here; first
+     * lookup per call hits a suspending Room query, subsequent lookups read an
+     * in-memory map. Decode batches arrive at 15-second intervals, so the
+     * runBlocking on the decode-dispatcher thread does not affect RX cadence.
+     */
+    private val workedBeforeLookup: (String) -> WorkedBefore = { WorkedBefore.Never },
 ) : AutoCloseable {
 
     /** UI-side sink for spectrum FFT columns. VM points this at `waterfall::addColumn`; tests leave it as a no-op. */
@@ -192,6 +207,8 @@ class DecodeController(
         val slotDecodes = sorted.map { QsoDecode(it.message.trim(), it.snr) }
         val rows = sorted.mapIndexed { indexInSlot, r ->
             val message = r.message.trim()
+            val sender = senderCallFromMessage(message)
+            val worked = if (sender != null) workedBeforeLookup(sender) else WorkedBefore.Never
             DecodeRow(
                 id = slotStartEpochMs * 1000L + indexInSlot,
                 timeUtc = time,
@@ -203,6 +220,7 @@ class DecodeController(
                 isToMe = QsoResume.isDirectedToMe(ctx.myCall, message),
                 distanceKm = DecodeDistance.kmFromMessage(ctx.myGrid, message),
                 slotParity = slotParity,
+                workedBefore = worked,
             )
         }
         _slice.update { s ->
@@ -220,6 +238,33 @@ class DecodeController(
             ),
         )
     }
+
+    /**
+     * Append a row that did not come from the native decoder (e.g. a
+     * synthesized TX row produced from [net.ft8vc.app.controllers.TxOrchestrator.txLog]).
+     * Uses the same prepend + [OperateUiState.MAX_DECODE_ROWS] eviction
+     * pattern as the decoder batch path so chronological ordering and the
+     * row cap are preserved.
+     */
+    fun appendSyntheticRow(row: DecodeRow) {
+        _slice.update { s ->
+            val combined = (listOf(row) + s.decodes).take(OperateUiState.MAX_DECODE_ROWS)
+            s.copy(decodes = combined.toPersistentList())
+        }
+    }
+
+    /** Extract the sender callsign from a parsed FT8 message; null when message has no sender. */
+    private fun senderCallFromMessage(message: String): String? =
+        when (val rx = QsoMessages.parse(message)) {
+            is QsoRx.Cq -> rx.call
+            is QsoRx.GridReply -> rx.sender
+            is QsoRx.Report -> rx.sender
+            is QsoRx.RReport -> rx.sender
+            is QsoRx.Roger -> rx.sender
+            is QsoRx.RogerBye -> rx.sender
+            is QsoRx.Bye -> rx.sender
+            QsoRx.Other -> null
+        }
 
     override fun close() {
         (decodeDispatcher as? ExecutorCoroutineDispatcher)?.close()
