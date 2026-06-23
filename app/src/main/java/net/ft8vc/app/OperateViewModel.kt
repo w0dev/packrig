@@ -332,6 +332,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                     isToMe = false,
                     distanceKm = null,
                     source = net.ft8vc.core.DecodeRowSource.Tx,
+                    slotParity = net.ft8vc.core.TxSlotSelection.slotParity(ev.utcMillis),
                 )
                 decodeController.appendSyntheticRow(row)
             }
