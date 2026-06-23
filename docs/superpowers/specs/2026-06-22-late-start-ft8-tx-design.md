@@ -17,7 +17,7 @@ This restores the hunt-and-pounce ergonomic on the FT-891 + Digirig reference ri
 
 The operator can tap Answer (or Manual TX, or trigger auto-answer) up to **7.000 s** into a 15 s slot and the next transmission goes out on that slot, with the tail landing on the normal 15 s boundary. Past 7.000 s, behavior is unchanged from v1.0 (silent queue to next slot). The feature ships behind a Settings toggle defaulted ON.
 
-The v1.0 RX/TX/CAT/QSO contract on the reference FT-891 + Digirig rig is preserved byte-for-byte when the toggle is OFF (PARITY-01 escape hatch) and for any tap with `t_in_slot < 0.66 s` when the toggle is ON (the v1.0 code path is reused unchanged for sub-symbol-period lateness).
+The v1.0 RX/TX/CAT/QSO contract on the reference FT-891 + Digirig rig is preserved byte-for-byte when the toggle is OFF (PARITY-01 escape hatch) and for any tap with `t_in_slot < 1.34 s` when the toggle is ON (the v1.0 code path is reused unchanged for sub-symbol-period lateness).
 
 ## Locked decisions
 
@@ -29,29 +29,36 @@ The v1.0 RX/TX/CAT/QSO contract on the reference FT-891 + Digirig rig is preserv
 | 4 | Past-cutoff behavior | Silent queue to next slot — same as v1.0, no snackbar |
 | 5 | In-window UI | Fully transparent — no countdown, no chip, no Compose changes |
 | 6 | Settings toggle | "Late-start TX (up to 7s into slot)" — default ON, persisted via DataStore, escape hatch |
-| 7 | Floor (sub-symbol lateness) | `t_in_slot < 0.66 s` → unchanged v1.0 path runs. Late-TX path only activates when `offsetSymbols ≥ 1`. |
+| 7 | Floor (sub-symbol lateness) | `t_in_slot < 1.34 s` → unchanged v1.0 path runs. Late-TX path only activates when `offsetSymbols ≥ 1`. |
 
 ## Symbol-clock math
 
-FT8 framing inside a 15 s slot:
+FT8 framing in this codebase (verified by reading `ft8_jni.cpp:267-278`):
 
-- Conventional TX start: `slot_start + 0.500 s`
-- Symbol period: `0.160 s`
+- Sample rate: `12_000 Hz`
+- Symbol period: `FT8_SYMBOL_PERIOD = 0.160 s`
+- Samples per symbol: `nSpsym = round(12000 × 0.160) = 1920`
 - Symbols per transmission: `FT8_NN = 79` (Costas at 0–6, 36–42, 72–78; data interleaved)
-- Total transmission length: `79 × 0.160 = 12.640 s`, ending at `slot_start + 13.140 s` (well clear of the next slot boundary)
+- Waveform duration: `79 × 1920 / 12000 = 12.640 s`
+- Slot duration: `FT8_SLOT_TIME = 15.000 s` → `15 × 12000 = 180_000` samples
+- **Silence padding (each side, computed in `nativeEncode`):** `(180000 - 79 × 1920) / 2 = 14160 samples = 1.180 s`
+- **Waveform starts at:** `slot_start + 1.180 s`
+- **Waveform ends at:** `slot_start + 1.180 + 12.640 = slot_start + 13.820 s`
 
-The **7.0 s cutoff** is derived, not cargo-culted from POTACAT:
+The **7.0 s cutoff** is derived from this framing:
 
 ```
-cutoff = slot_start_offset + N × symbol_period
-       = 0.500 + 41 × 0.160
-       = 7.060 s
-       → rounded down to 7.0 s
+offsetSymbols(t=7.0) = ceil((7.000 - 1.180) / 0.160)
+                    = ceil(36.375)
+                    = 37
+waitMs(t=7.0)       = round((1.180 + 37 × 0.160 - 7.000) × 1000)
+                    = round(0.100 × 1000)
+                    = 100 ms
 ```
 
-At `t_in_slot = 7.0 s`, we've truncated up through symbol 41. The middle Costas array (symbols 36–42) is partially clipped, but the **end Costas array (symbols 72–78) survives intact**, giving the receiver a robust re-sync anchor. POTACAT v1.8.14 field reports confirm this still decodes reliably; on the FT-891 + Digirig reference rig the on-air verification gate locks in the empirical evidence (see [Field verification](#field-verification)).
+At `t_in_slot = 7.0 s`, we've truncated up through symbol 36 (the first symbol of the middle Costas array at symbols 36–42). Symbols 37–42 of the middle Costas survive, and the **end Costas array (symbols 72–78) survives entirely intact** — giving the receiver two anchors for late re-sync. This is conservatively more robust than POTACAT v1.8.14's framing (which uses 0.5 s leading silence and truncates further into the middle Costas at its 7.0 s cutoff); on-air verification on the FT-891 + Digirig reference rig locks in the empirical evidence (see [Field verification](#field-verification)).
 
-The **0.66 s floor** is one symbol period past slot start (`0.500 + 0.160 = 0.660`). Any tap before then computes `offsetSymbols = 0` and routes through the unchanged v1.0 TX path. This keeps the dominant "operator taps before slot starts" case bit-for-bit identical to v1.0 — late-TX code only runs when it has actual work to do.
+The **1.34 s floor** is one symbol period past waveform start (`1.180 + 0.160 = 1.340`). Any tap before then computes `offsetSymbols = 0` and routes through the unchanged v1.0 TX path. The v1.0 path already includes the 1.180 s of pre-waveform silence inside its 15 s buffer, so a tap at e.g. `t = 0.5 s` simply means the v1.0 path plays silence for the first 0.680 s of remaining slot and then emits the full waveform — identical to today.
 
 ## Architecture
 
@@ -109,11 +116,11 @@ Concrete walk-through for the operator tapping Answer at `t_in_slot = 3.200 s` w
 1. **Tap → `TxOrchestrator.transmit(message)`.** Same entry point as v1.0. Existing license-gate / `AppRfState.READY` / `transmitInProgress` guards run unchanged. Capture `tapTsMs` from monotonic clock.
 
 2. **Compute the plan.** `computeLateTxPlan(tapTsMs - slotStartMs = 3200, toggleEnabled = true)`:
-   - `offsetSymbols = ceil((3.200 - 0.500) / 0.160) = ceil(16.875) = 17` — round **up** to land on the next safe symbol boundary (never emit a fractional-symbol head).
-   - `waitMs = round((0.500 + 17 × 0.160 - 3.200) × 1000) = round(0.020 × 1000) = 20 ms`.
-   - Returns `LateTxPlan.Late(offsetSymbols = 17, waitMs = 20)`.
+   - `offsetSymbols = ceil((3.200 - 1.180) / 0.160) = ceil(12.625) = 13` — round **up** to land on the next safe symbol boundary (never emit a fractional-symbol head).
+   - `waitMs = round((1.180 + 13 × 0.160 - 3.200) × 1000) = round(0.080 × 1000) = 80 ms`.
+   - Returns `LateTxPlan.Late(offsetSymbols = 13, waitMs = 80)`.
 
-3. **Encode (on encode dispatcher).** `Ft8Native.encode(message, txFreqHz, 12000, offsetSymbols = 17)` → JNI runs full `ftx_message_encode` + `ft8_encode` over all 79 symbols (FEC intact), then `synth_gfsk` emits PCM for symbols `[17, 79)` = 62 symbols × 1920 samples/symbol = **119,040 samples** (≈ 9.92 s of 12 kHz audio).
+3. **Encode (on encode dispatcher).** `Ft8Native.encode(message, txFreqHz, 12000, offsetSymbols = 13)` → JNI runs full `ftx_message_encode` + `ft8_encode` over all 79 symbols (FEC intact), then `synth_gfsk` emits PCM for symbols `[13, 79)` = 66 symbols × 1920 samples/symbol = **126,720 samples** (≈ 10.56 s of 12 kHz audio). No silence padding — the v1.0 padding existed because the v1.0 path was always called at slot boundary; late-TX is called mid-slot so the operator wants audio *now*.
 
 4. **Snapshot-to-key drift check (race window mitigation).** Re-read the monotonic clock. If `(nowMs - tapTsMs) > 80 ms` (half a symbol period), abort late-TX and fall through to `transmitNextSlot`. Bounds the worst-case drift between plan and key.
 
@@ -121,7 +128,7 @@ Concrete walk-through for the operator tapping Answer at `t_in_slot = 3.200 s` w
 
 6. **PTT key.** Existing `RigSession.keyPtt()` via the same call as v1.0.
 
-7. **Play.** `playback.playBlocking(pcm, outputId)` — blocks for ~9.92 s. Watchdog timer is 250 ms; the existing `withTimeoutOrNull(SLOT_DURATION_MS + 500 = 15_500)` still bounds the whole operation. Tail lands at slot-relative `0.500 + 17 × 0.160 + 9.920 = 13.140 s`, **identical to a normal-start TX**.
+7. **Play.** `playback.playBlocking(pcm, outputId)` — blocks for ~10.56 s. Watchdog timer is 250 ms (per-key); the existing `withTimeoutOrNull(SLOT_DURATION_MS + 500 = 15_500)` still bounds the whole operation. Tail lands at slot-relative `1.180 + 13 × 0.160 + 10.560 = 13.820 s`, **identical to a normal-start TX waveform endpoint**.
 
 8. **PTT release.** Existing `try-finally` + `AutoCloseable` paths fire unchanged. 4-layer defense intact.
 
@@ -132,7 +139,7 @@ Concrete walk-through for the operator tapping Answer at `t_in_slot = 3.200 s` w
 | `offsetSymbols` is a whole number of symbols (no fractional-symbol head) | Receiver Costas re-sync depends on whole-symbol alignment |
 | `waitMs ∈ [0, 160)` | Always less than one symbol period, always well under the 250 ms watchdog |
 | Tail end of waveform is identical to v1.0 for any `offsetSymbols` | We only trim from the front; the tail never extends past the v1.0 endpoint |
-| For `t_in_slot < 0.66 s`, `computeLateTxPlan` returns `Normal` | Floor decision; v1.0 path runs unmodified |
+| For `t_in_slot < 1.34 s`, `computeLateTxPlan` returns `Normal` | Floor decision; v1.0 path runs unmodified |
 | For `t_in_slot > 7.0 s`, `computeLateTxPlan` returns `Deferred` | Cutoff decision; v1.0 `transmitNextSlot` queueing runs |
 | Snapshot-to-key drift > 80 ms aborts and defers | Belt-and-suspenders for clock surprises (NTP jumps, GC pauses) |
 
@@ -142,7 +149,7 @@ Concrete walk-through for the operator tapping Answer at `t_in_slot = 3.200 s` w
 |---|---|---|
 | Toggle OFF | `computeLateTxPlan` returns `Normal` → v1.0 path runs unchanged | PARITY-01 escape hatch |
 | `t_in_slot > 7.0 s` | `Deferred` → existing `transmitNextSlot` queueing (silent, v1.0 behavior) | Locked decision |
-| `t_in_slot < 0.66 s` | `Normal` → v1.0 path runs unchanged | Floor decision |
+| `t_in_slot < 1.34 s` | `Normal` → v1.0 path runs unchanged | Floor decision |
 | Snapshot-to-key drift > 80 ms | Abort late-TX, fall through to `transmitNextSlot` | Race-window mitigation |
 | Encode fails / returns empty `ShortArray` | Existing TxOrchestrator failure path: surface existing snackbar, release PTT (never keyed yet), no retry | Same as v1.0 |
 | Playback throws mid-stream | Existing 4-layer PTT defense fires unchanged | Phase 5 invariant preserved |
@@ -177,7 +184,7 @@ Concrete walk-through for the operator tapping Answer at `t_in_slot = 3.200 s` w
 - Late window: `t_in_slot ∈ [0.660, 7.000]` → `Late(offsetSymbols ∈ [1, 41], waitMs ∈ [0, 160))`
 - Cutoff: `t_in_slot ∈ (7.000, 15.000)` → `Deferred`
 - Toggle OFF: every input → `Normal` regardless
-- Invariant property test: for any returned `Late(n, w)`, `n ∈ [1, 78]`, `w ∈ [0, 160)`, and `0.500 + n × 0.160 - t_in_slot - (w/1000) ∈ [0, 0.160)` within float epsilon
+- Invariant property test: for any returned `Late(n, w)`, `n ∈ [1, 37]`, `w ∈ [0, 160)`, and `1.180 + n × 0.160 - t_in_slot - (w/1000) ∈ [0, 0.160)` within float epsilon
 
 ### Controller integration tests (JVM, with fakes)
 
@@ -211,7 +218,7 @@ Recorded session on the reference FT-891 + Digirig under `.planning/field-sessio
 
 - **Mandatory:** At least one QSO completed using late-TX, where the recorded trace shows `PTT keyed at slot-relative time t > 3.0 s` (measurable from trace timestamps, not operator self-report) **AND** the partner's next decode confirms our message was received and decoded
 - **Mandatory:** At least one tap at `t > 7.0 s` confirming the silent-queue-to-next-slot path fires correctly
-- **Mandatory:** At least one normal-timing tap (`t < 0.66 s`) during the session confirming the v1.0 path still runs under toggle ON
+- **Mandatory:** At least one normal-timing tap (`t < 1.34 s`) during the session confirming the v1.0 path still runs under toggle ON
 - **Mandatory:** Toggle OFF for one full QSO cycle, confirming v1.0 behavior end-to-end on the reference rig
 - **Recompose-baseline (Phase 0 FOUND-08):** Operate-tab recomposition count over one full slot cycle does **not** exceed the Phase 0 baseline at all (no relaxation — the feature has zero new Compose surface)
 
@@ -248,13 +255,13 @@ Recorded session on the reference FT-891 + Digirig under `.planning/field-sessio
 ## Acceptance criteria
 
 - [ ] `Ft8Native.encode(msg, 1500.0f, 12000, 0)` is sample-identical to the pre-parameter v1.0 path
-- [ ] `Ft8Native.encode(msg, 1500.0f, 12000, 17)` returns `(79 - 17) × samplesPerSymbol` samples matching the tail of the `0`-offset output within ±1 LSB per sample
+- [ ] `Ft8Native.encode(msg, 1500.0f, 12000, 13)` returns `(79 - 13) × 1920` samples matching the tail of the v1.0 (silence-padded) output's waveform region within ±1 LSB per sample
 - [ ] FEC bits in synthesized waveform are unchanged across all `offsetSymbols` values
-- [ ] `computeLateTxPlan` returns `Normal` for `t_in_slot < 0.66 s` (parameterized sweep)
-- [ ] `computeLateTxPlan` returns `Late(n, w)` with `n ∈ [1, 41]`, `w ∈ [0, 160)` for `t_in_slot ∈ [0.66, 7.0] s`
+- [ ] `computeLateTxPlan` returns `Normal` for `t_in_slot < 1.34 s` (parameterized sweep)
+- [ ] `computeLateTxPlan` returns `Late(n, w)` with `n ∈ [1, 37]`, `w ∈ [0, 160)` for `t_in_slot ∈ [1.34, 7.0] s`
 - [ ] `computeLateTxPlan` returns `Deferred` for `t_in_slot > 7.0 s`
 - [ ] `computeLateTxPlan` returns `Normal` for every input when toggle is OFF
-- [ ] `TxOrchestrator` at `t_in_slot = 6.5 s` keys PTT within 50 ms of expected symbol-boundary moment and the truncated waveform tail lands within 50 ms of `slot_start + 13.140 s`
+- [ ] `TxOrchestrator` at `t_in_slot = 6.5 s` keys PTT within 50 ms of expected symbol-boundary moment and the truncated waveform tail lands within 50 ms of `slot_start + 13.820 s`
 - [ ] `TxOrchestrator` at `t_in_slot = 7.5 s` defers to next slot (no PTT in current slot)
 - [ ] Snapshot-to-key drift > 80 ms aborts late-TX and defers to next slot
 - [ ] All 4 PTT-safety layers from Phase 5 still fire under the late-TX path (re-run scenarios in `TxOrchestratorPttSafetyLateTxTest`)
@@ -262,7 +269,7 @@ Recorded session on the reference FT-891 + Digirig under `.planning/field-sessio
 - [ ] Golden-trace replay passes against Phase 0 baseline with toggle forced OFF (byte-identical state transitions)
 - [ ] Golden-trace replay passes with toggle forced ON (no late-TX in baseline, but `Normal` and `Deferred` paths must produce identical output)
 - [ ] On-air session on the reference FT-891 + Digirig completes at least one QSO using late-TX (trace shows PTT keyed at `t > 3.0 s`) with partner-confirmed decode
-- [ ] On-air session demonstrates the silent-queue-past-cutoff path (tap at `t > 7.0 s`) and the floor path (tap at `t < 0.66 s`) and the toggle-OFF path each at least once
+- [ ] On-air session demonstrates the silent-queue-past-cutoff path (tap at `t > 7.0 s`) and the floor path (tap at `t < 1.34 s`) and the toggle-OFF path each at least once
 - [ ] Operate-tab recomposition count over one full slot cycle does not exceed the Phase 0 FOUND-08 baseline at all
 - [ ] Session recorded under `.planning/field-sessions/late-tx-<date>/` and referenced in the PR
 
