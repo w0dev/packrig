@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.ft8vc.core.DecodePassSource
@@ -40,7 +41,13 @@ class DecodeControllerEarlyDedupTest {
         val controller = DecodeController(decoder = fake, scope = scope)
 
         val emitted = mutableListOf<DecodeBatch>()
-        val collectJob = scope.launch { controller.decodesOut.toList(emitted) }
+        // Subscribe eagerly (Unconfined) so the collector is active BEFORE decodeSlot
+        // emits — decodesOut is a SharedFlow with replay=0, so a value emitted with no
+        // active subscriber is dropped. In production QsoSessionController is a permanent
+        // subscriber; the test must replicate that "already subscribed" state.
+        val collectJob = scope.launch(UnconfinedTestDispatcher(scope.testScheduler)) {
+            controller.decodesOut.toList(emitted)
+        }
 
         controller.decodeSlot(ShortArray(115_200), slotStart, source = DecodePassSource.Early)
         controller.decodeSlot(ShortArray(180_000), slotStart, source = DecodePassSource.Full)

@@ -11,7 +11,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.ft8vc.audio.fakes.FakeUsbAudioPlayback
 import net.ft8vc.core.DecodePassSource
@@ -187,9 +189,12 @@ class EarlyDecodeLateTxIntegrationTest {
         decodeController.setStationContext(MY_CALL, MY_GRID)
         decodeController.setEarlyDecodeEnabled(true)
 
-        // Collect all DecodeBatch emissions from this slot.
+        // Collect all DecodeBatch emissions from this slot. Subscribe eagerly
+        // (Unconfined) so the collector is active before decodeSlot emits —
+        // decodesOut is a replay=0 SharedFlow (mirrors the permanent
+        // QsoSessionController subscriber in production).
         val emittedBatches = mutableListOf<DecodeBatch>()
-        val collectJob = decodeScope.launch {
+        val collectJob = decodeScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             decodeController.decodesOut.toList(emittedBatches)
         }
 
@@ -223,7 +228,11 @@ class EarlyDecodeLateTxIntegrationTest {
             slotStartEpochMs = SLOT_START,
             source = DecodePassSource.Early,
         )
-        decodeScope.advanceUntilIdle()
+        // runCurrent (not advanceUntilIdle): the QsoSessionController's init starts an
+        // infinite slot-clock loop on this same test scheduler, so advancing to idle
+        // would spin forever. runCurrent drains the immediate decode/emit work without
+        // advancing virtual time into the loop's future delay().
+        decodeScope.runCurrent()
 
         // ── 4. Assert: EARLY batch emitted with the CQ ────────────────────────
         assertEquals("EARLY pass must emit exactly 1 batch", 1, emittedBatches.size)
@@ -241,7 +250,7 @@ class EarlyDecodeLateTxIntegrationTest {
 
         // ── 5. Forward EARLY batch to QsoSessionController (mirrors OperateViewModel seam) ──
         qsoController.onDecodeBatch(earlyBatch.decodes, earlyBatch.slotParity)
-        decodeScope.advanceUntilIdle()
+        decodeScope.runCurrent()
 
         // ── 6. Assert: QSO machine is armed (auto-answered the CQ) ────────────
         val qsoSlice = qsoController.slice.value
@@ -329,7 +338,7 @@ class EarlyDecodeLateTxIntegrationTest {
         decodeController.setStationContext(MY_CALL, MY_GRID)
 
         val emittedBatches = mutableListOf<DecodeBatch>()
-        val collectJob = decodeScope.launch {
+        val collectJob = decodeScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             decodeController.decodesOut.toList(emittedBatches)
         }
 

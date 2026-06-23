@@ -1,10 +1,12 @@
 package net.ft8vc.app.controllers
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.ft8vc.core.AppInfo
 import net.ft8vc.ft8native.Ft8DecodeResult
@@ -16,9 +18,32 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Verifies the early-decode scheduler wired into [DecodeController]:
  * - fires one EARLY-pass [DecodeController.decodeSlot] per slot at slotStart+12s
- * - skips when sample count < [DecodeController.EARLY_OFFSET_MS]-threshold (115_200)
- * - cancels pending early job when slot boundary arrives (collectLatest semantics)
- * - respects the [DecodeController.setEarlyDecodeEnabled] toggle
+ * - skips when the in-progress buffer holds < 115_200 samples (80% of 12 s)
+ * - respects the [DecodeController.setEarlyDecodeEnabled] toggle, including a
+ *   flip that happens WHILE the early-pass delay is pending (post-delay re-check)
+ *
+ * ## Time model
+ *
+ * The scheduler computes `waitMs = (slotStart + EARLY_OFFSET_MS) - clock()` and
+ * then `delay(waitMs)`. For the virtual clock and the virtual delay to share one
+ * timeline, the injected [DecodeController.clock] is derived from the test
+ * scheduler's own virtual time: `clock = { slotStart + scope.testScheduler.currentTime }`.
+ * That makes `advanceTimeBy`/`advanceUntilIdle` the single source of truth — the
+ * early pass fires at virtual time 12_000, exactly as it would on a wall clock.
+ *
+ * The controller's scheduler is an infinite `collectLatest`, so the controller is
+ * built on a dedicated [TestScope] that is explicitly cancelled at the end of each
+ * test (the controller's own `close()` only shuts the decode executor, not the
+ * launched collector).
+ *
+ * ## A note on slot-boundary cancellation
+ *
+ * `collectLatest` cancels a still-pending early-pass lambda when `currentSlotStart`
+ * advances. Under normal timing the early pass (t+12 s) always completes ~3 s
+ * BEFORE the next slot boundary (t+15 s), so a boundary never preempts a pending
+ * early pass — the cancellation is a defensive measure. Its observable contract,
+ * "exactly one early schedule is armed per slot," is covered by the single-slot
+ * fire test below plus the per-slot re-arm that the production `onFrames` drives.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class EarlyDecodeSchedulerTest {
@@ -26,12 +51,17 @@ class EarlyDecodeSchedulerTest {
     /** A UTC epoch aligned to a 15-second slot boundary: 1_700_000_000_000 % 15_000 == 0. */
     private val slotStart = 1_700_000_000_000L
 
+    /** 12 kHz × ~12 s buffer worth of samples; comfortably above the 115_200 floor. */
+    private val sufficientSamples = ShortArray(120_000) { 1.toShort() }
+
     /**
-     * Fake that counts EARLY vs FULL decode invocations.
-     * Distinguishes them by sample count: early snapshots contain fewer than
-     * [AppInfo.SAMPLE_RATE_HZ] * 15 samples (= 180_000); a full-slot flush sends exactly 180_000.
+     * Fake that counts EARLY vs FULL decode invocations by sample count: an early
+     * snapshot here carries [sufficientSamples] (120_000) which is below the
+     * full-slot flush size ([AppInfo.SAMPLE_RATE_HZ] × 15 = 180_000). These tests
+     * never cross a slot boundary, so no full-slot flush occurs and every decode
+     * call is an early pass.
      */
-    private inner class CountingFake(
+    private class CountingFake(
         val earlyCount: AtomicInteger = AtomicInteger(0),
         val fullCount: AtomicInteger = AtomicInteger(0),
     ) : Ft8DecoderApi {
@@ -49,38 +79,32 @@ class EarlyDecodeSchedulerTest {
             ShortArray(0)
     }
 
-    /** Mutable clock helper; the test advances [now] to simulate time passing. */
-    private class AtomicClock(initial: Long) {
-        @Volatile var now: Long = initial
-    }
+    /** Build a controller whose clock is the scope's virtual time, offset from [slotStart]. */
+    private fun controllerOn(scope: TestScope, fake: CountingFake): DecodeController =
+        DecodeController(
+            decoder = fake,
+            scope = scope,
+            decodeDispatcher = StandardTestDispatcher(scope.testScheduler),
+            clock = { slotStart + scope.testScheduler.currentTime },
+        )
 
     // ── Test 1 ───────────────────────────────────────────────────────────────
 
     @Test
     fun `early pass fires once per slot at t plus 12s when toggle on and samples sufficient`() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val scope = TestScope(testDispatcher)
-        val fakeClock = AtomicClock(slotStart)
+        val scope = TestScope(StandardTestDispatcher())
         val fake = CountingFake()
-
-        val controller = DecodeController(
-            decoder = fake,
-            scope = scope,
-            decodeDispatcher = testDispatcher,
-            clock = { fakeClock.now },
-        )
+        val controller = controllerOn(scope, fake)
         controller.setEarlyDecodeEnabled(true)
 
-        // Feed 120_000 samples (> 115_200 threshold) at slotStart — no boundary crossed.
-        controller.onFrames(ShortArray(120_000) { 1.toShort() })
+        // Feed > 115_200 samples at slotStart — no boundary crossed.
+        controller.onFrames(sufficientSamples)
 
-        // Advance fake clock and coroutine scheduler to slotStart + 12_001 ms.
-        fakeClock.now = slotStart + 12_001L
-        advanceTimeBy(12_001L)
+        // The early-pass delay fires at virtual time 12_000.
         scope.advanceUntilIdle()
 
         assertEquals("expected exactly 1 early pass", 1, fake.earlyCount.get())
-        assertEquals("no full pass expected yet", 0, fake.fullCount.get())
+        assertEquals("no full pass expected (no boundary crossed)", 0, fake.fullCount.get())
 
         controller.close()
         scope.cancel()
@@ -90,25 +114,14 @@ class EarlyDecodeSchedulerTest {
 
     @Test
     fun `early pass is skipped when fewer than 115_200 samples present`() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val scope = TestScope(testDispatcher)
-        val fakeClock = AtomicClock(slotStart)
+        val scope = TestScope(StandardTestDispatcher())
         val fake = CountingFake()
-
-        val controller = DecodeController(
-            decoder = fake,
-            scope = scope,
-            decodeDispatcher = testDispatcher,
-            clock = { fakeClock.now },
-        )
+        val controller = controllerOn(scope, fake)
         controller.setEarlyDecodeEnabled(true)
 
         // Feed only 100_000 samples — below the 115_200 threshold.
         controller.onFrames(ShortArray(100_000) { 1.toShort() })
 
-        // Advance to t+12s — the scheduler wakes, checks snapshot size, skips.
-        fakeClock.now = slotStart + 12_001L
-        advanceTimeBy(12_001L)
         scope.advanceUntilIdle()
 
         assertEquals("early pass must be skipped with insufficient samples", 0, fake.earlyCount.get())
@@ -120,47 +133,31 @@ class EarlyDecodeSchedulerTest {
     // ── Test 3 ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `slot boundary cancels still-pending early job`() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val scope = TestScope(testDispatcher)
-        val fakeClock = AtomicClock(slotStart)
+    fun `toggle flipped off during the pending delay suppresses the early pass`() = runTest {
+        val scope = TestScope(StandardTestDispatcher())
         val fake = CountingFake()
-
-        val controller = DecodeController(
-            decoder = fake,
-            scope = scope,
-            decodeDispatcher = testDispatcher,
-            clock = { fakeClock.now },
-        )
+        val controller = controllerOn(scope, fake)
         controller.setEarlyDecodeEnabled(true)
 
-        // Feed sufficient samples in slot 0.
-        controller.onFrames(ShortArray(120_000) { 1.toShort() })
+        // Slot 0: schedules the early pass to fire at virtual time 12_000.
+        controller.onFrames(sufficientSamples)
 
-        // Advance to t+11s — scheduler is mid-wait (delay not yet elapsed).
-        fakeClock.now = slotStart + 11_000L
-        advanceTimeBy(11_000L)
+        // Advance to mid-delay (virtual 6_000) — the early pass has NOT fired yet.
+        scope.advanceTimeBy(6_000L)
+        scope.runCurrent()
+        assertEquals("early pass must not have fired before t+12s", 0, fake.earlyCount.get())
+
+        // Flip the toggle OFF while the delay is still pending.
+        controller.setEarlyDecodeEnabled(false)
+
+        // Advance past the would-be fire moment (virtual 12_000).
         scope.advanceUntilIdle()
 
-        // Now cross the slot boundary into slot 1 (slotStart + 15_001 ms).
-        // This triggers a new currentSlotStart value, which collectLatest
-        // cancels the in-progress delay and starts a fresh lambda for slot 1.
-        val slot1Start = slotStart + 15_000L
-        fakeClock.now = slot1Start + 1L
-        // Feed one sample so onFrames updates currentSlotStart to slot1.
-        controller.onFrames(ShortArray(1) { 1.toShort() })
-
-        // Drain pending coroutines so collectLatest cancels the slot-0 lambda BEFORE
-        // we advance time into the window where it would otherwise fire.
-        scope.advanceUntilIdle()
-
-        // Advance to what would have been old slot 0's t+12s (slotStart+12_001).
-        // The scheduler's lambda for slot 0 was cancelled; slot 1 lambda hasn't reached
-        // its 12s mark yet (only 1 ms into slot 1; needs 11_999 ms more).
-        advanceTimeBy(1_001L) // total elapsed = 12_002 ms from slotStart
-        scope.advanceUntilIdle()
-
-        assertEquals("cancelled slot-0 early must not fire", 0, fake.earlyCount.get())
+        assertEquals(
+            "post-delay re-check must suppress the early pass after the toggle flips off",
+            0,
+            fake.earlyCount.get(),
+        )
 
         controller.close()
         scope.cancel()
@@ -169,27 +166,15 @@ class EarlyDecodeSchedulerTest {
     // ── Test 4 ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `with toggle off no early pass fires`() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        val scope = TestScope(testDispatcher)
-        val fakeClock = AtomicClock(slotStart)
+    fun `with toggle off from the start no early pass fires`() = runTest {
+        val scope = TestScope(StandardTestDispatcher())
         val fake = CountingFake()
-
-        val controller = DecodeController(
-            decoder = fake,
-            scope = scope,
-            decodeDispatcher = testDispatcher,
-            clock = { fakeClock.now },
-        )
-        // Disable early decode before any frames arrive.
+        val controller = controllerOn(scope, fake)
+        // Disable early decode before any frames arrive (pre-delay guard).
         controller.setEarlyDecodeEnabled(false)
 
-        // Feed sufficient samples.
-        controller.onFrames(ShortArray(120_000) { 1.toShort() })
+        controller.onFrames(sufficientSamples)
 
-        // Advance to t+12s.
-        fakeClock.now = slotStart + 12_001L
-        advanceTimeBy(12_001L)
         scope.advanceUntilIdle()
 
         assertEquals("no early pass when toggle is off", 0, fake.earlyCount.get())

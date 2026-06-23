@@ -28,7 +28,9 @@ class SlotCollectorSnapshotTest {
 
     @Test
     fun `mutating returned snapshot does not affect subsequent onSlot output`() {
-        val collector = SlotCollector(sampleRate)
+        // Use minSlotFraction = 0f so the boundary flush fires regardless of fill level —
+        // this test is about the snapshot defensive-copy contract, not the min-fill gate.
+        val collector = SlotCollector(sampleRate, minSlotFraction = 0f)
         val frames = ShortArray(12_000) { (it and 0xFF).toShort() }
         collector.add(frames, slotStartMs) { _, _ -> }
 

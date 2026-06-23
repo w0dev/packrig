@@ -1,7 +1,9 @@
 package net.ft8vc.app.controllers
 
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -154,8 +156,13 @@ class GoldenTraceEarlyDecodeParityTest {
         )
         controller.setEarlyDecodeEnabled(true)
 
+        // Subscribe eagerly (Unconfined) so the collector is active before the first
+        // decodeSlot emit — decodesOut is a replay=0 SharedFlow (production has a
+        // permanent QsoSessionController subscriber).
         val emittedBatches = mutableListOf<DecodeBatch>()
-        val collectJob = scope.launch { controller.decodesOut.toList(emittedBatches) }
+        val collectJob = scope.launch(UnconfinedTestDispatcher(scope.testScheduler)) {
+            controller.decodesOut.toList(emittedBatches)
+        }
 
         // Drive EARLY then FULL for each slot.
         for (slot in 0 until slotCount) {
