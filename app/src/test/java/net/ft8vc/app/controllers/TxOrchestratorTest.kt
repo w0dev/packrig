@@ -1,10 +1,10 @@
 package net.ft8vc.app.controllers
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.ft8vc.app.SnackbarEvent
@@ -20,14 +20,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
  * Real-time tests for the 4-layer PTT defense + watchdog + USB safety routing.
  *
- * Uses real dispatchers (Dispatchers.Default + real Executors) so that
- * blocking `playBlocking` actually blocks on a worker thread while the
+ * Uses real dispatchers (a dedicated unbounded thread pool + real Executors)
+ * so that blocking `playBlocking` actually blocks on a worker thread while the
  * test thread observes PTT state and triggers the watchdog/timeout paths.
  * Slot duration is shrunk to 60 ms with a 30 ms watchdog grace so the
  * entire suite runs in well under a second.
@@ -41,10 +42,19 @@ class TxOrchestratorTest {
     private lateinit var decoder: ScriptableDecoder
     private lateinit var capture: TestCaptureControl
     private lateinit var orchestrator: TxOrchestrator
+    private lateinit var scopeExec: ExecutorService
     private val notifications = java.util.Collections.synchronizedList(mutableListOf<Pair<String, SnackbarEvent.Tag>>())
 
     @Before fun setUp() {
-        scope = CoroutineScope(Dispatchers.Default + Job())
+        // A dedicated unbounded thread pool — NOT Dispatchers.Default. These are
+        // real-time tests with tight (60 ms slot / 90 ms watchdog) budgets and a
+        // wall-clock waitUntil. Dispatchers.Default is CPU-sized and shared across
+        // every parallel test in the suite, so under full-suite load the
+        // orchestrator's state-update / watchdog coroutines get starved past the
+        // waitUntil deadline — the source of this class's historical flakiness.
+        // A cached pool guarantees a thread is always available for this test.
+        scopeExec = Executors.newCachedThreadPool()
+        scope = CoroutineScope(scopeExec.asCoroutineDispatcher() + Job())
         rig = FakeRigBackend()
         rigSession = RigSession(
             rig = rig,
@@ -55,8 +65,24 @@ class TxOrchestratorTest {
         decoder = ScriptableDecoder()
         capture = TestCaptureControl()
         notifications.clear()
+        orchestrator = buildOrchestrator()
+    }
+
+    /**
+     * Builds a [TxOrchestrator] wired to the shared fakes. Slot/watchdog timing
+     * is parameterized so an individual test can opt out of the tight default
+     * watchdog: tests that drive an EVENT-driven PTT release (e.g. USB detach)
+     * while playback is artificially blocked must not race the 90 ms watchdog,
+     * which would otherwise latch EMERGENCY_HALT and corrupt the asserted end
+     * state. Those tests pass a large [watchdogGraceMs] so only their event
+     * releases PTT.
+     */
+    private fun buildOrchestrator(
+        slotDurationMs: Long = 60L,
+        watchdogGraceMs: Long = 30L,
+    ): TxOrchestrator {
         val txExec = Executors.newSingleThreadExecutor()
-        orchestrator = TxOrchestrator(
+        return TxOrchestrator(
             decoder = decoder,
             playback = playback,
             rigSession = rigSession,
@@ -66,8 +92,8 @@ class TxOrchestratorTest {
             captureControl = capture,
             executor = txExec,
             encodeDispatcher = txExec.asCoroutineDispatcher(),
-            slotDurationMs = 60L,
-            watchdogGraceMs = 30L,
+            slotDurationMs = slotDurationMs,
+            watchdogGraceMs = watchdogGraceMs,
         )
     }
 
@@ -75,6 +101,7 @@ class TxOrchestratorTest {
         orchestrator.close()
         rigSession.close()
         scope.cancel()
+        scopeExec.shutdownNow()
     }
 
     // ── Layer (a) try-finally ───────────────────────────────────────────
@@ -141,12 +168,22 @@ class TxOrchestratorTest {
 
     @Test
     fun usbDetachMidTx_transitionsToRxOnly_andReleasesPtt() = runBlocking {
+        // Long watchdog so the USB-detach path (not the 90 ms watchdog) is the
+        // thing that releases PTT — otherwise under load the watchdog can win the
+        // race and latch EMERGENCY_HALT instead of the expected RX_ONLY.
+        orchestrator.close()
+        orchestrator = buildOrchestrator(watchdogGraceMs = 10_000L)
         playback.blockUntilLatch = CountDownLatch(1)
         val txJob = scope.launch { orchestrator.transmit("CQ W0DEV EM26", 1000) }
         waitUntil { rig.pttKeyed }
 
         orchestrator.notifyUsbDetached()
-        waitUntil { !rig.pttKeyed }
+        // Wait for the ASSERTED end state, not merely PTT release. notifyUsbDetached
+        // releases PTT first and sets RX_ONLY second within one coroutine, so waiting
+        // on !pttKeyed (the old condition) returns in the gap before the state update
+        // lands — the race behind the historical "expected RX_ONLY but was READY"
+        // flake. RX_ONLY implies PTT was already released.
+        waitUntil { orchestrator.slice.value.appRfState == AppRfState.RX_ONLY }
 
         assertEquals(AppRfState.RX_ONLY, orchestrator.slice.value.appRfState)
         assertTrue(orchestrator.slice.value.digirigDisconnected)
@@ -212,7 +249,17 @@ class TxOrchestratorTest {
     @Test
     fun txLog_emits_on_successful_transmit() = runBlocking {
         val collected = java.util.Collections.synchronizedList(mutableListOf<TxLogEvent>())
-        val collectJob = scope.launch { orchestrator.txLog.collect { collected += it } }
+        // txLog is a replay=0 SharedFlow: an event emitted before the collector
+        // subscribes is dropped. onSubscription fires once the subscriber is
+        // registered, so we can block until then and remove the subscribe race
+        // (otherwise transmit() can emit before collect() is active).
+        val subscribed = CountDownLatch(1)
+        val collectJob = scope.launch {
+            orchestrator.txLog
+                .onSubscription { subscribed.countDown() }
+                .collect { collected += it }
+        }
+        assertTrue("txLog collector must subscribe", subscribed.await(2, TimeUnit.SECONDS))
 
         val ok = orchestrator.transmit(message = "CQ K1ABC FN42", txFreqHz = 1500)
 
@@ -234,7 +281,12 @@ class TxOrchestratorTest {
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    private fun waitUntil(timeoutMs: Long = 2_000L, condition: () -> Boolean) {
+    private fun waitUntil(timeoutMs: Long = 5_000L, condition: () -> Boolean) {
+        // Polls until the condition holds, then returns. On timeout it returns
+        // silently (does NOT throw): several callers wait on a transient state
+        // (e.g. a briefly-keyed PTT) that may have already passed, and rely on the
+        // subsequent assertions for the real verdict. The generous 5 s budget
+        // (up from 2 s) absorbs scheduler jitter under full-suite parallel load.
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             if (condition()) return
