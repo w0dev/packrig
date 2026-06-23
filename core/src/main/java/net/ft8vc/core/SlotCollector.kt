@@ -44,6 +44,17 @@ class SlotCollector(
         }
     }
 
+    /**
+     * Defensive copy of the in-progress slot buffer. Returns `null` if no
+     * samples have been accumulated yet for the current slot.
+     *
+     * Used by the early-decode scheduler in DecodeController to run a
+     * partial-slot decode pass without disturbing the boundary-driven
+     * `onSlot` flow. Mutating the returned array MUST NOT affect a
+     * subsequent `add(...)` or `onSlot` invocation.
+     */
+    fun snapshot(): ShortArray? = if (count > 0) buffer.copyOf(count) else null
+
     /** Discard the in-progress slot (e.g. when capture stops). */
     fun reset() {
         count = 0
