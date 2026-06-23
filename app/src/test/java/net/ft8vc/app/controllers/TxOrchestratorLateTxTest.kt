@@ -312,21 +312,32 @@ class TxOrchestratorLateTxTest {
      */
     @Test
     fun lateTxDriftAbortsToNextSlot_whenEncodeDelayExceeds80ms() = runBlocking {
-        val tapTsMs = SLOT_START_UTC + 3_000L  // mid-window: t_in_slot = 3000
-        val postEncodeTs = tapTsMs + 100L       // 100ms after tap → drift > 80ms threshold
+        // Mid-window tap: t_in_slot = 3000ms; encode will be configured to "take" 100ms
+        // (exceeding LATE_TX_DRIFT_ABORT_MS = 80ms) which forces the drift-abort path.
+        val tapTsMs = SLOT_START_UTC + 3_000L
+        val driftMs = 100L
 
-        // Clock returns tapTsMs on first call, then postEncodeTs on all subsequent calls.
-        var firstCall = true
-        val clock: () -> Long = {
-            if (firstCall) {
-                firstCall = false
-                tapTsMs
-            } else {
-                postEncodeTs
-            }
-        }
+        // Clock is read multiple times inside transmitAfterSlotBoundary (twice for the
+        // t_in_slot computation) and once inside doTransmitLate (planTsMs snapshot)
+        // BEFORE encode is invoked. After encode returns, we want the next clock read
+        // to reflect the simulated delay. The atomic flip happens *inside* the encode
+        // producer so it lands exactly between the planTsMs snapshot and the driftMs
+        // measurement.
+        val nowMs = java.util.concurrent.atomic.AtomicLong(tapTsMs)
+        val clock: () -> Long = { nowMs.get() }
 
         val decoder = Ft8DecoderFake()
+        decoder.configureEncodeProducer { _, _, sampleRate, offsetSymbols ->
+            // Simulate the wall-clock cost of encoding by advancing the clock here.
+            nowMs.addAndGet(driftMs)
+            // Return a buffer of the right size for the requested offset.
+            if (offsetSymbols <= 0) {
+                ShortArray(sampleRate * 15)
+            } else {
+                val nSpsym = ((sampleRate.toDouble() * 0.160) + 0.5).toInt()
+                ShortArray((79 - offsetSymbols) * nSpsym)
+            }
+        }
         val playback = FakeUsbAudioPlayback()
         val rig = FakeRigBackend()
         val (orchestrator, rigSession) = buildOrchestrator(
