@@ -206,6 +206,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 autoAnswerCqEnabled = settings.autoAnswerCqEnabled,
                 answerPolicy = settings.answerPolicy,
                 maxUnansweredTxCycles = settings.maxUnansweredTxCycles,
+                lateStartTxEnabled = settings.lateStartTxEnabled,
                 qsoActive = qso.qsoActive,
                 qsoState = qso.qsoState,
                 qsoDx = qso.qsoDx,
@@ -408,6 +409,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setMaxUnansweredTxCycles(cycles: Int) {
         viewModelScope.launch { settingsRepo.setMaxUnansweredTxCycles(cycles) }
+    }
+
+    fun setLateStartTxEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepo.setLateStartTxEnabled(enabled) }
     }
 
     fun clearAbandonedPartners() = qsoSession.clearAbandonedPartners()
