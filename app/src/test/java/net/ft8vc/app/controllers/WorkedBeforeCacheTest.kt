@@ -1,0 +1,79 @@
+package net.ft8vc.app.controllers
+
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.test.runTest
+import net.ft8vc.core.WorkedBefore
+import net.ft8vc.data.Logbook
+import net.ft8vc.data.adif.AdifExportContext
+import net.ft8vc.data.model.QsoContact
+import org.junit.Assert.assertEquals
+import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
+
+private class FakeLogbook(
+    private val bandsByCall: MutableMap<String, Set<String>> = mutableMapOf(),
+) : Logbook {
+    val calls = AtomicInteger(0)
+    override suspend fun log(contact: QsoContact): Long = 0L
+    override fun contacts(): Flow<List<QsoContact>> = emptyFlow()
+    override suspend fun exportAdif(context: AdifExportContext): String = ""
+    override fun contactCount(): Flow<Int> = emptyFlow()
+    override suspend fun clearAll() {}
+    override suspend fun workedBands(call: String): Set<String> {
+        calls.incrementAndGet()
+        return bandsByCall[call] ?: emptySet()
+    }
+    fun set(call: String, bands: Set<String>) { bandsByCall[call] = bands }
+}
+
+class WorkedBeforeCacheTest {
+    @Test fun classifies_never_other_this() = runTest {
+        val log = FakeLogbook()
+        log.set("K1ABC", setOf("40m", "15m"))
+        log.set("W9XYZ", setOf("20m"))
+        val cache = WorkedBeforeCache(log)
+
+        assertEquals(WorkedBefore.Never, cache.classify("N0CALL", "20m"))
+        assertEquals(WorkedBefore.OtherBand, cache.classify("K1ABC", "20m"))
+        assertEquals(WorkedBefore.ThisBand, cache.classify("W9XYZ", "20m"))
+    }
+
+    @Test fun caches_lookup_per_call() = runTest {
+        val log = FakeLogbook()
+        log.set("K1ABC", setOf("20m"))
+        val cache = WorkedBeforeCache(log)
+
+        cache.classify("K1ABC", "20m")
+        cache.classify("K1ABC", "20m")
+        cache.classify("K1ABC", "40m")
+        assertEquals(1, log.calls.get())
+    }
+
+    @Test fun invalidate_forces_refetch_for_one_call() = runTest {
+        val log = FakeLogbook()
+        log.set("K1ABC", setOf("20m"))
+        log.set("W9XYZ", setOf("20m"))
+        val cache = WorkedBeforeCache(log)
+
+        cache.classify("K1ABC", "20m")
+        cache.classify("W9XYZ", "20m")
+        assertEquals(2, log.calls.get())
+
+        cache.invalidate("K1ABC")
+        cache.classify("K1ABC", "20m")
+        cache.classify("W9XYZ", "20m")  // still cached
+        assertEquals(3, log.calls.get())
+    }
+
+    @Test fun clear_drops_everything() = runTest {
+        val log = FakeLogbook()
+        log.set("K1ABC", setOf("20m"))
+        val cache = WorkedBeforeCache(log)
+
+        cache.classify("K1ABC", "20m")
+        cache.clear()
+        cache.classify("K1ABC", "20m")
+        assertEquals(2, log.calls.get())
+    }
+}
