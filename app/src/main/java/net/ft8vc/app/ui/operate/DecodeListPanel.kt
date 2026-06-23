@@ -58,6 +58,7 @@ fun DecodeListPanel(
     modifier: Modifier = Modifier,
 ) {
     val visibleDecodes = decodes.filter { row ->
+        row.source is net.ft8vc.core.DecodeRowSource.Tx ||
         MonitorDecodeFilter.visibleForDisplay(
             message = row.message,
             isCq = row.isCq,
@@ -144,6 +145,26 @@ fun DecodeListPanel(
                     modifier = Modifier.padding(horizontal = 8.dp),
                 )
             }
+            if (visibleDecodes.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    DecodeHeaderCell("UTC", widthChars = 6)
+                    DecodeHeaderCell("SNR", widthChars = 3)
+                    DecodeHeaderCell("DIST", widthChars = 4)
+                    DecodeHeaderCell("Hz", widthChars = 4)
+                    Text(
+                        text = "MSG",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
             if (visibleDecodes.isEmpty()) {
                 Text(
                     text = emptyDecodeMessage(
@@ -204,6 +225,16 @@ private fun CompactFilterChip(
     )
 }
 
+@Composable
+private fun DecodeHeaderCell(label: String, widthChars: Int) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall,
+        fontFamily = FontFamily.Monospace,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
 private fun emptyDecodeMessage(
     total: Int,
     decodeViewMode: DecodeViewMode,
@@ -222,27 +253,35 @@ private fun DecodeRowItem(
     qsoActive: Boolean,
     onClick: (() -> Unit)?,
 ) {
+    val isTx = row.source is net.ft8vc.core.DecodeRowSource.Tx
     val isPartner = qsoDx != null && row.message.contains(qsoDx)
-    val dimmed = qsoActive && !row.isCq && !isPartner
+    val dimmed = qsoActive && !row.isCq && !isPartner && !isTx
     val textColor = when {
+        isTx -> MaterialTheme.colorScheme.onSurface
         row.isCq -> Ft8Green
         row.isToMe && !qsoActive -> Ft8Amber
         isPartner -> MaterialTheme.colorScheme.primary
         dimmed -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        row.workedBefore == net.ft8vc.core.WorkedBefore.ThisBand ->
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+        row.workedBefore == net.ft8vc.core.WorkedBefore.OtherBand ->
+            MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.onSurface
     }
-    val prefix = DecodePrefix.prefixFor(
+    val prefix = if (isTx) "" else DecodePrefix.prefixFor(
         message = row.message,
         isCq = row.isCq,
         isToMe = row.isToMe,
         qsoActive = qsoActive,
         qsoDx = qsoDx,
     )
+    val rowBackground = if (isTx) Ft8Amber.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 40.dp)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .background(rowBackground)
+            .then(if (onClick != null && !isTx) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 2.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -254,13 +293,13 @@ private fun DecodeRowItem(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "%+3d".format(row.snr),
+            text = if (isTx) "   " else "%+3d".format(row.snr),
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = DecodeDistance.label(row.distanceKm),
+            text = if (isTx) "    " else DecodeDistance.label(row.distanceKm),
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -275,7 +314,7 @@ private fun DecodeRowItem(
             text = "$prefix${row.message}",
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,
-            fontWeight = if (isPartner) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = if (isPartner || isTx) FontWeight.Bold else FontWeight.Normal,
             color = textColor,
             maxLines = 1,
             modifier = Modifier.weight(1f),
