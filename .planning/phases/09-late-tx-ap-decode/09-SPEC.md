@@ -1,13 +1,13 @@
-# Phase 9: POTACAT — Late-Start FT8 TX + A-Priori (AP) Decoding — Specification
+# Phase 9: Late-Start FT8 TX + A-Priori (AP) Decoding — Specification
 
 **Created:** 2026-06-22
 **Ambiguity score:** 0.16 (gate: ≤ 0.20)
 **Requirements:** 8 locked
-**Upstream reference:** POTACAT v1.8.14 — https://github.com/Waffleslop/POTACAT
+**Reference implementation:** POTACAT v1.8.14 — https://github.com/Waffleslop/POTACAT (used as a behavior reference; this is not a POTACAT port)
 
 ## Goal
 
-FT8VC gains two POTACAT v1.8.14 features that materially expand operating
+FT8VC gains two decode/TX capabilities that materially expand operating
 capability without changing the v1.0 RX/TX/CAT/QSO behavior contract on the
 reference FT-891 + Digirig rig:
 
@@ -239,7 +239,7 @@ rows is owned there.
   parity with toggles off (R8).
 - Field verification: on-air session on the reference FT-891 + Digirig
   exercising both features against a real partner; recorded to
-  `.planning/field-sessions/potacat-late-ap-<date>/`.
+  `.planning/field-sessions/late-tx-ap-<date>/`.
 
 **Out of scope:**
 
@@ -295,7 +295,7 @@ rows is owned there.
 - **Promotion gate.** Behavior-parity replay (FOUND-07) and
   recompose-baseline (FOUND-08) gates from Phase 0 apply unchanged.
   Promotion to `main` requires the on-air field session under
-  `.planning/field-sessions/potacat-late-ap-<date>/` to be committed
+  `.planning/field-sessions/late-tx-ap-<date>/` to be committed
   and signed off in the PR.
 
 ## Acceptance Criteria
@@ -335,7 +335,7 @@ rows is owned there.
 - [ ] On-air session on the reference FT-891 + Digirig completes at
       least one QSO using Late-TX (operator confirms tap was > 3 s
       into slot) AND at least one decode marked `AP` in the field log;
-      recorded under `.planning/field-sessions/potacat-late-ap-<date>/`.
+      recorded under `.planning/field-sessions/late-tx-ap-<date>/`.
 - [ ] Recomposition count for the Operate tab over one full slot cycle
       with AP decodes streaming does not exceed the Phase 0 baseline
       (FOUND-08) by more than 5%.
@@ -366,7 +366,7 @@ rows is owned there.
 |----------------------------------|-------------|---------------------|------------------------|
 | MUST NOT relax or bypass CRC-14 validation in the AP path | R4 | resolved / test | `Ft8NativeApDecodeTest` negative case: noise + hint returns no decode |
 | MUST NOT weaken any of the 4 PTT-safety layers in the late-TX path | R2 | resolved / test | `TxOrchestratorTest` extended: each PTT-safety scenario re-asserted with a late-TX call |
-| MUST NOT skip the on-air field-session evidence before promotion to `main` | (all) | resolved / judgment | PR promotion checklist (FOUND-01) gates on `.planning/field-sessions/potacat-late-ap-<date>/` artifact |
+| MUST NOT skip the on-air field-session evidence before promotion to `main` | (all) | resolved / judgment | PR promotion checklist (FOUND-01) gates on `.planning/field-sessions/late-tx-ap-<date>/` artifact |
 | MUST NOT introduce a new top-level screen, tab, or dependency (PARITY-03 / CLAUDE.md) | R3, R6, R7 | resolved / judgment | Code review gate; new surfaces are inline chips/Settings rows only |
 
 ## Ambiguity Report
@@ -395,6 +395,6 @@ rows is owned there.
 
 ---
 
-*Phase: 09-potacat-late-tx-ap-decode*
+*Phase: 09-late-tx-ap-decode*
 *Spec created: 2026-06-22*
 *Next step: /gsd-discuss-phase 9 — implementation decisions (patch-apply mechanism, symbol-clock wait primitive, AP hint payload construction, Settings group placement)*
