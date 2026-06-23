@@ -87,6 +87,10 @@ class DecodeController(
     private var gainScratch: ShortArray? = null
     private var levelEma = OperateUiState.SILENCE_DBFS
     private var lastUiUpdateNs = 0L
+    /** Phase 6 (RELY-04): count of slots since the last decode failure, used to auto-clear the "Decodes dropped" chip. */
+    private var consecutiveSuccessfulSlots: Int = 0
+    /** Phase 6 (RELY-02b): consecutive slots with zero PCM samples. UI / VM cross-checks against AudioManager devices. */
+    private var zeroSampleSlots: Int = 0
 
     fun setInputGain(gain: Float) {
         inputGain = gain.coerceIn(OperateUiState.INPUT_GAIN_MIN, 1f)
@@ -154,12 +158,32 @@ class DecodeController(
     }
 
     private suspend fun decodeSlot(samples: ShortArray, slotStartEpochMs: Long) {
+        // Phase 6 (RELY-02b): per-slot zero-sample tracking. A slot with no non-
+        // zero samples means the audio path is silent — surface to the VM so it
+        // can cross-check AudioManager.getDevices() and recreate capture.
+        var hasNonZero = false
+        for (s in samples) { if (s.toInt() != 0) { hasNonZero = true; break } }
+        if (!hasNonZero) {
+            zeroSampleSlots += 1
+            _slice.update { it.copy(zeroSampleSlots = zeroSampleSlots) }
+        } else if (zeroSampleSlots > 0) {
+            zeroSampleSlots = 0
+            _slice.update { it.copy(zeroSampleSlots = 0) }
+        }
+
         val results = try {
             decoder.decode(samples, AppInfo.SAMPLE_RATE_HZ)
         } catch (t: Throwable) {
             failureCount.incrementAndGet()
-            _slice.update { it.copy(decodeFailureCount = failureCount.get()) }
+            consecutiveSuccessfulSlots = 0
+            _slice.update { it.copy(decodeFailureCount = failureCount.get(), decodeFailureRecent = true) }
             return
+        }
+        // Phase 6 (RELY-04): clear the "Decodes dropped" chip after 5 consecutive
+        // successful slots so the UI auto-recovers from a transient blip.
+        consecutiveSuccessfulSlots += 1
+        if (consecutiveSuccessfulSlots >= DECODE_FAILURE_DECAY_SLOTS && _slice.value.decodeFailureRecent) {
+            _slice.update { it.copy(decodeFailureRecent = false) }
         }
         val ctx = stationContext
         val time = utcTimeFormat.format(Date(slotStartEpochMs))
@@ -201,6 +225,11 @@ class DecodeController(
         (decodeDispatcher as? ExecutorCoroutineDispatcher)?.close()
         executor.shutdown()
     }
+
+    companion object {
+        /** Phase 6 (RELY-04): consecutive clean slots before the "Decodes dropped" chip auto-clears. */
+        const val DECODE_FAILURE_DECAY_SLOTS = 5
+    }
 }
 
 data class DecodeSlice(
@@ -210,6 +239,10 @@ data class DecodeSlice(
     val clip: Boolean = false,
     val waterfallVersion: Long = 0L,
     val decodeFailureCount: Long = 0L,
+    /** Phase 6: true when there has been a decode failure in the last [DECODE_FAILURE_DECAY_SLOTS] slots. */
+    val decodeFailureRecent: Boolean = false,
+    /** Phase 6: count of consecutive slots with all-zero PCM samples. VM cross-checks against AudioManager. */
+    val zeroSampleSlots: Int = 0,
 )
 
 data class DecodeBatch(

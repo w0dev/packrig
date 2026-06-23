@@ -101,6 +101,36 @@ class RigSessionTest {
     }
 
     @Test
+    fun threeConsecutiveTimeouts_latchCatUnreachable() = runTest {
+        repeat(3) {
+            fake.configureTimeoutHz(true)
+            fake.configureTimeoutMode(true)
+            session.readRig()
+        }
+        assertTrue(session.slice.value.catUnreachable)
+        assertEquals("CAT unreachable — tap to retry", session.slice.value.catStatus)
+        // While unreachable, further CAT calls short-circuit and return null/false.
+        assertNull(session.readRig())
+        assertFalse(session.setFrequency(7_074_000L))
+    }
+
+    @Test
+    fun retryCat_clearsUnreachable_andAllowsNextCall() = runTest {
+        repeat(3) {
+            fake.configureTimeoutHz(true)
+            fake.configureTimeoutMode(true)
+            session.readRig()
+        }
+        assertTrue(session.slice.value.catUnreachable)
+        session.retryCat()
+        assertFalse(session.slice.value.catUnreachable)
+        assertEquals(0, session.consecutiveFailureCount)
+        // Now real call succeeds.
+        val freq = session.readRig()
+        assertEquals(14_074_000L, freq)
+    }
+
+    @Test
     fun keyPtt_isIdempotent_underRepeatedCalls() = runTest {
         session.keyPtt()
         session.keyPtt()

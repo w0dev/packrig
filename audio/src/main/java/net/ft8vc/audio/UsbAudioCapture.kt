@@ -67,16 +67,31 @@ class UsbAudioCapture(private val context: Context) : AudioEngine {
 
     override fun stop() {
         running = false
-        thread?.join(500)
+        val t = thread
         thread = null
-        record?.runCatching {
-            stop()
-            release()
+        try {
+            if (t != null && t.isAlive) {
+                t.interrupt()
+                t.join(STOP_JOIN_TIMEOUT_MS)
+                if (t.isAlive) {
+                    Log.w(TAG, "capture thread didn't stop within ${STOP_JOIN_TIMEOUT_MS}ms")
+                    stopCleanFailureCount.incrementAndGet()
+                }
+            }
+        } finally {
+            record?.runCatching {
+                stop()
+                release()
+            }
+            record = null
+            effects.forEach { it() }
+            effects.clear()
         }
-        record = null
-        effects.forEach { it() }
-        effects.clear()
     }
+
+    /** Phase 6 (RELY-03): count of times the capture thread didn't stop within the join window. */
+    private val stopCleanFailureCount = java.util.concurrent.atomic.AtomicInteger(0)
+    fun consumeStopCleanFailureCount(): Int = stopCleanFailureCount.getAndSet(0)
 
     @SuppressLint("MissingPermission")
     private fun openRecord(preferredDeviceId: Int?): Pair<AudioRecord, Int>? {
@@ -162,5 +177,7 @@ class UsbAudioCapture(private val context: Context) : AudioEngine {
 
     companion object {
         private const val TAG = "UsbAudioCapture"
+        /** Phase 6 (RELY-03): bound for the cooperative stop() handshake. */
+        private const val STOP_JOIN_TIMEOUT_MS = 500L
     }
 }

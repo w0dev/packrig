@@ -131,6 +131,18 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ── Phase 6 (RELY-02a): AudioDeviceCallback — first of two hot-swap signals ────
+    private val audioDeviceCallback = object : android.media.AudioDeviceCallback() {
+        override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>?) {
+            if (removedDevices == null || removedDevices.isEmpty()) return
+            val anyInput = removedDevices.any { it.isSource }
+            if (anyInput && _state.value.isCapturing) {
+                notify("Audio device removed — restarting capture", SnackbarEvent.Tag.ERROR)
+                restartCapture()
+            }
+        }
+    }
+
     init {
         waterfall.floorOffsetDb = WATERFALL_FLOOR_OFFSET_DB_DEFAULT
         viewModelScope.launch {
@@ -185,6 +197,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         catStatus = r.catStatus ?: it.catStatus,
                         rigFreqHz = r.rigFreqHz ?: it.rigFreqHz,
                         rigMode = r.rigMode ?: it.rigMode,
+                        catUnreachable = r.catUnreachable,
                     )
                 }
             }
@@ -199,7 +212,19 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         clip = d.clip,
                         waterfallVersion = d.waterfallVersion,
                         decodeFailureCount = d.decodeFailureCount,
+                        decodeFailureRecent = d.decodeFailureRecent,
+                        zeroSampleSlots = d.zeroSampleSlots,
                     )
+                }
+                // Phase 6 (RELY-02b): cross-check zero-sample slots against AudioManager.
+                // After >2 consecutive zero-sample slots AND USB output gone, force capture restart.
+                if (d.zeroSampleSlots > 2 && _state.value.isCapturing) {
+                    val devices = AudioInputs.list(getApplication())
+                    val usbPresent = devices.any { it.isUsb }
+                    if (!usbPresent) {
+                        notify("Audio device removed — restarting capture", SnackbarEvent.Tag.ERROR)
+                        restartCapture()
+                    }
                 }
             }
         }
@@ -263,6 +288,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         // License acknowledgment changes after detach require re-checking via Settings;
         // we re-publish the native handshake whenever the bridge fires (cheap).
         txOrchestrator.refreshNativeStatus()
+
+        // Phase 6 (RELY-02a): AudioDeviceCallback — fires alongside zero-sample watchdog.
+        val am = app.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+        am.registerAudioDeviceCallback(audioDeviceCallback, null)
     }
 
     fun refreshDevices() {
@@ -626,8 +655,24 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun stopCapture() {
         capture.stop()
+        val unclean = capture.consumeStopCleanFailureCount()
+        if (unclean > 0) {
+            notify("Audio thread didn't stop cleanly — recovering", SnackbarEvent.Tag.ERROR)
+        }
         decodeController.reset()
         _state.update { it.copy(isCapturing = false) }
+    }
+
+    /** Phase 6 (RELY-02/03): rebuild the capture chain after device removal or unclean stop. */
+    private fun restartCapture() {
+        stopCapture()
+        beginCapture()
+    }
+
+    /** Phase 6 (RELY-01/07): operator taps the "CAT unreachable — tap to retry" chip. */
+    fun retryCat() {
+        rigSession.retryCat()
+        readRig()
     }
 
     fun clearDecodes() {
@@ -636,6 +681,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         runCatching { getApplication<Application>().unregisterReceiver(usbDetachReceiver) }
+        runCatching {
+            val am = getApplication<Application>().getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+            am.unregisterAudioDeviceCallback(audioDeviceCallback)
+        }
         playback.stop()
         // Phase 5 final PTT release — every PTT-touching controller gets its own
         // unconditional release in its close() too (belt-and-suspenders SAFETY-01d).

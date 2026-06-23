@@ -116,6 +116,7 @@ fun OperateScreen(
                 onBandClick = if (state.catReady) {{ showBandSheet = true }} else null,
                 onHaltTx = vm::haltTx,
                 onTxSlotParityChange = vm::setTxSlotParity,
+                onRetryCat = vm::retryCat,
                 modifier = Modifier.fillMaxWidth(),
             )
             val stationComplete = StationProfileValidator.isComplete(state.myCall, state.myGrid)

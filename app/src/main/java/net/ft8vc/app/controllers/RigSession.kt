@@ -52,11 +52,29 @@ class RigSession @OptIn(ExperimentalCoroutinesApi::class) constructor(
     private val consecutiveFailures = AtomicInteger(0)
     val consecutiveFailureCount: Int get() = consecutiveFailures.get()
 
+    /** Phase 6: number of consecutive timeouts after which CAT is declared unreachable. */
+    private val unreachableThreshold = 3
+
     fun refreshDigirigPresence() {
         _slice.update { it.copy(digirigPresent = digirigPresenceProvider()) }
     }
 
-    suspend fun readRig(): Long? = runCat("Reading rig…") {
+    /**
+     * Phase 6: clear the catUnreachable latch and reset the consecutive-failure
+     * counter. UI calls this when the operator taps the "CAT unreachable — tap
+     * to retry" chip.
+     */
+    fun retryCat() {
+        consecutiveFailures.set(0)
+        _slice.update { it.copy(catUnreachable = false, catStatus = "Retrying CAT…") }
+    }
+
+    suspend fun readRig(): Long? {
+        if (_slice.value.catUnreachable) return null
+        return readRigImpl()
+    }
+
+    private suspend fun readRigImpl(): Long? = runCat("Reading rig…") {
         val freq = catControl.frequencyHz()
         val mode = catControl.mode()
         val both = freq == null && mode == null
@@ -71,7 +89,12 @@ class RigSession @OptIn(ExperimentalCoroutinesApi::class) constructor(
         freq
     }
 
-    suspend fun setFrequency(hz: Long): Boolean = runCat("Tuning…") {
+    suspend fun setFrequency(hz: Long): Boolean {
+        if (_slice.value.catUnreachable) return false
+        return setFrequencyImpl(hz)
+    }
+
+    private suspend fun setFrequencyImpl(hz: Long): Boolean = runCat("Tuning…") {
         if (catControl.setFrequencyHz(hz)) {
             val actual = catControl.frequencyHz()
             _slice.update { it.copy(rigFreqHz = actual ?: hz, catStatus = "Tuned") }
@@ -83,7 +106,12 @@ class RigSession @OptIn(ExperimentalCoroutinesApi::class) constructor(
         }
     } ?: false
 
-    suspend fun setMode(mode: Ft891Cat.Mode): Boolean = runCat("Setting mode…") {
+    suspend fun setMode(mode: Ft891Cat.Mode): Boolean {
+        if (_slice.value.catUnreachable) return false
+        return setModeImpl(mode)
+    }
+
+    private suspend fun setModeImpl(mode: Ft891Cat.Mode): Boolean = runCat("Setting mode…") {
         if (catControl.setMode(mode)) {
             val actual = catControl.mode()
             _slice.update { it.copy(rigMode = actual?.label ?: mode.label, catStatus = "Mode set") }
@@ -138,11 +166,17 @@ class RigSession @OptIn(ExperimentalCoroutinesApi::class) constructor(
     private class Box<T>(val value: T)
 
     private fun recordFailure() {
-        consecutiveFailures.incrementAndGet()
+        val n = consecutiveFailures.incrementAndGet()
+        if (n >= unreachableThreshold) {
+            _slice.update { it.copy(catUnreachable = true, catStatus = "CAT unreachable — tap to retry") }
+        }
     }
 
     private fun recordSuccess() {
         consecutiveFailures.set(0)
+        if (_slice.value.catUnreachable) {
+            _slice.update { it.copy(catUnreachable = false) }
+        }
     }
 
     override fun close() {
@@ -158,4 +192,6 @@ data class RigSlice(
     val rigMode: String? = null,
     val pttKeyed: Boolean = false,
     val digirigPresent: Boolean = false,
+    /** Phase 6: latches true after [unreachableThreshold] consecutive CAT timeouts. Persistent chip until [retryCat]. */
+    val catUnreachable: Boolean = false,
 )

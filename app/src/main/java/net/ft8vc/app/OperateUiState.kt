@@ -125,6 +125,14 @@ data class OperateUiState(
     /** True between USB detach and reconnect — persistent chip in Operate header. */
     val digirigDisconnected: Boolean = false,
 
+    // ── Reliability hardening (Phase 6) ──────────────────────────────────
+    /** Latched after 3 consecutive CAT timeouts; cleared by `retryCat`. */
+    val catUnreachable: Boolean = false,
+    /** True for at least one decode failure in the last 5 slots (auto-clears). */
+    val decodeFailureRecent: Boolean = false,
+    /** Consecutive slots with all-zero PCM. >2 cross-checked with AudioManager triggers capture recreate. */
+    val zeroSampleSlots: Int = 0,
+
     // ── Misc ──────────────────────────────────────────────────────────────
     val operateStatus: String? = null,
     val contactCount: Int = 0,

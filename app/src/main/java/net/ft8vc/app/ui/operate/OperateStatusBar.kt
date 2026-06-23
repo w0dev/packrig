@@ -56,12 +56,37 @@ fun OperateStatusBar(
     onBandClick: (() -> Unit)? = null,
     onHaltTx: () -> Unit = {},
     onTxSlotParityChange: (TxSlotParity) -> Unit = {},
+    onRetryCat: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var inputGainExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // Phase 6: persistent reliability chips at the top of the header.
+        if (state.catUnreachable || state.decodeFailureRecent || state.digirigDisconnected || state.txSafetyHaltActive) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (state.catUnreachable) {
+                    CompactChip(
+                        text = "CAT unreachable — tap to retry",
+                        modifier = Modifier.clickable(onClick = onRetryCat),
+                    )
+                }
+                if (state.digirigDisconnected) {
+                    CompactChip(text = "Digirig disconnected — RX only")
+                }
+                if (state.txSafetyHaltActive) {
+                    CompactChip(text = "TX safety halt — see Settings")
+                }
+                if (state.decodeFailureRecent && state.decodeFailureCount > 0) {
+                    CompactChip(text = "Decodes dropped: ${state.decodeFailureCount}")
+                }
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
