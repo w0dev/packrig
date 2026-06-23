@@ -3,10 +3,12 @@ package net.ft8vc.app
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import net.ft8vc.app.controllers.AppRfState
 import net.ft8vc.app.controllers.DecodeController
 import net.ft8vc.app.controllers.QsoSessionController
 import net.ft8vc.app.controllers.RigSession
 import net.ft8vc.app.controllers.SettingsBridge
+import net.ft8vc.app.controllers.TxOrchestrator
 import net.ft8vc.app.ui.Waterfall
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.app.settings.SettingsRepository
@@ -15,11 +17,9 @@ import net.ft8vc.audio.AudioOutputs
 import net.ft8vc.audio.UsbAudioCapture
 import net.ft8vc.audio.UsbAudioPlayback
 import net.ft8vc.core.AnswerPolicy
-import net.ft8vc.core.AppInfo
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.QsoSnapshot
 import net.ft8vc.core.QsoTxStep
-import net.ft8vc.core.SlotTiming
 import net.ft8vc.core.TxSlotParity
 import net.ft8vc.data.Logbook
 import net.ft8vc.data.RoomLogbook
@@ -101,8 +101,35 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         resumeCaptureIfNeeded = ::resumeCaptureIfNeededForQso,
     )
 
+    private val txOrchestrator = TxOrchestrator(
+        decoder = Ft8Native,
+        playback = playback,
+        rigSession = rigSession,
+        scope = viewModelScope,
+        notifyFn = ::notify,
+        outputDeviceIdProvider = { AudioOutputs.firstUsb(getApplication())?.id },
+        captureControl = object : TxOrchestrator.CaptureControl {
+            override fun pauseForTx() {
+                if (_state.value.isCapturing) stopCapture()
+            }
+            override fun resumeAfterTx() {
+                if (_state.value.isOperating && !_state.value.isCapturing) beginCapture()
+            }
+        },
+    )
+
     private var txThread: Thread? = null
     private var lastDialFreqHz: Long? = null
+
+    // ── USB detach receiver: triggers EMERGENCY-HALT-like routing per SAFETY-02 ────
+    private val usbDetachReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
+            if (intent.action != android.hardware.usb.UsbManager.ACTION_USB_DEVICE_DETACHED) return
+            txOrchestrator.notifyUsbDetached()
+            qsoSession.stopQso()
+            rigSession.refreshDigirigPresence()
+        }
+    }
 
     init {
         waterfall.floorOffsetDb = WATERFALL_FLOOR_OFFSET_DB_DEFAULT
@@ -209,6 +236,33 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         refreshDevices()
+        viewModelScope.launch {
+            txOrchestrator.slice.collect { tx ->
+                _state.update {
+                    it.copy(
+                        isTransmitting = tx.isTransmitting,
+                        txStatus = tx.txStatus ?: it.txStatus,
+                        appRfState = tx.appRfState,
+                        nativeVersion = tx.nativeVersion,
+                        nativeLoaded = tx.nativeLoaded,
+                        txSafetyHaltActive = tx.txSafetyHaltActive,
+                        digirigDisconnected = tx.digirigDisconnected,
+                    )
+                }
+            }
+        }
+        // Register USB-detach receiver for runtime safety routing (cold-launch attach
+        // is handled by the manifest intent-filter — see SAFETY-02 for the symmetry).
+        val filter = android.content.IntentFilter(android.hardware.usb.UsbManager.ACTION_USB_DEVICE_DETACHED)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            app.registerReceiver(usbDetachReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            app.registerReceiver(usbDetachReceiver, filter)
+        }
+        // License acknowledgment changes after detach require re-checking via Settings;
+        // we re-publish the native handshake whenever the bridge fires (cheap).
+        txOrchestrator.refreshNativeStatus()
     }
 
     fun refreshDevices() {
@@ -301,6 +355,9 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun acknowledgeLicense() {
         viewModelScope.launch { settingsRepo.setLicenseAcknowledged(true) }
+        // Per SAFETY-02: license re-acknowledgment after a USB reconnect is the
+        // explicit user action that transitions RX_ONLY → READY.
+        if (rig.isDigirigReady) txOrchestrator.notifyUsbReady()
     }
 
     fun setMyCall(call: String) {
@@ -391,13 +448,9 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val wasTransmitting = _state.value.isTransmitting
         playback.stop()
         rigSession.releasePttBlocking()
-        cancelTx()
         qsoSession.stopQso()
-        _state.update {
-            it.copy(
-                isTransmitting = false,
-                txStatus = if (wasTransmitting) "TX halted" else it.txStatus,
-            )
+        if (wasTransmitting) {
+            _state.update { it.copy(isTransmitting = false, txStatus = "TX halted") }
         }
         if (announce) notify("Transmit halted")
     }
@@ -502,17 +555,13 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun stopQso() {
         playback.stop()
         rigSession.releasePttBlocking()
-        cancelTx()
         qsoSession.stopQso()
-        _state.update { it.copy(isTransmitting = false) }
     }
 
     fun abandonQso() {
         playback.stop()
         rigSession.releasePttBlocking()
-        cancelTx()
         qsoSession.abandonQso()
-        _state.update { it.copy(isTransmitting = false) }
     }
 
     fun setOperateTxText(text: String) = qsoSession.setOperateTxText(text)
@@ -520,39 +569,31 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun resetOperateTxText() = qsoSession.resetOperateTxText()
 
     fun transmitOperateTxOnce() {
-        if (!_state.value.txEnabled || _state.value.isTransmitting) return
+        if (_state.value.isTransmitting) return
         val msg = _state.value.operateTxText.trim()
-        if (msg.isEmpty()) {
-            notify("TX message is empty", SnackbarEvent.Tag.ERROR)
-            return
-        }
         if (!_state.value.isOperating) startOperating()
-        cancelTx()
-        txThread = Thread({
-            try {
-                val waitMs = SlotTiming.millisUntilNextSlot(System.currentTimeMillis())
-                if (waitMs > 0) Thread.sleep(waitMs)
-                if (Thread.currentThread().isInterrupted) return@Thread
-                transmitMessageNow(msg)
-            } catch (_: InterruptedException) {
-            } catch (t: Throwable) {
-                notify(t.message ?: "Transmit failed", SnackbarEvent.Tag.ERROR)
-            }
-        }, "ft8vc-tx-operate").also { it.start() }
+        viewModelScope.launch {
+            txOrchestrator.transmitAfterSlotBoundary(msg, _state.value.txFreqHz)
+        }
+    }
+
+    fun transmitNextSlot() {
+        if (_state.value.isTransmitting) return
+        val message = _state.value.txMessage.trim()
+        viewModelScope.launch {
+            txOrchestrator.transmitAfterSlotBoundary(message, _state.value.txFreqHz)
+        }
+    }
+
+    /** Clear the latched RF-safety halt so TX can resume after operator review. */
+    fun acknowledgeSafetyHalt() {
+        txOrchestrator.acknowledgeAndResetEmergency()
     }
 
     // ── Callbacks injected into QsoSessionController ────────────────────
 
     private suspend fun transmitForQsoLoop(message: String): Boolean {
-        return withContext(Dispatchers.IO) {
-            try {
-                transmitMessageNow(message)
-                true
-            } catch (t: Throwable) {
-                notify(t.message ?: "Transmit failed", SnackbarEvent.Tag.ERROR)
-                false
-            }
-        }
+        return txOrchestrator.transmit(message, _state.value.txFreqHz)
     }
 
     private suspend fun onQsoComplete(snapshot: QsoSnapshot) {
@@ -566,82 +607,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.isOperating && !_state.value.isCapturing && !_state.value.isTransmitting) {
             beginCapture()
         }
-    }
-
-    private fun transmitMessageNow(message: String) {
-        val pcm = Ft8Native.encode(message, _state.value.txFreqHz.toFloat(), AppInfo.SAMPLE_RATE_HZ)
-        if (pcm.isEmpty()) throw IllegalStateException("Encoder rejected: $message")
-
-        val resume = _state.value.isCapturing
-        if (resume) stopCapture()
-        _state.update { it.copy(isTransmitting = true, txStatus = "TX: $message") }
-        val outputId = AudioOutputs.firstUsb(getApplication())?.id
-        rigSession.keyPttBlocking()
-        val completed = try {
-            playback.playBlocking(pcm, outputId)
-        } finally {
-            rigSession.releasePttBlocking()
-        }
-        _state.update {
-            it.copy(
-                isTransmitting = false,
-                txStatus = if (completed) "Sent: $message" else "TX halted",
-            )
-        }
-        if (resume && (_state.value.qsoActive || _state.value.isOperating)) resumeCapture()
-    }
-
-    fun transmitNextSlot() {
-        if (!_state.value.txEnabled || _state.value.isTransmitting) return
-        val message = _state.value.txMessage.trim()
-        if (message.isEmpty()) {
-            notify("TX message is empty", SnackbarEvent.Tag.ERROR)
-            return
-        }
-        cancelTx()
-        val freqHz = _state.value.txFreqHz.toFloat()
-        _state.update { it.copy(txStatus = "Encoding…") }
-
-        txThread = Thread({
-            try {
-                val pcm = Ft8Native.encode(message, freqHz, AppInfo.SAMPLE_RATE_HZ)
-                if (pcm.isEmpty()) throw IllegalStateException("Encoder rejected message: $message")
-
-                val waitMs = SlotTiming.millisUntilNextSlot(System.currentTimeMillis())
-                val waitSec = (waitMs + 999) / 1000
-                _state.update { it.copy(txStatus = "TX in ${waitSec}s…") }
-                if (waitMs > 0) Thread.sleep(waitMs)
-                if (Thread.currentThread().isInterrupted) return@Thread
-
-                val resumeCapture = _state.value.isCapturing
-                if (resumeCapture) stopCapture()
-                _state.update { it.copy(isTransmitting = true, txStatus = "Transmitting…") }
-                val outputId = AudioOutputs.firstUsb(getApplication())?.id
-                rigSession.keyPttBlocking()
-                val completed = try {
-                    playback.playBlocking(pcm, outputId)
-                } finally {
-                    rigSession.releasePttBlocking()
-                }
-                if (resumeCapture && !Thread.currentThread().isInterrupted) resumeCapture()
-                _state.update {
-                    it.copy(
-                        isTransmitting = false,
-                        txStatus = if (completed) "TX complete" else "TX halted",
-                    )
-                }
-            } catch (_: InterruptedException) {
-                _state.update { it.copy(isTransmitting = false, txStatus = null) }
-            } catch (t: Throwable) {
-                _state.update { it.copy(isTransmitting = false, txStatus = null) }
-                notify(t.message ?: "Transmit failed", SnackbarEvent.Tag.ERROR)
-            }
-        }, "ft8vc-tx").also { it.start() }
-    }
-
-    private fun cancelTx() {
-        txThread?.interrupt()
-        txThread = null
     }
 
     private fun beginCapture() {
@@ -670,11 +635,15 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
+        runCatching { getApplication<Application>().unregisterReceiver(usbDetachReceiver) }
         playback.stop()
+        // Phase 5 final PTT release — every PTT-touching controller gets its own
+        // unconditional release in its close() too (belt-and-suspenders SAFETY-01d).
         rigSession.releasePttBlocking()
         stopOperating()
         capture.stop()
         rig.close()
+        txOrchestrator.close()
         decodeController.close()
         qsoSession.close()
         rigSession.close()

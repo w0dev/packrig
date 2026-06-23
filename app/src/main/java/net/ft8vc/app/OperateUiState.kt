@@ -3,6 +3,7 @@ package net.ft8vc.app
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import net.ft8vc.app.controllers.AppRfState
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.audio.AudioInputDevice
 import net.ft8vc.core.AnswerPolicy
@@ -114,6 +115,15 @@ data class OperateUiState(
     val txSlotParity: TxSlotParity = TxSlotParity.EVEN,
     val activeTxSlotParity: TxSlotParity? = null,
     val utcClock: String = "00:00:00",
+
+    // ── RF safety + native-lib handshake (Phase 5) ────────────────────────
+    val appRfState: AppRfState = AppRfState.READY,
+    val nativeVersion: String = "not loaded",
+    val nativeLoaded: Boolean = false,
+    /** Latches true after the watchdog or outer timeout forced PTT release; cleared via Settings ack. */
+    val txSafetyHaltActive: Boolean = false,
+    /** True between USB detach and reconnect — persistent chip in Operate header. */
+    val digirigDisconnected: Boolean = false,
 
     // ── Misc ──────────────────────────────────────────────────────────────
     val operateStatus: String? = null,

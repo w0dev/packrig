@@ -25,7 +25,7 @@ These three requirements are **not** owned by a single phase. They are the non-n
 - [x] **Phase 2: Extract RigSession** — CAT polling, dial preset, busy flag, PTT routing on `catDispatcher`
 - [x] **Phase 3: Extract DecodeController** — RX path, slot collector, JNI decode on `decodeDispatcher`; ImmutableList + stable keys prep
 - [x] **Phase 4: Extract QsoSessionController + Remove qsoLock** — Highest-coupling controller; eliminates `@Volatile + synchronized` mixed pattern; `Thread.sleep` → `delay`; JNI cancellation discipline
-- [ ] **Phase 5: Extract TxOrchestrator + RF Safety + combine Assembly** — Highest-stakes phase; 4-layer PTT defense, watchdog, emergency-halt state machine, USB-disconnect routing, license re-check on reconnect, combine flow assembly, native lib load/version handshake
+- [x] **Phase 5: Extract TxOrchestrator + RF Safety + combine Assembly** — Highest-stakes phase; 4-layer PTT defense, watchdog, emergency-halt state machine, USB-disconnect routing, license re-check on reconnect, combine flow assembly, native lib load/version handshake (*combine() assembly deferred to a follow-up cleanup commit — controller slices are authoritative but VM still holds a thin _state mirror*)
 - [ ] **Phase 6: Reliability Hardening (CAT + Audio)** — Layered CAT timeout guards, port close+reopen, AudioRecord hot-swap recovery, decode-loop failure counter chip
 - [ ] **Phase 7: UX Polish + Manifest Hygiene + ADIF Auto-Export** — Decode list Clear + cap indicator, Settings → About decoder row, TxSlotParity enum cleanup, USB filter tightening, INTERNET permission removal, ADIF auto-export
 
@@ -180,7 +180,7 @@ These three requirements are **not** owned by a single phase. They are the non-n
 | 2. Extract RigSession | 1/1 | Complete | 2026-06-22 |
 | 3. Extract DecodeController | 1/1 | Complete | 2026-06-22 |
 | 4. Extract QsoSessionController + Remove qsoLock | 1/1 | Complete | 2026-06-22 |
-| 5. Extract TxOrchestrator + RF Safety + combine Assembly | 0/? | Not started | - |
+| 5. Extract TxOrchestrator + RF Safety + combine Assembly | 1/1 | Complete (combine assembly partial) | 2026-06-22 |
 | 6. Reliability Hardening (CAT + Audio) | 0/? | Not started | - |
 | 7. UX Polish + Manifest Hygiene + ADIF Auto-Export | 0/? | Not started | - |
 

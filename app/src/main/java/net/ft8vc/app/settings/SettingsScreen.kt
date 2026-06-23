@@ -265,11 +265,37 @@ fun SettingsScreen(vm: OperateViewModel) {
             SettingsSection("About") {
                 Text("${AppInfo.APP_NAME} ${AppInfo.VERSION_NAME}")
                 Text(AppInfo.TAGLINE, style = MaterialTheme.typography.bodySmall)
+                if (state.nativeLoaded) {
+                    Text(
+                        "Decoder library: loaded v${state.nativeVersion}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Text(
+                        "Decoder library: FAILED — reinstall app",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 Text(
                     "Field setup: Yaesu FT-891 + Digirig Mobile. See docs/HARDWARE.md in the repo.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (state.txSafetyHaltActive) {
+                    Button(
+                        onClick = vm::acknowledgeSafetyHalt,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Acknowledge TX safety halt")
+                    }
+                    Text(
+                        "PTT was force-released by the watchdog. TX is gated until you acknowledge.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
     }
