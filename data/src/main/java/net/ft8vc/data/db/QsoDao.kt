@@ -22,4 +22,7 @@ interface QsoDao {
 
     @Query("DELETE FROM qso_contacts")
     suspend fun deleteAll()
+
+    @Query("SELECT DISTINCT band FROM qso_contacts WHERE dxCall = :call AND band IS NOT NULL")
+    suspend fun workedBands(call: String): List<String>
 }

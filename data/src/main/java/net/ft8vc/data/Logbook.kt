@@ -14,6 +14,7 @@ interface Logbook {
     suspend fun exportAdif(context: AdifExportContext = AdifExportContext()): String
     fun contactCount(): Flow<Int>
     suspend fun clearAll()
+    suspend fun workedBands(call: String): Set<String>
 }
 
 class RoomLogbook(db: Ft8vcDatabase) : Logbook {
@@ -32,6 +33,9 @@ class RoomLogbook(db: Ft8vcDatabase) : Logbook {
     override suspend fun clearAll() {
         dao.deleteAll()
     }
+
+    override suspend fun workedBands(call: String): Set<String> =
+        dao.workedBands(call).toSet()
 
     private fun QsoContact.toEntity() = QsoEntity(
         id = id,
