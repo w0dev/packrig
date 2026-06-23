@@ -20,6 +20,7 @@ import net.ft8vc.app.OperateUiState
 import net.ft8vc.audio.dsp.SpectrumProcessor
 import net.ft8vc.core.AppInfo
 import net.ft8vc.core.DecodeDistance
+import net.ft8vc.core.DecodePassSource
 import net.ft8vc.core.QsoDecode
 import net.ft8vc.core.QsoMessages
 import net.ft8vc.core.QsoResume
@@ -38,6 +39,7 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.sqrt
+import kotlin.system.measureTimeMillis
 
 /**
  * Owns the RX pipeline: PCM capture callback → level/spectrum → slot
@@ -107,6 +109,18 @@ class DecodeController(
     /** Phase 6 (RELY-02b): consecutive slots with zero PCM samples. UI / VM cross-checks against AudioManager devices. */
     private var zeroSampleSlots: Int = 0
 
+    /**
+     * Per-slot dedup set: slotStart → set of [DecodeRowKey.stableId] values
+     * already inserted into the list and emitted on [_decodesOut] for that
+     * slot. Capped at 4 most-recent slots — oldest evicted when a 5th slot
+     * arrives (bounded memory; aged slots are off the screen anyway).
+     */
+    private val seenKeys: LinkedHashMap<Long, HashSet<Long>> =
+        object : LinkedHashMap<Long, HashSet<Long>>(/* initialCapacity = */ 8) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, HashSet<Long>>): Boolean =
+                size > 4
+        }
+
     fun setInputGain(gain: Float) {
         inputGain = gain.coerceIn(OperateUiState.INPUT_GAIN_MIN, 1f)
     }
@@ -145,7 +159,7 @@ class DecodeController(
 
         spectrum.process(pcm) { column -> spectrumSink(column) }
         slotCollector.add(pcm, clock()) { samples, slotStart ->
-            scope.launch(decodeDispatcher) { decodeSlot(samples, slotStart) }
+            scope.launch(decodeDispatcher) { decodeSlot(samples, slotStart, source = DecodePassSource.Full) }
         }
 
         val now = System.nanoTime()
@@ -172,7 +186,11 @@ class DecodeController(
         return scratch
     }
 
-    private suspend fun decodeSlot(samples: ShortArray, slotStartEpochMs: Long) {
+    internal suspend fun decodeSlot(
+        samples: ShortArray,
+        slotStartEpochMs: Long,
+        source: DecodePassSource = DecodePassSource.Full,
+    ) {
         // Phase 6 (RELY-02b): per-slot zero-sample tracking. A slot with no non-
         // zero samples means the audio path is silent — surface to the VM so it
         // can cross-check AudioManager.getDevices() and recreate capture.
@@ -186,57 +204,106 @@ class DecodeController(
             _slice.update { it.copy(zeroSampleSlots = 0) }
         }
 
+        val passDurationMs: Long
         val results = try {
-            decoder.decode(samples, AppInfo.SAMPLE_RATE_HZ)
+            var out: Array<net.ft8vc.ft8native.Ft8DecodeResult> = emptyArray()
+            passDurationMs = measureTimeMillis {
+                out = decoder.decode(samples, AppInfo.SAMPLE_RATE_HZ)
+            }
+            out
         } catch (t: Throwable) {
             failureCount.incrementAndGet()
             consecutiveSuccessfulSlots = 0
-            _slice.update { it.copy(decodeFailureCount = failureCount.get(), decodeFailureRecent = true) }
+            _slice.update {
+                it.copy(
+                    decodeFailureCount = failureCount.get(),
+                    decodeFailureRecent = true,
+                    lastDecodePassSource = source,
+                )
+            }
             return
         }
+
+        // success → duration + source → slice
+        _slice.update {
+            it.copy(
+                lastDecodePassDurationMs = passDurationMs,
+                lastDecodePassSource = source,
+            )
+        }
+
         // Phase 6 (RELY-04): clear the "Decodes dropped" chip after 5 consecutive
         // successful slots so the UI auto-recovers from a transient blip.
         consecutiveSuccessfulSlots += 1
         if (consecutiveSuccessfulSlots >= DECODE_FAILURE_DECAY_SLOTS && _slice.value.decodeFailureRecent) {
             _slice.update { it.copy(decodeFailureRecent = false) }
         }
+
         val ctx = stationContext
         val time = utcTimeFormat.format(Date(slotStartEpochMs))
         val slotParity = TxSlotSelection.slotParity(slotStartEpochMs)
         val sorted = results.sortedByDescending { it.score }
-        val slotDecodes = sorted.map { QsoDecode(it.message.trim(), it.snr) }
-        val rows = sorted.mapIndexed { indexInSlot, r ->
+
+        val keysThisSlot = seenKeys.getOrPut(slotStartEpochMs) { HashSet() }
+        val newlyEmitted = mutableListOf<QsoDecode>()
+        val newRows = mutableListOf<DecodeRow>()
+        val updates = mutableMapOf<Long, net.ft8vc.ft8native.Ft8DecodeResult>()  // stableId → fresher result
+
+        for (r in sorted) {
             val message = r.message.trim()
-            val sender = senderCallFromMessage(message)
-            val worked = if (sender != null) workedBeforeLookup(sender) else WorkedBefore.Never
-            DecodeRow(
-                id = slotStartEpochMs * 1000L + indexInSlot,
-                timeUtc = time,
-                snr = r.snr,
-                dtSeconds = r.dtSeconds,
-                freqHz = Math.round(r.freqHz),
-                message = message,
-                isCq = message.startsWith("CQ"),
-                isToMe = QsoResume.isDirectedToMe(ctx.myCall, message),
-                distanceKm = DecodeDistance.kmFromMessage(ctx.myGrid, message),
-                slotParity = slotParity,
-                workedBefore = worked,
-            )
+            val id = DecodeRowKey.stableId(slotStartEpochMs, r.freqHz.toDouble(), message)
+            if (keysThisSlot.add(id)) {
+                // First time we see this key in this slot — insert new row + emit
+                val sender = senderCallFromMessage(message)
+                val worked = if (sender != null) workedBeforeLookup(sender) else WorkedBefore.Never
+                newRows += DecodeRow(
+                    id = id,
+                    timeUtc = time,
+                    snr = r.snr,
+                    dtSeconds = r.dtSeconds,
+                    freqHz = Math.round(r.freqHz),
+                    message = message,
+                    isCq = message.startsWith("CQ"),
+                    isToMe = QsoResume.isDirectedToMe(ctx.myCall, message),
+                    distanceKm = DecodeDistance.kmFromMessage(ctx.myGrid, message),
+                    slotParity = slotParity,
+                    workedBefore = worked,
+                    passSource = source,
+                )
+                newlyEmitted += QsoDecode(message, r.snr)
+            } else if (source == DecodePassSource.Full) {
+                // FULL pass: update the already-inserted EARLY row in place
+                updates[id] = r
+            }
+            // EARLY pass duplicate within itself: no-op (shouldn't happen given the single
+            // early trigger per slot, but cheap defense-in-depth).
         }
+
         _slice.update { s ->
-            val combined = (rows + s.decodes).take(OperateUiState.MAX_DECODE_ROWS)
+            val withUpdates: List<DecodeRow> = if (updates.isEmpty()) s.decodes else s.decodes.map { row ->
+                val r = updates[row.id]
+                if (r == null) row else row.copy(
+                    snr = r.snr,
+                    dtSeconds = r.dtSeconds,
+                    freqHz = Math.round(r.freqHz),
+                )
+            }
+            val combined = (newRows + withUpdates).take(OperateUiState.MAX_DECODE_ROWS)
             s.copy(
                 decodes = combined.toPersistentList(),
-                lastSlotDecodeCount = rows.size,
+                lastSlotDecodeCount = newRows.size,
             )
         }
-        _decodesOut.emit(
-            DecodeBatch(
-                slotStartEpochMs = slotStartEpochMs,
-                slotParity = slotParity,
-                decodes = slotDecodes,
-            ),
-        )
+
+        if (newlyEmitted.isNotEmpty()) {
+            _decodesOut.emit(
+                DecodeBatch(
+                    slotStartEpochMs = slotStartEpochMs,
+                    slotParity = slotParity,
+                    decodes = newlyEmitted,
+                ),
+            )
+        }
     }
 
     /**
@@ -288,6 +355,10 @@ data class DecodeSlice(
     val decodeFailureRecent: Boolean = false,
     /** Phase 6: count of consecutive slots with all-zero PCM samples. VM cross-checks against AudioManager. */
     val zeroSampleSlots: Int = 0,
+    /** Wall-clock duration of the most recent decode pass, ms. */
+    val lastDecodePassDurationMs: Long = 0L,
+    /** Which pass produced [lastDecodePassDurationMs]. Null before any pass runs. */
+    val lastDecodePassSource: net.ft8vc.core.DecodePassSource? = null,
 )
 
 data class DecodeBatch(
