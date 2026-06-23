@@ -208,6 +208,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 answerPolicy = settings.answerPolicy,
                 maxUnansweredTxCycles = settings.maxUnansweredTxCycles,
                 lateStartTxEnabled = settings.lateStartTxEnabled,
+                earlyDecodeEnabled = settings.earlyDecodeEnabled,
                 qsoActive = qso.qsoActive,
                 qsoState = qso.qsoState,
                 qsoDx = qso.qsoDx,
@@ -415,6 +416,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setLateStartTxEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsRepo.setLateStartTxEnabled(enabled) }
+    }
+
+    fun setEarlyDecodeEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepo.setEarlyDecodeEnabled(enabled) }
     }
 
     fun clearAbandonedPartners() = qsoSession.clearAbandonedPartners()

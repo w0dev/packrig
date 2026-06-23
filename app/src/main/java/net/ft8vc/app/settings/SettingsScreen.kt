@@ -264,6 +264,13 @@ fun SettingsScreen(vm: OperateViewModel) {
                     // license gate already blocks TX downstream via AppRfState.READY.
                     enabled = true,
                 )
+                AutoToggleRow(
+                    title = "Early decode (CQs ~3s sooner)",
+                    subtitle = "Runs an extra decode pass partway through each slot.",
+                    checked = state.earlyDecodeEnabled,
+                    onCheckedChange = vm::setEarlyDecodeEnabled,
+                    enabled = true,
+                )
                 Text(
                     "Set TX slot (Even/Odd) on Operate when TX is enabled.",
                     style = MaterialTheme.typography.bodySmall,
