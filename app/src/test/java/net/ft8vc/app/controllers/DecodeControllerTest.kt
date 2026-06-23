@@ -133,7 +133,7 @@ class DecodeControllerTest {
             override fun version() = "throwing"
             override fun decode(samples: ShortArray, sampleRate: Int): Array<Ft8DecodeResult> =
                 throw RuntimeException("decode boom")
-            override fun encode(message: String, freqHz: Float, sampleRate: Int) = ShortArray(0)
+            override fun encode(message: String, freqHz: Float, sampleRate: Int, offsetSymbols: Int) = ShortArray(0)
         }
         controller = makeController(throwingDecoder)
         controller.setStationContext("W0DEV", "EM26")

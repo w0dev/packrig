@@ -268,7 +268,7 @@ class TxOrchestratorTest {
         override fun isAvailable(): Boolean = available
         override fun version(): String = "fake-1.0"
         override fun decode(samples: ShortArray, sampleRate: Int): Array<Ft8DecodeResult> = emptyArray()
-        override fun encode(message: String, freqHz: Float, sampleRate: Int): ShortArray = encodeResult
+        override fun encode(message: String, freqHz: Float, sampleRate: Int, offsetSymbols: Int): ShortArray = encodeResult
     }
 
     private class TestCaptureControl : TxOrchestrator.CaptureControl {
