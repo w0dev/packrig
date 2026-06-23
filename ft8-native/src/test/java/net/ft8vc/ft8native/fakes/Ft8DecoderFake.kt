@@ -19,6 +19,7 @@ data class EncodeInvocation(
     val message: String,
     val freqHz: Float,
     val sampleRate: Int,
+    val offsetSymbols: Int,
     val returnedSize: Int,
 )
 
@@ -53,7 +54,7 @@ class Ft8DecoderFake : Ft8DecoderApi {
     private val encodeCalls = mutableListOf<EncodeInvocation>()
 
     @Volatile
-    private var encodeProducer: ((String, Float, Int) -> ShortArray)? = null
+    private var encodeProducer: ((String, Float, Int, Int) -> ShortArray)? = null
 
     override fun isAvailable(): Boolean = available
 
@@ -75,19 +76,35 @@ class Ft8DecoderFake : Ft8DecoderApi {
         return results
     }
 
-    override fun encode(message: String, freqHz: Float, sampleRate: Int): ShortArray {
+    override fun encode(
+        message: String,
+        freqHz: Float,
+        sampleRate: Int,
+        offsetSymbols: Int,
+    ): ShortArray {
         if (!available) {
             synchronized(queueLock) {
-                encodeCalls += EncodeInvocation(message, freqHz, sampleRate, returnedSize = 0)
+                encodeCalls += EncodeInvocation(message, freqHz, sampleRate, offsetSymbols, returnedSize = 0)
             }
             return ShortArray(0)
         }
-        val pcm = encodeProducer?.invoke(message, freqHz, sampleRate) ?: ShortArray(sampleRate * 15)
+        val pcm = encodeProducer?.invoke(message, freqHz, sampleRate, offsetSymbols)
+            ?: defaultEncodeOutput(sampleRate, offsetSymbols)
         synchronized(queueLock) {
-            encodeCalls += EncodeInvocation(message, freqHz, sampleRate, returnedSize = pcm.size)
+            encodeCalls += EncodeInvocation(message, freqHz, sampleRate, offsetSymbols, returnedSize = pcm.size)
         }
         return pcm
     }
+
+    private fun defaultEncodeOutput(sampleRate: Int, offsetSymbols: Int): ShortArray =
+        if (offsetSymbols <= 0) {
+            ShortArray(sampleRate * 15)
+        } else {
+            // (FT8_NN - offsetSymbols) * samplesPerSymbol, where samplesPerSymbol = round(sampleRate * 0.160)
+            val nSpsym = ((sampleRate.toDouble() * 0.160) + 0.5).toInt()
+            val sym = (79 - offsetSymbols).coerceAtLeast(0)
+            ShortArray(sym * nSpsym)
+        }
 
     /** Append [results] to the FIFO decode queue; the next [decode] call returns them. */
     fun queueDecodeResults(results: List<Ft8DecodeResult>) {
@@ -110,7 +127,7 @@ class Ft8DecoderFake : Ft8DecoderApi {
         versionString = value
     }
 
-    fun configureEncodeProducer(producer: ((String, Float, Int) -> ShortArray)?) {
+    fun configureEncodeProducer(producer: ((String, Float, Int, Int) -> ShortArray)?) {
         encodeProducer = producer
     }
 

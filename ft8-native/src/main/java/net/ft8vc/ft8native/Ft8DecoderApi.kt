@@ -11,5 +11,10 @@ interface Ft8DecoderApi {
     fun isAvailable(): Boolean
     fun version(): String
     fun decode(samples: ShortArray, sampleRate: Int = 12_000): Array<Ft8DecodeResult>
-    fun encode(message: String, freqHz: Float = 1000f, sampleRate: Int = 12_000): ShortArray
+    fun encode(
+        message: String,
+        freqHz: Float = 1000f,
+        sampleRate: Int = 12_000,
+        offsetSymbols: Int = 0,
+    ): ShortArray
 }

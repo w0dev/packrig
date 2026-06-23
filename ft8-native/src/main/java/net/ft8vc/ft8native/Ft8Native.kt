@@ -43,14 +43,28 @@ object Ft8Native : Ft8DecoderApi {
         }
 
     /**
-     * Encode [message] to a full 15-second FT8 slot of mono 16-bit PCM at
-     * [sampleRate], with the base tone at [freqHz] and silence padding so the
-     * transmission is centered in the slot. Returns an empty array if the message
-     * can't be encoded (e.g. invalid callsign) or the native library is missing.
+     * Encode [message] to FT8 PCM at [sampleRate] (12 kHz mono).
+     *
+     * When [offsetSymbols] == 0 (default), returns a full 15-second slot buffer
+     * with silence padding so the transmission is centered (v1.0 behavior, byte-
+     * identical to the no-parameter call path).
+     *
+     * When [offsetSymbols] > 0, returns a truncated buffer containing only symbols
+     * `[offsetSymbols, 79)` — `(79 - offsetSymbols) * 1920` samples, no silence
+     * padding. The full FEC-encoded message is still synthesized over all 79
+     * symbols; only the on-air PCM is clipped. Used by late-start TX.
+     *
+     * Returns an empty array if the message can't be encoded or the native library
+     * is missing.
      */
-    override fun encode(message: String, freqHz: Float, sampleRate: Int): ShortArray =
+    override fun encode(
+        message: String,
+        freqHz: Float,
+        sampleRate: Int,
+        offsetSymbols: Int,
+    ): ShortArray =
         if (loaded) {
-            runCatching { nativeEncode(message, freqHz, sampleRate) }.getOrDefault(ShortArray(0))
+            runCatching { nativeEncode(message, freqHz, sampleRate, offsetSymbols) }.getOrDefault(ShortArray(0))
         } else {
             ShortArray(0)
         }
@@ -59,5 +73,10 @@ object Ft8Native : Ft8DecoderApi {
 
     private external fun nativeDecode(samples: ShortArray, sampleRate: Int): Array<Ft8DecodeResult>
 
-    private external fun nativeEncode(message: String, freqHz: Float, sampleRate: Int): ShortArray
+    private external fun nativeEncode(
+        message: String,
+        freqHz: Float,
+        sampleRate: Int,
+        offsetSymbols: Int,
+    ): ShortArray
 }

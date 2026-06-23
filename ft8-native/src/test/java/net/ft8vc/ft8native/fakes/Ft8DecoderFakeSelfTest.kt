@@ -103,13 +103,13 @@ class Ft8DecoderFakeSelfTest {
 
         val recorded = fake.encodeInvocationsSnapshot()
         assertEquals(1, recorded.size)
-        assertEquals(EncodeInvocation("CQ K1ABC FN42", 800f, 12_000, 180_000), recorded[0])
+        assertEquals(EncodeInvocation("CQ K1ABC FN42", 800f, 12_000, 0, 180_000), recorded[0])
     }
 
     @Test
     fun configureEncodeProducer_overridesEncodeOutput_andInvocationIsRecorded() {
         val fake = Ft8DecoderFake()
-        fake.configureEncodeProducer { _, _, _ -> shortArrayOf(1, 2, 3) }
+        fake.configureEncodeProducer { _, _, _, _ -> shortArrayOf(1, 2, 3) }
 
         val pcm = fake.encode("CQ K1ABC FN42", 1000f, 12_000)
         assertArrayEquals(shortArrayOf(1, 2, 3), pcm)
@@ -117,5 +117,21 @@ class Ft8DecoderFakeSelfTest {
         val recorded = fake.encodeInvocationsSnapshot()
         assertEquals(1, recorded.size)
         assertEquals(3, recorded[0].returnedSize)
+    }
+
+    @Test
+    fun encodeRecordsOffsetSymbols() {
+        val fake = Ft8DecoderFake()
+        fake.encode("CQ TEST", 1500f, 12_000, offsetSymbols = 13)
+        val inv = fake.encodeInvocationsSnapshot().single()
+        assertEquals(13, inv.offsetSymbols)
+    }
+
+    @Test
+    fun encodeDefaultsOffsetSymbolsToZero() {
+        val fake = Ft8DecoderFake()
+        fake.encode("CQ TEST", 1500f, 12_000)
+        val inv = fake.encodeInvocationsSnapshot().single()
+        assertEquals(0, inv.offsetSymbols)
     }
 }
