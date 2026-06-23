@@ -164,4 +164,16 @@ class SettingsBridgeTest {
         assertFalse(s.useDarkTheme)
         assertTrue(s.cq73OnlyFilter)
     }
+
+    @Test
+    fun sliceCarriesLateStartTxEnabled() = runTest {
+        val (repo, flow) = makeRepo(initial = defaultSettings.copy(lateStartTxEnabled = false))
+        val bridge = SettingsBridge(repo, bridgeScope)
+
+        bridge.slice.test {
+            // Skip initial default emission, await repo-driven value
+            assertEquals(false, awaitItem().lateStartTxEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }
