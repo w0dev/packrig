@@ -156,6 +156,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 if (state.value.isOperating && !state.value.isCapturing) beginCapture()
             }
         },
+        lateStartTxEnabledProvider = { settingsBridge.slice.value.lateStartTxEnabled },
     )
 
     private var txThread: Thread? = null

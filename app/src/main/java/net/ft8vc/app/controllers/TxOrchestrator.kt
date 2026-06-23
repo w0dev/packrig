@@ -94,6 +94,7 @@ class TxOrchestrator(
     private val slotDurationMs: Long = AppInfo.SLOT_SECONDS * 1000L,
     private val watchdogGraceMs: Long = WATCHDOG_GRACE_MS,
     private val clock: () -> Long = { System.currentTimeMillis() },
+    private val lateStartTxEnabledProvider: () -> Boolean = { true },
 ) : AutoCloseable {
 
     interface CaptureControl {
@@ -131,15 +132,29 @@ class TxOrchestrator(
         return doTransmit(message, txFreqHz, waitForSlotBoundary = false)
     }
 
-    /** Wait for the next 15-s slot boundary, then transmit [message]. */
+    /** Wait for the next 15-s slot boundary (or fire late), then transmit [message]. */
     suspend fun transmitAfterSlotBoundary(message: String, txFreqHz: Int): Boolean {
         if (!preflight(message)) return false
-        val waitMs = SlotTiming.millisUntilNextSlot(clock())
-        if (waitMs > 0) {
-            _slice.update { it.copy(txStatus = "TX in ${(waitMs + 999) / 1000}s…") }
-            delay(waitMs)
+
+        val plan = computeLateTxPlan(
+            tInSlotMs = clock() - SlotTiming.slotStart(clock()),
+            toggleEnabled = lateStartTxEnabledProvider(),
+        )
+
+        return when (plan) {
+            is LateTxPlan.Normal,
+            LateTxPlan.Deferred,
+            -> {
+                // v1.0 path: wait for next slot boundary then full transmit.
+                val waitMs = SlotTiming.millisUntilNextSlot(clock())
+                if (waitMs > 0) {
+                    _slice.update { it.copy(txStatus = "TX in ${(waitMs + 999) / 1000}s…") }
+                    delay(waitMs)
+                }
+                doTransmit(message, txFreqHz, waitForSlotBoundary = true, offsetSymbols = 0)
+            }
+            is LateTxPlan.Late -> doTransmitLate(message, txFreqHz, plan)
         }
-        return doTransmit(message, txFreqHz, waitForSlotBoundary = true)
     }
 
     /**
@@ -249,15 +264,56 @@ class TxOrchestrator(
         return true
     }
 
-    private suspend fun doTransmit(message: String, txFreqHz: Int, waitForSlotBoundary: Boolean): Boolean {
+    private suspend fun doTransmit(
+        message: String,
+        txFreqHz: Int,
+        waitForSlotBoundary: Boolean,
+        offsetSymbols: Int = 0,
+    ): Boolean {
         val pcm = withContext(encodeDispatcher) {
-            decoder.encode(message, txFreqHz.toFloat(), AppInfo.SAMPLE_RATE_HZ)
+            decoder.encode(message, txFreqHz.toFloat(), AppInfo.SAMPLE_RATE_HZ, offsetSymbols)
+        }
+        if (pcm.isEmpty()) {
+            notifyFn("Encoder rejected: $message", SnackbarEvent.Tag.ERROR)
+            return false
+        }
+        return runTxBody(message, txFreqHz, pcm)
+    }
+
+    private suspend fun doTransmitLate(
+        message: String,
+        txFreqHz: Int,
+        plan: LateTxPlan.Late,
+    ): Boolean {
+        // Snapshot the tap timestamp — used by the drift-abort check after encode.
+        val planTsMs = clock()
+
+        val pcm = withContext(encodeDispatcher) {
+            decoder.encode(message, txFreqHz.toFloat(), AppInfo.SAMPLE_RATE_HZ, plan.offsetSymbols)
         }
         if (pcm.isEmpty()) {
             notifyFn("Encoder rejected: $message", SnackbarEvent.Tag.ERROR)
             return false
         }
 
+        // Drift-abort check: if encode + scheduling took longer than DRIFT_ABORT_MS,
+        // the planned key moment may have slipped — fall through to next-slot v1.0 path.
+        val driftMs = clock() - planTsMs
+        if (driftMs > LATE_TX_DRIFT_ABORT_MS) {
+            val waitMs = SlotTiming.millisUntilNextSlot(clock())
+            if (waitMs > 0) {
+                _slice.update { it.copy(txStatus = "TX in ${(waitMs + 999) / 1000}s…") }
+                delay(waitMs)
+            }
+            return doTransmit(message, txFreqHz, waitForSlotBoundary = true, offsetSymbols = 0)
+        }
+
+        if (plan.waitMs > 0) delay(plan.waitMs)
+
+        return runTxBody(message, txFreqHz, pcm)
+    }
+
+    private suspend fun runTxBody(message: String, txFreqHz: Int, pcm: ShortArray): Boolean {
         captureControl.pauseForTx()
         _slice.update { it.copy(isTransmitting = true, txStatus = "TX: $message") }
 
