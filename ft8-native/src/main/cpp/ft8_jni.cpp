@@ -110,10 +110,20 @@ static void gfsk_pulse(int n_spsym, float symbol_bt, std::vector<float>& pulse) 
     }
 }
 
-static void synth_gfsk(const uint8_t* symbols, int n_sym, float f0, float symbol_bt,
+// synth_gfsk: synthesize GFSK PCM for symbols [offset_symbols, n_sym) of the
+// transmission. The full symbol stream is still passed in (FEC is upstream);
+// this function only controls which symbols become audio.
+//
+// signal[] must be sized for (n_sym - offset_symbols) * n_spsym samples when
+// offset_symbols > 0 (no silence padding), or for the caller's full-slot
+// buffer when offset_symbols == 0 (caller supplies pre/post silence padding).
+static void synth_gfsk(const uint8_t* symbols, int n_sym, int offset_symbols,
+                       float f0, float symbol_bt,
                        float symbol_period, int signal_rate, float* signal) {
     int n_spsym = (int)(0.5f + signal_rate * symbol_period);
-    int n_wave = n_sym * n_spsym;
+    int emitted_syms = n_sym - offset_symbols;
+    if (emitted_syms <= 0) return;
+    int n_wave = emitted_syms * n_spsym;
     float hmod = 1.0f;
     float dphi_peak = 2 * (float)M_PI * hmod / n_spsym;
 
@@ -122,15 +132,21 @@ static void synth_gfsk(const uint8_t* symbols, int n_sym, float f0, float symbol
     std::vector<float> pulse;
     gfsk_pulse(n_spsym, symbol_bt, pulse);
 
-    for (int i = 0; i < n_sym; ++i) {
+    // Spread each emitted symbol's pulse across its window. Symbol indices are
+    // referenced into the full symbols[] array starting at offset_symbols.
+    for (int i = 0; i < emitted_syms; ++i) {
+        int src = i + offset_symbols;
         int ib = i * n_spsym;
         for (int j = 0; j < 3 * n_spsym; ++j) {
-            dphi[j + ib] += dphi_peak * symbols[i] * pulse[j];
+            dphi[j + ib] += dphi_peak * symbols[src] * pulse[j];
         }
     }
+    // Ramp-edge pulses use the first and last EMITTED symbols, not the absolute
+    // first/last of the FEC stream. This preserves the gentle envelope at the
+    // truncated edge as well as the natural tail.
     for (int j = 0; j < 2 * n_spsym; ++j) {
-        dphi[j] += dphi_peak * pulse[j + n_spsym] * symbols[0];
-        dphi[j + n_sym * n_spsym] += dphi_peak * pulse[j] * symbols[n_sym - 1];
+        dphi[j] += dphi_peak * pulse[j + n_spsym] * symbols[offset_symbols];
+        dphi[j + emitted_syms * n_spsym] += dphi_peak * pulse[j] * symbols[n_sym - 1];
     }
 
     float phi = 0;
@@ -247,9 +263,14 @@ Java_net_ft8vc_ft8native_Ft8Native_nativeDecode(
 
 extern "C" JNIEXPORT jshortArray JNICALL
 Java_net_ft8vc_ft8native_Ft8Native_nativeEncode(
-        JNIEnv* env, jobject, jstring message, jfloat freqHz, jint sampleRate) {
+        JNIEnv* env, jobject, jstring message, jfloat freqHz, jint sampleRate, jint offsetSymbols) {
 
     std::lock_guard<std::mutex> guard(g_decodeMutex);
+
+    if (offsetSymbols < 0) offsetSymbols = 0;
+    if (offsetSymbols >= FT8_NN) {
+        return env->NewShortArray(0);
+    }
 
     ftx_message_t msg;
     {
@@ -257,25 +278,53 @@ Java_net_ft8vc_ft8native_Ft8Native_nativeEncode(
         ftx_message_rc_t rc = ftx_message_encode(&msg, &g_hashIf, text);
         env->ReleaseStringUTFChars(message, text);
         if (rc != FTX_MESSAGE_RC_OK) {
-            return env->NewShortArray(0); // empty => caller treats as encode failure
+            return env->NewShortArray(0);
         }
     }
 
+    // Always run the full FEC encode over all 79 symbols — only the audio
+    // synthesis is truncated. This is the load-bearing FEC-correctness invariant.
     uint8_t tones[FT8_NN];
     ft8_encode(msg.payload, tones);
 
     int nSpsym = (int)(0.5f + sampleRate * FT8_SYMBOL_PERIOD);
-    int numSamples = FT8_NN * nSpsym;
-    int total = (int)(FT8_SLOT_TIME * sampleRate);
-    int numSilence = (total - numSamples) / 2;
-    if (numSilence < 0) {
-        numSilence = 0;
-        total = numSamples;
+
+    if (offsetSymbols == 0) {
+        // v1.0 path: 15-second buffer with silence padding centered on the waveform.
+        // BYTE-IDENTICAL to the pre-parameter implementation (regression guard).
+        int numSamples = FT8_NN * nSpsym;
+        int total = (int)(FT8_SLOT_TIME * sampleRate);
+        int numSilence = (total - numSamples) / 2;
+        if (numSilence < 0) {
+            numSilence = 0;
+            total = numSamples;
+        }
+
+        std::vector<float> buf(static_cast<size_t>(total), 0.0f);
+        synth_gfsk(tones, FT8_NN, 0, freqHz, kFt8SymbolBt, FT8_SYMBOL_PERIOD, sampleRate,
+                   buf.data() + numSilence);
+
+        std::vector<jshort> pcm(static_cast<size_t>(total));
+        for (int i = 0; i < total; ++i) {
+            float v = buf[i] * kTxAmplitude * 32767.0f;
+            long r = std::lround(v);
+            if (r > 32767) r = 32767;
+            if (r < -32768) r = -32768;
+            pcm[i] = (jshort)r;
+        }
+
+        jshortArray out = env->NewShortArray(total);
+        env->SetShortArrayRegion(out, 0, total, pcm.data());
+        return out;
     }
 
+    // Late-TX path: no silence padding. Only emitted symbols.
+    int emittedSyms = FT8_NN - offsetSymbols;
+    int total = emittedSyms * nSpsym;
+
     std::vector<float> buf(static_cast<size_t>(total), 0.0f);
-    synth_gfsk(tones, FT8_NN, freqHz, kFt8SymbolBt, FT8_SYMBOL_PERIOD, sampleRate,
-               buf.data() + numSilence);
+    synth_gfsk(tones, FT8_NN, offsetSymbols, freqHz, kFt8SymbolBt, FT8_SYMBOL_PERIOD, sampleRate,
+               buf.data());
 
     std::vector<jshort> pcm(static_cast<size_t>(total));
     for (int i = 0; i < total; ++i) {
