@@ -7,12 +7,14 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.ft8vc.app.DecodeRow
@@ -88,6 +90,32 @@ class DecodeController(
 
     private val slotCollector = SlotCollector(sampleRateHz)
 
+    private val earlyDecodeEnabled = MutableStateFlow(true)
+    private val currentSlotStart = MutableStateFlow<Long?>(null)
+    /** 80% of 12-second buffer at 12 kHz = 115_200 samples minimum to attempt an early pass. */
+    private val earlyMinSamples = AppInfo.SAMPLE_RATE_HZ * 12 * 8 / 10  // 115_200
+
+    fun setEarlyDecodeEnabled(enabled: Boolean) {
+        earlyDecodeEnabled.value = enabled
+    }
+
+    init {
+        scope.launch(decodeDispatcher) {
+            currentSlotStart.collectLatest { slotStart ->
+                if (slotStart == null) return@collectLatest
+                if (!earlyDecodeEnabled.value) return@collectLatest
+                val targetMs = slotStart + EARLY_OFFSET_MS
+                val waitMs = targetMs - clock()
+                if (waitMs > 0) delay(waitMs)
+                // Re-check the toggle on wake — it may have flipped during the delay.
+                if (!earlyDecodeEnabled.value) return@collectLatest
+                val snap = slotCollector.snapshot() ?: return@collectLatest
+                if (snap.size < earlyMinSamples) return@collectLatest
+                decodeSlot(snap, slotStart, source = DecodePassSource.Early)
+            }
+        }
+    }
+
     private val _slice = MutableStateFlow(DecodeSlice())
     val slice: StateFlow<DecodeSlice> = _slice.asStateFlow()
 
@@ -158,6 +186,10 @@ class DecodeController(
         val clipped = peak >= 32000
 
         spectrum.process(pcm) { column -> spectrumSink(column) }
+        val slotStartNow = net.ft8vc.core.SlotTiming.slotStart(clock())
+        if (currentSlotStart.value != slotStartNow) {
+            currentSlotStart.value = slotStartNow
+        }
         slotCollector.add(pcm, clock()) { samples, slotStart ->
             scope.launch(decodeDispatcher) { decodeSlot(samples, slotStart, source = DecodePassSource.Full) }
         }
@@ -341,6 +373,8 @@ class DecodeController(
     companion object {
         /** Phase 6 (RELY-04): consecutive clean slots before the "Decodes dropped" chip auto-clears. */
         const val DECODE_FAILURE_DECAY_SLOTS = 5
+        /** Slot-relative offset (ms) at which the early decode pass fires. */
+        const val EARLY_OFFSET_MS = 12_000L
     }
 }
 

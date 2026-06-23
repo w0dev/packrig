@@ -282,6 +282,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 lastDialFreqHz = s.lastDialFreqHz
                 decodeController.setInputGain(s.inputGain)
                 decodeController.setStationContext(s.myCall, s.myGrid)
+                decodeController.setEarlyDecodeEnabled(s.earlyDecodeEnabled)
                 qsoSession.updateStationProfile(s.myCall, s.myGrid, s.potaModeEnabled, s.potaParkRef)
                 qsoSession.setTxEnabled(s.txEnabledInSettings)
                 qsoSession.setAutoSeqEnabled(s.autoSeqEnabled)
