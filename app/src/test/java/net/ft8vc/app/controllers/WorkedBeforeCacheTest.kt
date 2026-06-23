@@ -91,6 +91,6 @@ class WorkedBeforeCacheTest {
 
         // Next classification should re-fetch and now report ThisBand.
         assertEquals(WorkedBefore.ThisBand, cache.classify("K1ABC", "20m"))
-        assertEquals(3, log.calls.get())  // initial fetch + re-fetch after invalidate
+        assertEquals(2, log.calls.get())  // initial fetch + re-fetch after invalidate
     }
 }
