@@ -172,13 +172,16 @@ class TxOrchestratorLateTxTest {
     /**
      * With `lateStartTxEnabled = false` (the PARITY-01 escape hatch), any
      * t_in_slot — even one that would otherwise enter the late window — routes
-     * through the v1.0 Normal path. Clock is set near slot boundary so the
-     * v1.0 wait is ≤ 1 ms.
+     * through the v1.0 Normal path. Clock is set mid-window (3000 ms into slot)
+     * to verify toggle precedence actually gates late-window entry, then v1.0 path
+     * produces offsetSymbols = 0 as expected.
      */
     @Test
     fun toggleOff_atLateWindowTime_routesToNormal_encodesWithOffset0() = runBlocking {
-        // t_in_slot = 14999 with toggle=false → Normal (computeLateTxPlan returns Normal first)
-        val clock = { NEAR_SLOT_BOUNDARY_UTC }
+        // t_in_slot = 3000 (mid-window: 1340 ≤ 3000 ≤ 7000) with toggle=false
+        // → Normal path despite being in late window bounds.
+        val tInSlot = 3_000L
+        val clock = { SLOT_START_UTC + tInSlot }
 
         val decoder = Ft8DecoderFake()
         val playback = FakeUsbAudioPlayback()
@@ -292,6 +295,63 @@ class TxOrchestratorLateTxTest {
         assertTrue("PTT was keyed", edges.any { it.kind == PttEdgeKind.KEY })
         assertTrue("PTT was released", edges.any { it.kind == PttEdgeKind.RELEASE })
         assertFalse("PTT must not remain stuck", rig.pttKeyed)
+
+        orchestrator.close()
+        rigSession.close()
+    }
+
+    /**
+     * Drift-abort path: encode + scheduling takes >80ms, causing the
+     * snapshot-to-key moment to slip past the planned symbol boundary.
+     * The orchestrator detects this and falls through to the v1.0 next-slot path.
+     *
+     * Simulated with a two-state clock: first call (tap timestamp) returns
+     * tInSlot=3000 (mid-window), second call (post-encode drift check) returns
+     * +100ms later. Since 100ms > LATE_TX_DRIFT_ABORT_MS (80ms), drift-abort
+     * fires and defers to the next slot with offsetSymbols=0.
+     */
+    @Test
+    fun lateTxDriftAbortsToNextSlot_whenEncodeDelayExceeds80ms() = runBlocking {
+        val tapTsMs = SLOT_START_UTC + 3_000L  // mid-window: t_in_slot = 3000
+        val postEncodeTs = tapTsMs + 100L       // 100ms after tap → drift > 80ms threshold
+
+        // Clock returns tapTsMs on first call, then postEncodeTs on all subsequent calls.
+        var firstCall = true
+        val clock: () -> Long = {
+            if (firstCall) {
+                firstCall = false
+                tapTsMs
+            } else {
+                postEncodeTs
+            }
+        }
+
+        val decoder = Ft8DecoderFake()
+        val playback = FakeUsbAudioPlayback()
+        val rig = FakeRigBackend()
+        val (orchestrator, rigSession) = buildOrchestrator(
+            decoder, playback, rig, clock, lateStartTxEnabled = true,
+        )
+
+        val result = orchestrator.transmitAfterSlotBoundary("CQ TEST FN42", txFreqHz = 1500)
+
+        assertTrue("transmit should succeed", result)
+
+        val enc = decoder.encodeInvocationsSnapshot()
+        assertEquals("exactly 2 encode calls", 2, enc.size)
+
+        // First encode: late-start with offset computed from t_in_slot=3000
+        // ceil((3000 − 1180) / 160.0) = ceil(11.375) = 12
+        assertEquals("first encode offset should be 12", 12, enc[0].offsetSymbols)
+
+        // Second encode: deferred v1.0 path after drift-abort
+        assertEquals("second encode offset should be 0", 0, enc[1].offsetSymbols)
+
+        // PTT should have been keyed exactly once (only for second encode)
+        val edges = rig.pttEdgesSnapshot()
+        assertEquals("PTT keyed once", 1, edges.count { it.kind == PttEdgeKind.KEY })
+        assertEquals("PTT released once", 1, edges.count { it.kind == PttEdgeKind.RELEASE })
+        assertFalse("PTT must not remain keyed", rig.pttKeyed)
 
         orchestrator.close()
         rigSession.close()
