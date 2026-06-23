@@ -23,6 +23,7 @@ data class StationSettings(
     val autoSeqEnabled: Boolean = true,
     val answerWhenCalledEnabled: Boolean = true,
     val autoAnswerCqEnabled: Boolean = false,
+    val lateStartTxEnabled: Boolean = true,
     val answerPolicy: AnswerPolicy = AnswerPolicy.FIRST,
     /** 0 = no limit; abandon QSO after this many TX cycles without decode progress. */
     val maxUnansweredTxCycles: Int = 5,
