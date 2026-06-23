@@ -17,6 +17,7 @@ import net.ft8vc.audio.AudioOutputs
 import net.ft8vc.audio.UsbAudioCapture
 import net.ft8vc.audio.UsbAudioPlayback
 import net.ft8vc.core.AnswerPolicy
+import net.ft8vc.core.AppInfo
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.QsoSnapshot
 import net.ft8vc.core.QsoTxStep
@@ -33,32 +34,26 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /**
- * Single orchestrator for the Operate / Spectrum / Log / Settings screens.
- *
- * Roadmap (v1.1): split into focused controllers, each owning a slice of state
- * and a slice of the I/O it drives. Candidates (kept here for now so the v1
- * cut stays low-risk):
- *
- * - `SettingsBridge`     — observes [SettingsRepository.settings], maps onto
- *                          [OperateUiState] (see the `init` block below).
- * - `DecodeController`   — slot collection → native decode → [DecodeRow] list,
- *                          owns [SlotCollector], decode executor, [Ft8Native].
- * - `TxOrchestrator`     — encode + [UsbAudioPlayback] + PTT, owns
- *                          `isTransmitting` and the TX thread.
- * - `QsoSessionController` — wraps [QsoMachine], abandon counter, auto-seq.
- * - `RigSession`         — CAT operations (read/write VFO + mode), dial
- *                          presets, `catBusy`.
- *
- * Once those land, this class shrinks to wiring + state composition.
+ * Thin orchestrator: constructs the five controllers (SettingsBridge,
+ * RigSession, DecodeController, QsoSessionController, TxOrchestrator),
+ * wires them together, dispatches UI intents into the appropriate
+ * controller, and assembles [OperateUiState] via the [combine] flow
+ * below. The VM holds no mutable mirror of any controller slice — slices
+ * are the source of truth, and a small VM-residual [OperateViewState]
+ * holds only state that doesn't belong to any controller (devices list,
+ * isOperating, isCapturing, USB plumbing status, contact count).
  */
 class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -66,8 +61,39 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private val settingsBridge = SettingsBridge(settingsRepo, viewModelScope)
     private val logbook: Logbook = RoomLogbook(Ft8vcDatabase.get(app))
 
-    private val _state = MutableStateFlow(OperateUiState())
-    val state: StateFlow<OperateUiState> = _state.asStateFlow()
+    /**
+     * Phase 5 (REFACTOR-06) follow-up — combine() flow assembly.
+     *
+     * Holds VM-owned residual state that doesn't live in any controller slice:
+     * USB device list + selected ID, operating/capturing flags, USB plumbing
+     * status (pttReady, catReady, USB-probe txStatus), the manual txMessage
+     * field, the operateStatus string, and the logbook contact count.
+     *
+     * Everything else in [OperateUiState] is derived from the controller slices
+     * by the [combine] below — VM no longer mirrors slice fields into a
+     * MutableStateFlow.
+     */
+    private data class OperateViewState(
+        val devices: List<net.ft8vc.audio.AudioInputDevice> = emptyList(),
+        /** Settings provides the persisted selection; this overrides only when settings is null. */
+        val selectedDeviceId: Int? = null,
+        val isOperating: Boolean = false,
+        val isCapturing: Boolean = false,
+        val pttReady: Boolean = false,
+        val catReady: Boolean = false,
+        val txMessage: String = "",
+        /** USB-probe / halt status; takes precedence over TxSlice.txStatus when non-null. */
+        val txStatus: String? = null,
+        val operateStatus: String? = null,
+        val contactCount: Int = 0,
+    )
+
+    private val _viewState = MutableStateFlow(OperateViewState())
+
+    // The combine() flow assembly is declared further down, after all
+    // controllers are constructed (Kotlin's forward-reference rules).
+    lateinit var state: StateFlow<OperateUiState>
+        private set
 
     private val _events = MutableSharedFlow<SnackbarEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<SnackbarEvent> = _events.asSharedFlow()
@@ -110,16 +136,97 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         outputDeviceIdProvider = { AudioOutputs.firstUsb(getApplication())?.id },
         captureControl = object : TxOrchestrator.CaptureControl {
             override fun pauseForTx() {
-                if (_state.value.isCapturing) stopCapture()
+                if (state.value.isCapturing) stopCapture()
             }
             override fun resumeAfterTx() {
-                if (_state.value.isOperating && !_state.value.isCapturing) beginCapture()
+                if (state.value.isOperating && !state.value.isCapturing) beginCapture()
             }
         },
     )
 
     private var txThread: Thread? = null
     private var lastDialFreqHz: Long? = null
+
+    init {
+        state = combine(
+            kotlinx.coroutines.flow.combine(settingsBridge.slice, _viewState) { s, v -> s to v },
+            rigSession.slice,
+            decodeController.slice,
+            txOrchestrator.slice,
+            qsoSession.slice,
+        ) { (settings, view), rig, decode, tx, qso ->
+            OperateUiState(
+                myCall = settings.myCall,
+                myGrid = settings.myGrid,
+                licenseAcknowledged = settings.licenseAcknowledged,
+                potaModeEnabled = settings.potaModeEnabled,
+                potaParkRef = settings.potaParkRef,
+                useDarkTheme = settings.useDarkTheme,
+                decodeViewMode = settings.decodeViewMode,
+                cq73OnlyFilter = settings.cq73OnlyFilter,
+                devices = view.devices,
+                selectedDeviceId = settings.selectedAudioDeviceId ?: view.selectedDeviceId,
+                isOperating = view.isOperating,
+                isCapturing = view.isCapturing,
+                levelDbfs = decode.levelDbfs,
+                clip = decode.clip,
+                sampleRateHz = AppInfo.SAMPLE_RATE_HZ,
+                waterfallVersion = decode.waterfallVersion,
+                decodes = decode.decodes,
+                lastSlotDecodeCount = decode.lastSlotDecodeCount,
+                decodeFailureCount = decode.decodeFailureCount,
+                inputGain = settings.inputGain,
+                txEnabled = settings.txEnabledInSettings,
+                txMessage = view.txMessage,
+                txFreqHz = settings.txToneHz,
+                nextTxMessage = qso.nextTxMessage,
+                txStatus = view.txStatus ?: tx.txStatus,
+                isTransmitting = tx.isTransmitting,
+                pttReady = view.pttReady,
+                operateTxText = qso.operateTxText,
+                operateTxStep = qso.operateTxStep,
+                operateTxEdited = qso.operateTxEdited,
+                operateTxForm = qso.operateTxForm,
+                autoSeqEnabled = settings.autoSeqEnabled,
+                answerWhenCalledEnabled = settings.answerWhenCalledEnabled,
+                autoAnswerCqEnabled = settings.autoAnswerCqEnabled,
+                answerPolicy = settings.answerPolicy,
+                maxUnansweredTxCycles = settings.maxUnansweredTxCycles,
+                qsoActive = qso.qsoActive,
+                qsoState = qso.qsoState,
+                qsoDx = qso.qsoDx,
+                catReady = view.catReady,
+                rigFreqHz = rig.rigFreqHz,
+                rigMode = rig.rigMode,
+                catStatus = rig.catStatus,
+                catBusy = rig.catBusy,
+                lastDialFreqHz = settings.lastDialFreqHz,
+                pttPreference = settings.pttPreference,
+                slotIndex = qso.slotIndex,
+                secondsToNextSlot = qso.secondsToNextSlot,
+                isTxSlot = qso.isTxSlot,
+                secondsUntilOurTxSlot = qso.secondsUntilOurTxSlot,
+                txSlotParity = settings.txSlotParity,
+                activeTxSlotParity = qso.activeTxSlotParity,
+                utcClock = qso.utcClock,
+                appRfState = tx.appRfState,
+                nativeVersion = tx.nativeVersion,
+                nativeLoaded = tx.nativeLoaded,
+                txSafetyHaltActive = tx.txSafetyHaltActive,
+                digirigDisconnected = tx.digirigDisconnected,
+                catUnreachable = rig.catUnreachable,
+                decodeFailureRecent = decode.decodeFailureRecent,
+                zeroSampleSlots = decode.zeroSampleSlots,
+                operateStatus = view.operateStatus,
+                contactCount = view.contactCount,
+                lastAdifBackupAtMs = settings.lastAdifBackupAtMs,
+            )
+        }.distinctUntilChanged().stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            OperateUiState(),
+        )
+    }
 
     // ── USB detach receiver: triggers EMERGENCY-HALT-like routing per SAFETY-02 ────
     private val usbDetachReceiver = object : android.content.BroadcastReceiver() {
@@ -131,12 +238,19 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ── Phase 7 (HYG-04): ADIF backup on app pause ────
+    private val processLifecycleObserver = object : androidx.lifecycle.DefaultLifecycleObserver {
+        override fun onStop(owner: androidx.lifecycle.LifecycleOwner) {
+            AdifAutoBackup.scheduleBackupAfterQso(getApplication(), logbook, settingsRepo)
+        }
+    }
+
     // ── Phase 6 (RELY-02a): AudioDeviceCallback — first of two hot-swap signals ────
     private val audioDeviceCallback = object : android.media.AudioDeviceCallback() {
         override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>?) {
             if (removedDevices == null || removedDevices.isEmpty()) return
             val anyInput = removedDevices.any { it.isSource }
-            if (anyInput && _state.value.isCapturing) {
+            if (anyInput && _viewState.value.isCapturing) {
                 notify("Audio device removed — restarting capture", SnackbarEvent.Tag.ERROR)
                 restartCapture()
             }
@@ -145,34 +259,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         waterfall.floorOffsetDb = WATERFALL_FLOOR_OFFSET_DB_DEFAULT
+        // Settings → controller setters (the only mirror left: settings need to
+        // be pushed INTO controllers so their loops see fresh values).
         viewModelScope.launch {
             settingsBridge.slice.collect { s ->
                 lastDialFreqHz = s.lastDialFreqHz
-                _state.update { current ->
-                    current.copy(
-                        myCall = s.myCall,
-                        myGrid = s.myGrid,
-                        txFreqHz = s.txToneHz,
-                        licenseAcknowledged = s.licenseAcknowledged,
-                        txEnabled = s.txEnabledInSettings,
-                        autoSeqEnabled = s.autoSeqEnabled,
-                        answerWhenCalledEnabled = s.answerWhenCalledEnabled,
-                        autoAnswerCqEnabled = s.autoAnswerCqEnabled,
-                        answerPolicy = s.answerPolicy,
-                        maxUnansweredTxCycles = s.maxUnansweredTxCycles,
-                        selectedDeviceId = s.selectedAudioDeviceId ?: current.selectedDeviceId,
-                        inputGain = s.inputGain,
-                        potaModeEnabled = s.potaModeEnabled,
-                        potaParkRef = s.potaParkRef,
-                        cq73OnlyFilter = s.cq73OnlyFilter,
-                        decodeViewMode = s.decodeViewMode,
-                        txSlotParity = s.txSlotParity,
-                        pttPreference = s.pttPreference,
-                        lastDialFreqHz = s.lastDialFreqHz,
-                        useDarkTheme = s.useDarkTheme,
-                        lastAdifBackupAtMs = s.lastAdifBackupAtMs,
-                    )
-                }
                 decodeController.setInputGain(s.inputGain)
                 decodeController.setStationContext(s.myCall, s.myGrid)
                 qsoSession.updateStationProfile(s.myCall, s.myGrid, s.potaModeEnabled, s.potaParkRef)
@@ -190,36 +281,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 qsoSession.refreshOperateTxFromStation()
             }
         }
-        viewModelScope.launch {
-            rigSession.slice.collect { r ->
-                _state.update {
-                    it.copy(
-                        catBusy = r.catBusy,
-                        catStatus = r.catStatus ?: it.catStatus,
-                        rigFreqHz = r.rigFreqHz ?: it.rigFreqHz,
-                        rigMode = r.rigMode ?: it.rigMode,
-                        catUnreachable = r.catUnreachable,
-                    )
-                }
-            }
-        }
+        // Decode-controller cross-checks (zero-sample watchdog) — observed here
+        // rather than via the slice collect since it's an action, not a mirror.
         viewModelScope.launch {
             decodeController.slice.collect { d ->
-                _state.update {
-                    it.copy(
-                        decodes = d.decodes,
-                        lastSlotDecodeCount = d.lastSlotDecodeCount,
-                        levelDbfs = d.levelDbfs,
-                        clip = d.clip,
-                        waterfallVersion = d.waterfallVersion,
-                        decodeFailureCount = d.decodeFailureCount,
-                        decodeFailureRecent = d.decodeFailureRecent,
-                        zeroSampleSlots = d.zeroSampleSlots,
-                    )
-                }
-                // Phase 6 (RELY-02b): cross-check zero-sample slots against AudioManager.
-                // After >2 consecutive zero-sample slots AND USB output gone, force capture restart.
-                if (d.zeroSampleSlots > 2 && _state.value.isCapturing) {
+                if (d.zeroSampleSlots > 2 && _viewState.value.isCapturing) {
                     val devices = AudioInputs.list(getApplication())
                     val usbPresent = devices.any { it.isUsb }
                     if (!usbPresent) {
@@ -230,53 +296,16 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
-            qsoSession.slice.collect { q ->
-                _state.update {
-                    it.copy(
-                        qsoActive = q.qsoActive,
-                        qsoState = q.qsoState,
-                        qsoDx = q.qsoDx,
-                        operateTxText = q.operateTxText,
-                        operateTxStep = q.operateTxStep,
-                        operateTxEdited = q.operateTxEdited,
-                        operateTxForm = q.operateTxForm,
-                        nextTxMessage = q.nextTxMessage,
-                        activeTxSlotParity = q.activeTxSlotParity,
-                        slotIndex = q.slotIndex,
-                        secondsToNextSlot = q.secondsToNextSlot,
-                        isTxSlot = q.isTxSlot,
-                        secondsUntilOurTxSlot = q.secondsUntilOurTxSlot,
-                        utcClock = q.utcClock,
-                    )
-                }
-            }
-        }
-        viewModelScope.launch {
             decodeController.decodesOut.collect { batch ->
                 qsoSession.onDecodeBatch(batch.decodes, batch.slotParity)
             }
         }
         viewModelScope.launch {
             logbook.contactCount().collect { count ->
-                _state.update { it.copy(contactCount = count) }
+                _viewState.update { it.copy(contactCount = count) }
             }
         }
         refreshDevices()
-        viewModelScope.launch {
-            txOrchestrator.slice.collect { tx ->
-                _state.update {
-                    it.copy(
-                        isTransmitting = tx.isTransmitting,
-                        txStatus = tx.txStatus ?: it.txStatus,
-                        appRfState = tx.appRfState,
-                        nativeVersion = tx.nativeVersion,
-                        nativeLoaded = tx.nativeLoaded,
-                        txSafetyHaltActive = tx.txSafetyHaltActive,
-                        digirigDisconnected = tx.digirigDisconnected,
-                    )
-                }
-            }
-        }
         // Register USB-detach receiver for runtime safety routing (cold-launch attach
         // is handled by the manifest intent-filter — see SAFETY-02 for the symmetry).
         val filter = android.content.IntentFilter(android.hardware.usb.UsbManager.ACTION_USB_DEVICE_DETACHED)
@@ -293,23 +322,28 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         // Phase 6 (RELY-02a): AudioDeviceCallback — fires alongside zero-sample watchdog.
         val am = app.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
         am.registerAudioDeviceCallback(audioDeviceCallback, null)
+
+        // Phase 7 (HYG-04): daily ADIF backup timer + app-pause backup hook.
+        AdifAutoBackup.startDailyTimerIfNotRunning(app, logbook, settingsRepo)
+        androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(processLifecycleObserver)
     }
+
 
     fun refreshDevices() {
         val devices = AudioInputs.list(getApplication())
-        _state.update { s ->
-            val saved = s.selectedDeviceId
+        _viewState.update { v ->
+            val saved = v.selectedDeviceId
             val stillValid = devices.any { it.id == saved }
             val selected = if (stillValid) saved else devices.firstOrNull { it.isUsb }?.id
-            s.copy(devices = devices, selectedDeviceId = selected)
+            v.copy(devices = devices, selectedDeviceId = selected)
         }
-        if (_state.value.isOperating || _state.value.txEnabled) prepareRig()
+        if (state.value.isOperating || state.value.txEnabled) prepareRig()
     }
 
     fun selectDevice(id: Int) {
-        val wasActive = _state.value.isCapturing
+        val wasActive = state.value.isCapturing
         if (wasActive) stopCapture()
-        _state.update { it.copy(selectedDeviceId = id) }
+        _viewState.update { it.copy(selectedDeviceId = id) }
         viewModelScope.launch { settingsRepo.setSelectedAudioDeviceId(id) }
         if (wasActive) beginCapture()
     }
@@ -320,66 +354,52 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setAutoSeqEnabled(enabled: Boolean) {
-        _state.update { it.copy(autoSeqEnabled = enabled) }
         viewModelScope.launch { settingsRepo.setAutoSeqEnabled(enabled) }
     }
 
     fun setAnswerWhenCalledEnabled(enabled: Boolean) {
-        _state.update { it.copy(answerWhenCalledEnabled = enabled) }
         viewModelScope.launch { settingsRepo.setAnswerWhenCalledEnabled(enabled) }
     }
 
     fun setAutoAnswerCqEnabled(enabled: Boolean) {
-        _state.update { it.copy(autoAnswerCqEnabled = enabled) }
         viewModelScope.launch { settingsRepo.setAutoAnswerCqEnabled(enabled) }
     }
 
     fun setAnswerPolicy(policy: AnswerPolicy) {
-        _state.update { it.copy(answerPolicy = policy) }
         viewModelScope.launch { settingsRepo.setAnswerPolicy(policy) }
     }
 
     fun setMaxUnansweredTxCycles(cycles: Int) {
-        _state.update { it.copy(maxUnansweredTxCycles = cycles) }
         viewModelScope.launch { settingsRepo.setMaxUnansweredTxCycles(cycles) }
     }
 
     fun clearAbandonedPartners() = qsoSession.clearAbandonedPartners()
 
     fun setCq73OnlyFilter(enabled: Boolean) {
-        _state.update { it.copy(cq73OnlyFilter = enabled) }
         viewModelScope.launch { settingsRepo.setCq73OnlyFilter(enabled) }
     }
 
     fun setDecodeViewMode(mode: DecodeViewMode) {
-        _state.update { it.copy(decodeViewMode = mode) }
         viewModelScope.launch { settingsRepo.setDecodeViewMode(mode) }
     }
 
     fun setTxSlotParity(parity: TxSlotParity) {
-        if (_state.value.qsoActive) return
-        _state.update { it.copy(txSlotParity = parity) }
+        if (state.value.qsoActive) return
         viewModelScope.launch { settingsRepo.setTxSlotParity(parity) }
     }
 
     fun setPotaModeEnabled(enabled: Boolean) {
-        if (_state.value.potaModeEnabled != enabled) {
-            _state.update { it.copy(potaModeEnabled = enabled) }
-            pushStationProfileToQsoSession()
+        if (state.value.potaModeEnabled != enabled) {
             qsoSession.refreshOperateTxFromStation()
         }
         viewModelScope.launch { settingsRepo.setPotaModeEnabled(enabled) }
     }
 
     fun setPotaParkRef(ref: String) {
-        val normalized = ref.trim().uppercase(Locale.US)
-        _state.update { it.copy(potaParkRef = normalized) }
-        pushStationProfileToQsoSession()
         viewModelScope.launch { settingsRepo.setPotaParkRef(ref) }
     }
 
     fun setPttPreference(pref: PttPreference) {
-        _state.update { it.copy(pttPreference = pref) }
         viewModelScope.launch { settingsRepo.setPttPreference(pref) }
     }
 
@@ -391,57 +411,35 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setMyCall(call: String) {
-        val normalized = call.trim().uppercase(Locale.US)
-        val changed = _state.value.myCall != normalized
-        _state.update { it.copy(myCall = normalized) }
-        if (changed) {
-            pushStationProfileToQsoSession()
-            qsoSession.refreshOperateTxFromStation()
-        }
         viewModelScope.launch { settingsRepo.setMyCall(call) }
     }
 
     fun setMyGrid(grid: String) {
-        val normalized = grid.trim().uppercase(Locale.US)
-        val changed = _state.value.myGrid != normalized
-        _state.update { it.copy(myGrid = normalized) }
-        if (changed) {
-            pushStationProfileToQsoSession()
-            qsoSession.refreshOperateTxFromStation()
-        }
         viewModelScope.launch { settingsRepo.setMyGrid(grid) }
     }
 
-    private fun pushStationProfileToQsoSession() {
-        val s = _state.value
-        qsoSession.updateStationProfile(s.myCall, s.myGrid, s.potaModeEnabled, s.potaParkRef)
-    }
-
     fun setTxMessage(message: String) {
-        _state.update { it.copy(txMessage = message) }
+        _viewState.update { it.copy(txMessage = message) }
     }
 
     fun setTxFreqHz(freqHz: Int) {
         val hz = freqHz.coerceIn(300, 3000)
-        _state.update { it.copy(txFreqHz = hz) }
         viewModelScope.launch { settingsRepo.setTxToneHz(hz) }
     }
 
     fun setUseDarkTheme(value: Boolean) {
-        _state.update { it.copy(useDarkTheme = value) }
         viewModelScope.launch { settingsRepo.setUseDarkTheme(value) }
     }
 
     fun setInputGain(gain: Float) {
         val g = gain.coerceIn(OperateUiState.INPUT_GAIN_MIN, 1f)
         decodeController.setInputGain(g)
-        _state.update { it.copy(inputGain = g) }
         viewModelScope.launch { settingsRepo.setInputGain(g) }
     }
 
     /** Master operate toggle: RX + rig prep (+ TX path when enabled). */
     fun toggleOperate() {
-        if (_state.value.isOperating) {
+        if (state.value.isOperating) {
             stopOperating()
         } else {
             startOperating()
@@ -449,13 +447,13 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun startOperating() {
-        if (_state.value.isOperating) return
+        if (state.value.isOperating) return
         waterfall.clear()
         decodeController.reset()
         prepareRig()
         restoreLastBandIfNeeded()
         beginCapture()
-        _state.update {
+        _viewState.update {
             it.copy(isOperating = true, isCapturing = true, operateStatus = "Operating")
         }
         qsoSession.setOperating(true)
@@ -465,7 +463,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun stopOperating() {
         haltTxInternal(announce = false)
         stopCapture()
-        _state.update { it.copy(isOperating = false, operateStatus = null) }
+        _viewState.update { it.copy(isOperating = false, operateStatus = null) }
         qsoSession.setOperating(false)
     }
 
@@ -475,12 +473,12 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun haltTxInternal(announce: Boolean) {
-        val wasTransmitting = _state.value.isTransmitting
+        val wasTransmitting = state.value.isTransmitting
         playback.stop()
         rigSession.releasePttBlocking()
         qsoSession.stopQso()
         if (wasTransmitting) {
-            _state.update { it.copy(isTransmitting = false, txStatus = "TX halted") }
+            _viewState.update { it.copy(txStatus = "TX halted") }
         }
         if (announce) notify("Transmit halted")
     }
@@ -489,7 +487,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         when (rig.state()) {
             RigController.State.NoDevice -> {
                 val usb = rig.usbDeviceSummary()
-                _state.update {
+                _viewState.update {
                     it.copy(
                         pttReady = false,
                         txStatus = "CP2102 serial not found (PTT no-op). USB: $usb",
@@ -498,28 +496,28 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 rigSession.refreshDigirigPresence()
             }
             RigController.State.Ready -> {
-                _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready") }
+                _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready") }
                 rigSession.refreshDigirigPresence()
                 viewModelScope.launch(rigSession.catDispatcher) {
                     val method = rig.configurePttFromCatProbe()
-                    _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
+                    _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
                     onRigReady()
                 }
             }
             RigController.State.NeedsPermission -> {
-                _state.update { it.copy(txStatus = "Requesting USB permission…") }
+                _viewState.update { it.copy(txStatus = "Requesting USB permission…") }
                 rig.ensureReady { ready ->
                     if (!ready) {
-                        _state.update {
+                        _viewState.update {
                             it.copy(pttReady = false, txStatus = "USB permission denied — PTT is no-op")
                         }
                         return@ensureReady
                     }
-                    _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready") }
+                    _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready") }
                     rigSession.refreshDigirigPresence()
                     viewModelScope.launch(rigSession.catDispatcher) {
                         val method = rig.configurePttFromCatProbe()
-                        _state.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
+                        _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
                         onRigReady()
                     }
                 }
@@ -529,7 +527,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun onRigReady() {
         if (!rig.isCatReady) return
-        _state.update { it.copy(catReady = true) }
+        _viewState.update { it.copy(catReady = true) }
         readRig()
     }
 
@@ -561,24 +559,24 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private fun restoreLastBandIfNeeded() {
         val hz = lastDialFreqHz ?: return
         if (!rig.isCatReady) return
-        if (_state.value.rigFreqHz == hz) return
+        if (state.value.rigFreqHz == hz) return
         setRigFrequency(hz)
     }
 
     // ── UI actions: thin delegators to QsoSessionController ─────────────
 
     fun startCq() {
-        if (!_state.value.isOperating) startOperating()
+        if (!state.value.isOperating) startOperating()
         qsoSession.startCq()
     }
 
     fun answerCq(row: DecodeRow) {
-        if (!_state.value.isOperating) startOperating()
+        if (!state.value.isOperating) startOperating()
         qsoSession.answerCq(row)
     }
 
     fun resumeFromDecode(row: DecodeRow) {
-        if (!_state.value.isOperating) startOperating()
+        if (!state.value.isOperating) startOperating()
         qsoSession.resumeFromDecode(row)
     }
 
@@ -599,19 +597,19 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun resetOperateTxText() = qsoSession.resetOperateTxText()
 
     fun transmitOperateTxOnce() {
-        if (_state.value.isTransmitting) return
-        val msg = _state.value.operateTxText.trim()
-        if (!_state.value.isOperating) startOperating()
+        if (state.value.isTransmitting) return
+        val msg = state.value.operateTxText.trim()
+        if (!state.value.isOperating) startOperating()
         viewModelScope.launch {
-            txOrchestrator.transmitAfterSlotBoundary(msg, _state.value.txFreqHz)
+            txOrchestrator.transmitAfterSlotBoundary(msg, state.value.txFreqHz)
         }
     }
 
     fun transmitNextSlot() {
-        if (_state.value.isTransmitting) return
-        val message = _state.value.txMessage.trim()
+        if (state.value.isTransmitting) return
+        val message = state.value.txMessage.trim()
         viewModelScope.launch {
-            txOrchestrator.transmitAfterSlotBoundary(message, _state.value.txFreqHz)
+            txOrchestrator.transmitAfterSlotBoundary(message, state.value.txFreqHz)
         }
     }
 
@@ -623,11 +621,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     // ── Callbacks injected into QsoSessionController ────────────────────
 
     private suspend fun transmitForQsoLoop(message: String): Boolean {
-        return txOrchestrator.transmit(message, _state.value.txFreqHz)
+        return txOrchestrator.transmit(message, state.value.txFreqHz)
     }
 
     private suspend fun onQsoComplete(snapshot: QsoSnapshot) {
-        val freq = _state.value.rigFreqHz
+        val freq = state.value.rigFreqHz
         val band = bandLabelForFreq(freq)
         val contact = QsoContact.fromSnapshot(snapshot, freq, band)
         withContext(Dispatchers.IO) { logbook.log(contact) }
@@ -648,23 +646,23 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun resumeCaptureIfNeededForQso() {
-        if (_state.value.isOperating && !_state.value.isCapturing && !_state.value.isTransmitting) {
+        if (state.value.isOperating && !state.value.isCapturing && !state.value.isTransmitting) {
             beginCapture()
         }
     }
 
     private fun beginCapture() {
         try {
-            capture.start(_state.value.selectedDeviceId, decodeController::onFrames)
-            _state.update { it.copy(isCapturing = true) }
+            capture.start(state.value.selectedDeviceId, decodeController::onFrames)
+            _viewState.update { it.copy(isCapturing = true) }
         } catch (t: Throwable) {
-            _state.update { it.copy(isCapturing = false, isOperating = false) }
+            _viewState.update { it.copy(isCapturing = false, isOperating = false) }
             notify(t.message ?: "Capture failed", SnackbarEvent.Tag.ERROR)
         }
     }
 
     private fun resumeCapture() {
-        if (_state.value.isCapturing || _state.value.isTransmitting) return
+        if (state.value.isCapturing || state.value.isTransmitting) return
         beginCapture()
     }
 
@@ -675,7 +673,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
             notify("Audio thread didn't stop cleanly — recovering", SnackbarEvent.Tag.ERROR)
         }
         decodeController.reset()
-        _state.update { it.copy(isCapturing = false) }
+        _viewState.update { it.copy(isCapturing = false) }
     }
 
     /** Phase 6 (RELY-02/03): rebuild the capture chain after device removal or unclean stop. */
@@ -699,6 +697,9 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         runCatching {
             val am = getApplication<Application>().getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
             am.unregisterAudioDeviceCallback(audioDeviceCallback)
+        }
+        runCatching {
+            androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.removeObserver(processLifecycleObserver)
         }
         playback.stop()
         // Phase 5 final PTT release — every PTT-touching controller gets its own

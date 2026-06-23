@@ -5,7 +5,9 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.ft8vc.app.settings.SettingsRepository
@@ -42,6 +44,29 @@ object AdifAutoBackup {
         settings: SettingsRepository,
     ) {
         applicationScope.launch { backupNow(context, logbook, settings) }
+    }
+
+    @Volatile private var dailyTimerStarted: Boolean = false
+
+    /**
+     * Phase 7 (HYG-04): daily rolling timer. Idempotent — first caller wins,
+     * subsequent calls no-op. The timer lives on [applicationScope] so it
+     * survives any ViewModel teardown for the lifetime of the process.
+     */
+    fun startDailyTimerIfNotRunning(
+        context: Context,
+        logbook: Logbook,
+        settings: SettingsRepository,
+        intervalMs: Long = 24 * 60 * 60 * 1000L,
+    ) {
+        if (dailyTimerStarted) return
+        dailyTimerStarted = true
+        applicationScope.launch {
+            while (isActive) {
+                delay(intervalMs)
+                backupNow(context, logbook, settings)
+            }
+        }
     }
 
     /** Write the current logbook to disk atomically. Returns the final file path on success, null on failure. */
