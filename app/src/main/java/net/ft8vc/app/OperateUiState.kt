@@ -15,7 +15,7 @@ import net.ft8vc.core.TxSlotParity
 
 @Immutable
 data class DecodeRow(
-    /** Stable key for Compose LazyColumn: slotStart * 1000 + indexInSlot. */
+    /** Stable cross-pass key for Compose LazyColumn. See [DecodeRowKey.stableId]. */
     val id: Long,
     val timeUtc: String,
     val snr: Int,
@@ -32,6 +32,12 @@ data class DecodeRow(
     val source: net.ft8vc.core.DecodeRowSource = net.ft8vc.core.DecodeRowSource.Rx,
     /** Whether the sender's callsign has been worked before. */
     val workedBefore: net.ft8vc.core.WorkedBefore = net.ft8vc.core.WorkedBefore.Never,
+    /**
+     * Which decode pass produced this row. Used only for telemetry + dedup
+     * bookkeeping. UI must NOT branch on this — early and full rows render
+     * pixel-identically.
+     */
+    val passSource: net.ft8vc.core.DecodePassSource = net.ft8vc.core.DecodePassSource.Full,
 )
 
 /**
