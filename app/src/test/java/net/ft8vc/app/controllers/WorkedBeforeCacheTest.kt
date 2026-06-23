@@ -76,4 +76,21 @@ class WorkedBeforeCacheTest {
         cache.classify("K1ABC", "20m")
         assertEquals(2, log.calls.get())
     }
+
+    @Test fun invalidate_then_reclassify_picks_up_new_band() = runTest {
+        val log = FakeLogbook()
+        log.set("K1ABC", setOf("40m"))
+        val cache = WorkedBeforeCache(log)
+
+        // Initial classification: K1ABC worked on 40m, current band 20m → OtherBand.
+        assertEquals(WorkedBefore.OtherBand, cache.classify("K1ABC", "20m"))
+
+        // Simulate a fresh QSO on 20m being logged.
+        log.set("K1ABC", setOf("40m", "20m"))
+        cache.invalidate("K1ABC")
+
+        // Next classification should re-fetch and now report ThisBand.
+        assertEquals(WorkedBefore.ThisBand, cache.classify("K1ABC", "20m"))
+        assertEquals(3, log.calls.get())  // initial fetch + re-fetch after invalidate
+    }
 }

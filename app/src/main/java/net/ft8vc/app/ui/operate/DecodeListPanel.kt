@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,8 +37,10 @@ import net.ft8vc.app.ui.theme.Ft8Amber
 import net.ft8vc.app.ui.theme.Ft8Green
 import net.ft8vc.core.DecodeDistance
 import net.ft8vc.core.DecodePrefix
+import net.ft8vc.core.DecodeRowSource
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.MonitorDecodeFilter
+import net.ft8vc.core.WorkedBefore
 
 @Composable
 fun DecodeListPanel(
@@ -58,7 +61,7 @@ fun DecodeListPanel(
     modifier: Modifier = Modifier,
 ) {
     val visibleDecodes = decodes.filter { row ->
-        row.source is net.ft8vc.core.DecodeRowSource.Tx ||
+        row.source is DecodeRowSource.Tx ||
         MonitorDecodeFilter.visibleForDisplay(
             message = row.message,
             isCq = row.isCq,
@@ -152,10 +155,10 @@ fun DecodeListPanel(
                         .padding(horizontal = 6.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    DecodeHeaderCell("UTC", widthChars = 6)
-                    DecodeHeaderCell("SNR", widthChars = 3)
-                    DecodeHeaderCell("DIST", widthChars = 4)
-                    DecodeHeaderCell("Hz", widthChars = 4)
+                    DecodeHeaderCell("UTC")
+                    DecodeHeaderCell("SNR")
+                    DecodeHeaderCell("DIST")
+                    DecodeHeaderCell("Hz")
                     Text(
                         text = "MSG",
                         style = MaterialTheme.typography.labelSmall,
@@ -226,7 +229,7 @@ private fun CompactFilterChip(
 }
 
 @Composable
-private fun DecodeHeaderCell(label: String, widthChars: Int) {
+private fun DecodeHeaderCell(label: String) {
     Text(
         text = label,
         style = MaterialTheme.typography.labelSmall,
@@ -253,7 +256,7 @@ private fun DecodeRowItem(
     qsoActive: Boolean,
     onClick: (() -> Unit)?,
 ) {
-    val isTx = row.source is net.ft8vc.core.DecodeRowSource.Tx
+    val isTx = row.source is DecodeRowSource.Tx
     val isPartner = qsoDx != null && row.message.contains(qsoDx)
     val dimmed = qsoActive && !row.isCq && !isPartner && !isTx
     val textColor = when {
@@ -262,9 +265,9 @@ private fun DecodeRowItem(
         row.isToMe && !qsoActive -> Ft8Amber
         isPartner -> MaterialTheme.colorScheme.primary
         dimmed -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        row.workedBefore == net.ft8vc.core.WorkedBefore.ThisBand ->
+        row.workedBefore == WorkedBefore.ThisBand ->
             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
-        row.workedBefore == net.ft8vc.core.WorkedBefore.OtherBand ->
+        row.workedBefore == WorkedBefore.OtherBand ->
             MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.onSurface
     }
@@ -275,7 +278,7 @@ private fun DecodeRowItem(
         qsoActive = qsoActive,
         qsoDx = qsoDx,
     )
-    val rowBackground = if (isTx) Ft8Amber.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent
+    val rowBackground = if (isTx) Ft8Amber.copy(alpha = 0.14f) else Color.Transparent
     Row(
         modifier = Modifier
             .fillMaxWidth()
