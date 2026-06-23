@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.ft8vc.app.SnackbarEvent
@@ -207,6 +208,21 @@ class TxOrchestratorTest {
         assertTrue(capture.wasPaused)
         assertTrue(capture.wasResumed)
         assertFalse(rig.pttKeyed)
+    }
+
+    @Test
+    fun txLog_emits_on_successful_transmit() = runBlocking {
+        val collected = java.util.Collections.synchronizedList(mutableListOf<TxLogEvent>())
+        val collectJob = scope.launch { orchestrator.txLog.collect { collected += it } }
+
+        val ok = orchestrator.transmit(message = "CQ K1ABC FN42", txFreqHz = 1500)
+
+        assertTrue("transmit should succeed", ok)
+        waitUntil { collected.isNotEmpty() }
+        assertEquals(1, collected.size)
+        assertEquals(1500, collected[0].freqHz)
+        assertEquals("CQ K1ABC FN42", collected[0].message)
+        collectJob.cancel()
     }
 
     @Test

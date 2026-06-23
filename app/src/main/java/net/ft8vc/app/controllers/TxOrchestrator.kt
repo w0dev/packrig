@@ -6,8 +6,11 @@ import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -105,6 +108,13 @@ class TxOrchestrator(
         ),
     )
     val slice: StateFlow<TxSlice> = _slice.asStateFlow()
+
+    private val _txLog = MutableSharedFlow<TxLogEvent>(
+        replay = 0,
+        extraBufferCapacity = 16,
+    )
+    /** Emits one event per successful transmit. UI layer collects to render synthetic decode rows. */
+    val txLog: SharedFlow<TxLogEvent> = _txLog.asSharedFlow()
 
     /** Tracks the most recent PTT-key timestamp; the watchdog checks this. */
     @Volatile private var lastKeyEpochMs: Long = 0L
@@ -288,6 +298,9 @@ class TxOrchestrator(
                 txStatus = if (result) "Sent: $message" else "TX halted",
             )
         }
+        if (result) {
+            _txLog.tryEmit(TxLogEvent(utcMillis = clock(), freqHz = txFreqHz, message = message))
+        }
         captureControl.resumeAfterTx()
         return result
     }
@@ -376,4 +389,10 @@ data class TxSlice(
     val txSafetyHaltActive: Boolean = false,
     /** True between USB detach and reconnect. */
     val digirigDisconnected: Boolean = false,
+)
+
+data class TxLogEvent(
+    val utcMillis: Long,
+    val freqHz: Int,
+    val message: String,
 )
