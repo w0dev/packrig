@@ -315,6 +315,22 @@ class TxOrchestrator(
 
     private suspend fun runTxBody(message: String, txFreqHz: Int, pcm: ShortArray): Boolean {
         captureControl.pauseForTx()
+        // Fail-closed re-check: AppRfState may have flipped during the pre-TX wait
+        // (slot-boundary delay in v1.0 path, or symbol-clock-alignment delay in late-TX).
+        // A USB detach or emergency halt during that window must not result in keying PTT.
+        when (_slice.value.appRfState) {
+            AppRfState.RX_ONLY -> {
+                notifyFn("Cannot transmit — Digirig disconnected during wait", SnackbarEvent.Tag.ERROR)
+                captureControl.resumeAfterTx()
+                return false
+            }
+            AppRfState.EMERGENCY_HALT -> {
+                notifyFn("Cannot transmit — safety halt active", SnackbarEvent.Tag.ERROR)
+                captureControl.resumeAfterTx()
+                return false
+            }
+            AppRfState.READY -> Unit
+        }
         _slice.update { it.copy(isTransmitting = true, txStatus = "TX: $message") }
 
         // Layers (c) + (d): outer timeout AND independent watchdog.
