@@ -332,6 +332,12 @@ class TxOrchestrator(
             AppRfState.READY -> Unit
         }
         _slice.update { it.copy(isTransmitting = true, txStatus = "TX: $message") }
+        // Self-TX row is logged at the START of transmit (WSJT-X behavior): the
+        // synthetic decode row appears the instant we commit to keying PTT, not after
+        // playback. If the operator halts mid-transmit the row stays. TX blocked before
+        // this point (preflight or the fail-closed re-check above) emits nothing —
+        // nothing was transmitted.
+        _txLog.tryEmit(TxLogEvent(utcMillis = clock(), freqHz = txFreqHz, message = message))
 
         // Layers (c) + (d): outer timeout AND independent watchdog.
         val result: Boolean = try {
@@ -369,9 +375,6 @@ class TxOrchestrator(
                 isTransmitting = false,
                 txStatus = if (result) "Sent: $message" else "TX halted",
             )
-        }
-        if (result) {
-            _txLog.tryEmit(TxLogEvent(utcMillis = clock(), freqHz = txFreqHz, message = message))
         }
         captureControl.resumeAfterTx()
         return result

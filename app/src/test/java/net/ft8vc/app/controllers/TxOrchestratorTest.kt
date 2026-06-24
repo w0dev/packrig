@@ -247,7 +247,7 @@ class TxOrchestratorTest {
     }
 
     @Test
-    fun txLog_emits_on_successful_transmit() = runBlocking {
+    fun txLog_emitsAtTxStart_onSuccessfulTransmit() = runBlocking {
         val collected = java.util.Collections.synchronizedList(mutableListOf<TxLogEvent>())
         // txLog is a replay=0 SharedFlow: an event emitted before the collector
         // subscribes is dropped. onSubscription fires once the subscriber is
@@ -268,6 +268,55 @@ class TxOrchestratorTest {
         assertEquals(1, collected.size)
         assertEquals(1500, collected[0].freqHz)
         assertEquals("CQ K1ABC FN42", collected[0].message)
+        collectJob.cancel()
+    }
+
+    @Test
+    fun txLog_emitsAtTxStart_evenWhenPlaybackHalts() = runBlocking {
+        val collected = java.util.Collections.synchronizedList(mutableListOf<TxLogEvent>())
+        val subscribed = CountDownLatch(1)
+        val collectJob = scope.launch {
+            orchestrator.txLog
+                .onSubscription { subscribed.countDown() }
+                .collect { collected += it }
+        }
+        assertTrue("txLog collector must subscribe", subscribed.await(2, TimeUnit.SECONDS))
+
+        // Playback throws → transmit reports failure, but the row was already logged
+        // at TX start (before keying), so it must still be emitted.
+        playback.failNextWith = RuntimeException("playback boom")
+        val ok = orchestrator.transmit(message = "CQ K1ABC FN42", txFreqHz = 1500)
+
+        assertFalse("transmit should report failure when playback throws", ok)
+        waitUntil { collected.isNotEmpty() }
+        assertEquals(1, collected.size)
+        assertEquals(1500, collected[0].freqHz)
+        assertEquals("CQ K1ABC FN42", collected[0].message)
+        collectJob.cancel()
+    }
+
+    @Test
+    fun txLog_doesNotEmit_whenTxBlockedBeforeKeying() = runBlocking {
+        val collected = java.util.Collections.synchronizedList(mutableListOf<TxLogEvent>())
+        val subscribed = CountDownLatch(1)
+        val collectJob = scope.launch {
+            orchestrator.txLog
+                .onSubscription { subscribed.countDown() }
+                .collect { collected += it }
+        }
+        assertTrue("txLog collector must subscribe", subscribed.await(2, TimeUnit.SECONDS))
+
+        // Safety halt active → TX is blocked before any PTT/audio goes out, so no
+        // synthetic row should appear (nothing was transmitted).
+        orchestrator.emergencyHalt("Field test halt")
+        waitUntil { orchestrator.slice.value.appRfState == AppRfState.EMERGENCY_HALT }
+
+        val ok = orchestrator.transmit(message = "CQ K1ABC FN42", txFreqHz = 1500)
+
+        assertFalse("transmit must be blocked when halted", ok)
+        // Give any erroneous emit a chance to surface before asserting absence.
+        Thread.sleep(50)
+        assertTrue("no synthetic row when TX blocked before keying", collected.isEmpty())
         collectJob.cancel()
     }
 
