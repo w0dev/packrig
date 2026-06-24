@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -310,5 +311,136 @@ class TxOrchestratorPttSafetyLateTxTest {
 
         orchestrator.close()
         scope.cancel()
+    }
+
+    // ── Layer (e): post-wait fail-closed re-check ────────────────────────────
+
+    /**
+     * Late-TX path: USB detach during the symbol-clock-alignment delay
+     * (`plan.waitMs` between encode and runTxBody) must cause runTxBody to
+     * fail-closed without ever keying PTT.
+     *
+     * t_in_slot = 3000 → offsetSymbols = 12, keyMoment = 3100, waitMs = 100ms.
+     *
+     * Anti-flake patterns:
+     *  - dedicated single-thread dispatcher for `scope` so detach work isn't
+     *    starved behind other tests on Dispatchers.Default
+     *  - wait-for-asserted-state: we don't inject detach until encode has
+     *    completed (we're definitely inside the 100ms waitMs delay), and we
+     *    don't proceed past the assertions until appRfState == RX_ONLY
+     */
+    @Test
+    fun postWaitRecheck_lateTx_failsClosedOnUsbDetachDuringSymbolAlignmentWait() = runBlocking {
+        val clock = { SLOT_START_UTC + T_IN_SLOT_MID }
+        val decoder = Ft8DecoderFake()
+        val playback = FakeUsbAudioPlayback()
+        val rig = FakeRigBackend()
+        val notifications: MutableList<Pair<String, SnackbarEvent.Tag>> =
+            java.util.Collections.synchronizedList(mutableListOf())
+        val scopeExec = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "tx-recheck-late-scope").also { it.isDaemon = true }
+        }
+        val scope = CoroutineScope(scopeExec.asCoroutineDispatcher() + Job())
+
+        val orchestrator = buildOrchestrator(decoder, playback, rig, clock, notifications, scope)
+
+        val txJob = scope.async {
+            orchestrator.transmitAfterSlotBoundary("CQ W0DEV EM26", txFreqHz = 1500)
+        }
+
+        // Wait for encode to complete (confirms we're past encode but in the waitMs delay).
+        waitUntil { decoder.encodeInvocationsSnapshot().isNotEmpty() }
+        assertTrue(
+            "late-TX encode must have run with offsetSymbols > 0",
+            decoder.encodeInvocationsSnapshot().single().offsetSymbols > 0,
+        )
+
+        // Inject USB detach during the symbol-clock-alignment wait.
+        orchestrator.notifyUsbDetached()
+
+        // Wait for the state flip to land BEFORE assertions (notifyUsbDetached runs in scope.launch).
+        waitUntil { orchestrator.slice.value.appRfState == AppRfState.RX_ONLY }
+
+        val result = txJob.await()
+
+        assertFalse("transmitAfterSlotBoundary must return false after detach", result)
+        assertFalse("PTT must never be keyed when detach precedes runTxBody", rig.pttKeyed)
+        assertEquals(
+            "no PTT edges at all — fail-closed before TxSession().use{}",
+            0,
+            rig.pttEdgesSnapshot().count { it.kind == PttEdgeKind.KEY },
+        )
+        assertTrue(
+            "post-wait re-check snackbar must fire",
+            notifications.any { it.first.contains("Digirig disconnected during wait") },
+        )
+
+        orchestrator.close()
+        scope.cancel()
+        scopeExec.shutdown()
+    }
+
+    /**
+     * V1.0 path (Deferred — t_in_slot past late cutoff): the slot-boundary
+     * delay in `transmitAfterSlotBoundary` is the pre-TX wait. A USB detach
+     * during that wait must cause runTxBody to fail-closed.
+     *
+     * t_in_slot = 10_000 → past LATE_TX_CUTOFF_MS=7000 → Deferred → v1.0 path,
+     * waitMs = millisUntilNextSlot = 5000ms. The wide 5s window gives plenty
+     * of slack for `notifyUsbDetached()` (scope.launch) to dispatch and flip
+     * appRfState before the TX coroutine wakes from `delay()` — eliminates the
+     * race that exists with a sub-200ms waitMs.
+     *
+     * Anti-flake patterns: same as the late-TX test — dedicated dispatcher
+     * and wait-for-asserted-state before letting txJob complete.
+     */
+    @Test
+    fun postWaitRecheck_v1Path_failsClosedOnUsbDetachDuringSlotBoundaryWait() = runBlocking {
+        val clock = { SLOT_START_UTC + 10_000L }  // Deferred → v1.0 path, waitMs = 5000ms
+        val decoder = Ft8DecoderFake()
+        val playback = FakeUsbAudioPlayback()
+        val rig = FakeRigBackend()
+        val notifications: MutableList<Pair<String, SnackbarEvent.Tag>> =
+            java.util.Collections.synchronizedList(mutableListOf())
+        val scopeExec = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "tx-recheck-v1-scope").also { it.isDaemon = true }
+        }
+        val scope = CoroutineScope(scopeExec.asCoroutineDispatcher() + Job())
+
+        val orchestrator = buildOrchestrator(decoder, playback, rig, clock, notifications, scope)
+
+        val txJob = scope.async {
+            orchestrator.transmitAfterSlotBoundary("CQ W0DEV EM26", txFreqHz = 1500)
+        }
+
+        // Inject USB detach well inside the 5s slot-boundary delay.
+        orchestrator.notifyUsbDetached()
+        // Wait for the state flip to land BEFORE the TX coroutine wakes from delay().
+        // The 5s waitMs gives massive headroom — this should settle in < 50ms.
+        waitUntil { orchestrator.slice.value.appRfState == AppRfState.RX_ONLY }
+
+        val result = txJob.await(/* up to ~5s for delay() to complete naturally */)
+
+        assertFalse("transmitAfterSlotBoundary must return false after detach", result)
+        assertFalse("PTT must never be keyed when detach precedes runTxBody", rig.pttKeyed)
+        assertEquals(
+            "no PTT edges at all — fail-closed before TxSession().use{}",
+            0,
+            rig.pttEdgesSnapshot().count { it.kind == PttEdgeKind.KEY },
+        )
+        assertTrue(
+            "post-wait re-check snackbar must fire",
+            notifications.any { it.first.contains("Digirig disconnected during wait") },
+        )
+
+        // V1.0 path: encode runs only AFTER the wait completes — confirm offsetSymbols = 0
+        // if it ran at all (decoder may or may not have been called — race with re-check).
+        decoder.encodeInvocationsSnapshot().forEach {
+            assertEquals("v1.0 path must use offsetSymbols == 0", 0, it.offsetSymbols)
+        }
+
+        orchestrator.close()
+        scope.cancel()
+        scopeExec.shutdown()
     }
 }
