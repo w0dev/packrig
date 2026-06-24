@@ -8,16 +8,32 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.ft8vc.core.DecodePassSource
+import net.ft8vc.core.SnrEstimator
 import net.ft8vc.ft8native.Ft8DecodeResult
 import net.ft8vc.ft8native.Ft8DecoderApi
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlin.random.Random
 
 class DecodeControllerEarlyDedupTest {
     private val slotStart = 1_700_000_000_000L
 
     private fun result(message: String, freqHz: Double, snr: Int, dt: Float = 0f) =
         Ft8DecodeResult(message = message, snr = snr, dtSeconds = dt, freqHz = freqHz.toFloat(), score = snr)
+
+    /** A [length]-sample 12 kHz tone at [freq] with white noise — gives SnrEstimator
+     *  real cells to measure so dedup's SNR-refresh is observable. */
+    private fun tone(freq: Double, amp: Double, noise: Double, length: Int, seed: Int = 1): ShortArray {
+        val rnd = Random(seed)
+        return ShortArray(length) { n ->
+            val t = n.toDouble() / 12_000
+            ((amp * sin(2 * PI * freq * t) + noise * (rnd.nextDouble() * 2 - 1)) * 16000)
+                .toInt().coerceIn(-32768, 32767).toShort()
+        }
+    }
 
     // Sequentially returns the queued result lists, one per decode call.
     private class QueuedFake(private val queue: ArrayDeque<List<Ft8DecodeResult>>) : Ft8DecoderApi {
@@ -49,8 +65,12 @@ class DecodeControllerEarlyDedupTest {
             controller.decodesOut.toList(emitted)
         }
 
-        controller.decodeSlot(ShortArray(115_200), slotStart, source = DecodePassSource.Early)
-        controller.decodeSlot(ShortArray(180_000), slotStart, source = DecodePassSource.Full)
+        // Distinct tones per pass so the row's recomputed SNR differs between
+        // passes — the early row is weak/noisy, the full pass is strong/clean.
+        val earlySamples = tone(1500.0, amp = 0.15, noise = 0.08, length = 115_200)
+        val fullSamples = tone(1500.4, amp = 0.8, noise = 0.01, length = 180_000)
+        controller.decodeSlot(earlySamples, slotStart, source = DecodePassSource.Early)
+        controller.decodeSlot(fullSamples, slotStart, source = DecodePassSource.Full)
         scope.advanceUntilIdle()
 
         // Union, not sum: 2 unique decodes, not 3
@@ -60,9 +80,17 @@ class DecodeControllerEarlyDedupTest {
         assertEquals(2, allMessages.distinct().size)
         assertEquals(allMessages.size, allMessages.distinct().size)
 
-        // Full pass updated the early row in place with the higher SNR
+        // Full pass updated the early row in place: its SNR is recomputed from the
+        // FULL-pass samples at the full result's freq.
         val updated = controller.slice.value.decodes.first { it.message == "CQ K1ABC FN42" }
-        assertEquals(-8, updated.snr)
+        val expectedFull = SnrEstimator.estimate(fullSamples, 12_000, 1500.4f, 0f)
+        assertEquals(expectedFull, updated.snr)
+        // The two passes are genuinely different signals (full is stronger), so the
+        // update is observable once DEFAULT_OFFSET_DB is calibrated (Task 4). The
+        // offset-independent spread distinguishes them even while estimate() clamps.
+        val spreadEarly = SnrEstimator.spreadDb(earlySamples, 12_000, 1500.0f, 0f)
+        val spreadFull = SnrEstimator.spreadDb(fullSamples, 12_000, 1500.4f, 0f)
+        assertNotEquals("full pass must be a different (stronger) signal", spreadEarly, spreadFull, 0.5)
 
         collectJob.cancel()
         controller.close()

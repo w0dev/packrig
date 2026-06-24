@@ -28,6 +28,7 @@ import net.ft8vc.core.QsoMessages
 import net.ft8vc.core.QsoResume
 import net.ft8vc.core.QsoRx
 import net.ft8vc.core.SlotCollector
+import net.ft8vc.core.SnrEstimator
 import net.ft8vc.core.TxSlotSelection
 import net.ft8vc.core.WorkedBefore
 import net.ft8vc.ft8native.Ft8DecoderApi
@@ -237,12 +238,12 @@ class DecodeController(
         }
 
         val passDurationMs: Long
-        val results = try {
+        val results: List<net.ft8vc.ft8native.Ft8DecodeResult> = try {
             var out: Array<net.ft8vc.ft8native.Ft8DecodeResult> = emptyArray()
             passDurationMs = measureTimeMillis {
                 out = decoder.decode(samples, AppInfo.SAMPLE_RATE_HZ)
             }
-            out
+            withRecomputedSnr(out, samples, AppInfo.SAMPLE_RATE_HZ)
         } catch (t: Throwable) {
             failureCount.incrementAndGet()
             consecutiveSuccessfulSlots = 0
@@ -375,6 +376,21 @@ class DecodeController(
         const val DECODE_FAILURE_DECAY_SLOTS = 5
         /** Slot-relative offset (ms) at which the early decode pass fires. */
         const val EARLY_OFFSET_MS = 12_000L
+
+        /**
+         * Replace each decoder result's snr with the [SnrEstimator] value computed
+         * from the slot [samples]. ft8_lib's own snr field is a sync metric, not dB
+         * (see SnrEstimator); this is where the real, WSJT-X-tracking SNR is set.
+         * Pure; all other fields preserved.
+         */
+        fun withRecomputedSnr(
+            results: Array<net.ft8vc.ft8native.Ft8DecodeResult>,
+            samples: ShortArray,
+            sampleRate: Int,
+        ): List<net.ft8vc.ft8native.Ft8DecodeResult> =
+            results.map { r ->
+                r.copy(snr = SnrEstimator.estimate(samples, sampleRate, r.freqHz, r.dtSeconds))
+            }
     }
 }
 

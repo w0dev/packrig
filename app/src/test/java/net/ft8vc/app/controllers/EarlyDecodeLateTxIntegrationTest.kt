@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.ft8vc.audio.fakes.FakeUsbAudioPlayback
 import net.ft8vc.core.DecodePassSource
+import net.ft8vc.core.SnrEstimator
 import net.ft8vc.ft8native.Ft8DecodeResult
 import net.ft8vc.ft8native.Ft8DecoderApi
 import net.ft8vc.ft8native.fakes.Ft8DecoderFake
@@ -69,6 +70,17 @@ import java.util.concurrent.Executors
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class EarlyDecodeLateTxIntegrationTest {
+
+    /** A [length]-sample 12 kHz tone at [freq] with white noise, so SnrEstimator
+     *  has real cells to measure (a flat buffer recomputes to a degenerate 0). */
+    private fun tone(freq: Double, amp: Double, noise: Double, length: Int, seed: Int = 1): ShortArray {
+        val rnd = java.util.Random(seed.toLong())
+        return ShortArray(length) { n ->
+            val t = n.toDouble() / 12_000
+            ((amp * kotlin.math.sin(2 * Math.PI * freq * t) + noise * (rnd.nextDouble() * 2 - 1)) * 16000)
+                .toInt().coerceIn(-32768, 32767).toShort()
+        }
+    }
 
     companion object {
         /** W2DEF is our station call. K1ABC is the DX. FN42 is K1ABC's grid. */
@@ -342,9 +354,14 @@ class EarlyDecodeLateTxIntegrationTest {
             decodeController.decodesOut.toList(emittedBatches)
         }
 
+        // Real tones so the row's recomputed SNR is meaningful and the FULL pass
+        // (strong/clean) differs from the EARLY pass (weak/noisy).
+        val earlySamples = tone(1500.0, amp = 0.15, noise = 0.08, length = 120_000)
+        val fullSamples = tone(1500.3, amp = 0.8, noise = 0.01, length = 180_000)
+
         // EARLY pass
         decodeController.decodeSlot(
-            samples = ShortArray(120_000) { 100.toShort() },
+            samples = earlySamples,
             slotStartEpochMs = SLOT_START,
             source = DecodePassSource.Early,
         )
@@ -352,7 +369,7 @@ class EarlyDecodeLateTxIntegrationTest {
 
         // FULL pass
         decodeController.decodeSlot(
-            samples = ShortArray(180_000) { 100.toShort() },
+            samples = fullSamples,
             slotStartEpochMs = SLOT_START,
             source = DecodePassSource.Full,
         )
@@ -393,9 +410,12 @@ class EarlyDecodeLateTxIntegrationTest {
         assertEquals("UI slice must contain 2 unique decode rows", 2, slice.decodes.size)
 
         val dxRow = slice.decodes.firstOrNull { it.message == DX_CQ_MESSAGE }
+        // SNR is recomputed from the FULL-pass samples at the full result's freq,
+        // confirming the later pass refreshed the row in place.
+        val expectedFullSnr = SnrEstimator.estimate(fullSamples, 12_000, 1500.3f, 0f)
         assertEquals(
-            "K1ABC's row SNR must be updated to FULL-pass value (-7)",
-            -7,
+            "K1ABC's row SNR must be updated to the FULL-pass recomputed value",
+            expectedFullSnr,
             dxRow?.snr,
         )
 
