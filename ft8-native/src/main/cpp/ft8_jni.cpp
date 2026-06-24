@@ -236,7 +236,10 @@ Java_net_ft8vc_ft8native_Ft8Native_nativeDecode(
 
         DecodeOut out;
         out.text = text;
-        out.snr = (int)std::lround(cand->score * 0.5f);
+        // SNR is computed in Kotlin (net.ft8vc.core.SnrEstimator); ft8_lib's
+        // score*0.5 is a sync metric, not dB. Emit 0 so nothing downstream
+        // mistakes this field for a real SNR.
+        out.snr = 0;
         out.dt = timeSec;
         out.freq = freqHz;
         out.score = cand->score;

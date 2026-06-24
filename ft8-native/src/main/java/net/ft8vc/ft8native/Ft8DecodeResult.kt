@@ -5,7 +5,8 @@ package net.ft8vc.ft8native
  * signature `(Ljava/lang/String;IFFI)V` used in ft8_jni.cpp.
  *
  * @property message decoded text (e.g. "CQ K1ABC FN42")
- * @property snr estimated SNR in dB (approximate; calibrated later)
+ * @property snr SNR in dB. As returned by the native decoder this is always 0;
+ *           the real value is set by net.ft8vc.core.SnrEstimator before display.
  * @property dtSeconds time offset of the signal within the slot
  * @property freqHz audio frequency of the signal
  * @property score raw Costas sync score (decoder confidence)
