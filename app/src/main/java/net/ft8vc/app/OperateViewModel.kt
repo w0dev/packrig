@@ -320,11 +320,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             txOrchestrator.txLog.collect { ev ->
-                val timeUtc = java.time.Instant.ofEpochMilli(ev.utcMillis)
-                    .atZone(java.time.ZoneOffset.UTC)
-                    .toLocalTime()
-                    .withNano(0)
-                    .toString()
+                val timeUtc = formatRowTimeUtc(ev.utcMillis)
                 val row = DecodeRow(
                     id = ev.utcMillis,
                     timeUtc = timeUtc,
