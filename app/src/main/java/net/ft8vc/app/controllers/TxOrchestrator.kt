@@ -114,7 +114,12 @@ class TxOrchestrator(
         replay = 0,
         extraBufferCapacity = 16,
     )
-    /** Emits one event per successful transmit. UI layer collects to render synthetic decode rows. */
+    /**
+     * Emits one event at the start of each transmit we commit to keying (WSJT-X
+     * behavior) — regardless of whether playback then completes or is halted. TX
+     * blocked before keying (preflight or the fail-closed re-check) emits nothing.
+     * UI layer collects to render synthetic decode rows.
+     */
     val txLog: SharedFlow<TxLogEvent> = _txLog.asSharedFlow()
 
     /** Tracks the most recent PTT-key timestamp; the watchdog checks this. */
@@ -336,7 +341,9 @@ class TxOrchestrator(
         // synthetic decode row appears the instant we commit to keying PTT, not after
         // playback. If the operator halts mid-transmit the row stays. TX blocked before
         // this point (preflight or the fail-closed re-check above) emits nothing —
-        // nothing was transmitted.
+        // nothing was transmitted. The row marks our intent to key at this slot moment;
+        // if keyPtt() itself fails, the row remains and the failure surfaces via the
+        // catch-block snackbar below.
         _txLog.tryEmit(TxLogEvent(utcMillis = clock(), freqHz = txFreqHz, message = message))
 
         // Layers (c) + (d): outer timeout AND independent watchdog.
