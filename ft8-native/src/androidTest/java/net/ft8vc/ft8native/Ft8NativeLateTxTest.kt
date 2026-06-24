@@ -73,6 +73,26 @@ class Ft8NativeLateTxTest {
             "RMS mismatch suggests phase/envelope error: truncated=$rmsTruncated vs full=$rmsFullTail",
             rmsTruncated > rmsFullTail * 0.5 && rmsTruncated < rmsFullTail * 1.5
         )
+
+        // Zero-lag normalized cross-correlation against the corresponding window of the
+        // full v1.0 buffer. The truncated synthesis restarts at phi=0 rather than phase-
+        // continuing from the v1.0 trajectory, so per-sample equality does not hold. But
+        // the instantaneous-frequency trajectory for symbols [13, 79) is identical, so
+        // a correct implementation correlates strongly (~0.9+) while a symbol-window
+        // off-by-one or wrong-slice-direction drops correlation to near zero.
+        var dotProduct = 0.0
+        for (i in 0 until expectedSize) {
+            dotProduct += truncated[i].toDouble() * full[tailStartInFull + i].toDouble()
+        }
+        // Measured correlation on Pixel emulator: 0.9996 (phase-reset effect is small because
+        // symbol-boundary phase happens to be near-aligned for this message). Threshold 0.99
+        // leaves comfortable margin for FP variance while catching any symbol-window error
+        // (misalignment drops correlation to ~0.1 per the reviewer's analysis).
+        val correlation = dotProduct / (rmsTruncated * rmsFullTail * expectedSize)
+        assertTrue(
+            "Zero-lag cross-correlation too low ($correlation); symbol window offset is likely wrong",
+            correlation > 0.99
+        )
     }
 
     @Test
