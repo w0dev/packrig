@@ -8,7 +8,7 @@ import java.io.StringReader
  * Golden-trace data model + JSONL parser (FOUND-06).
  *
  * The schema is fixed and constrained — see
- * `.planning/field-sessions/RECORDING-FORMAT.md` (schema v1). This parser
+ * `docs/planning/field-sessions/RECORDING-FORMAT.md` (schema v1). This parser
  * deliberately does NOT depend on `kotlinx.serialization` or any other JSON
  * library: STACK.md keeps the production classpath free of JSON deps for this
  * milestone, and the schema is small enough that a hand-rolled parser is the

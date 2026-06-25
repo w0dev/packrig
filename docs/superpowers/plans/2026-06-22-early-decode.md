@@ -1225,7 +1225,7 @@ git commit -m "test(app): EarlyDecodeLateTxIntegrationTest — hunt-and-pounce l
 
 - [ ] **Step 1: Prerequisite check**
 
-The FOUND-07 baseline trace must be captured and committed under `.planning/field-sessions/late-tx-<date>/` (or wherever the late-TX phase's field session lives). If the baseline is missing, pause and surface the blocker. The spec calls out this prerequisite explicitly.
+The FOUND-07 baseline trace must be captured and committed under `docs/planning/field-sessions/late-tx-<date>/` (or wherever the late-TX phase's field session lives). If the baseline is missing, pause and surface the blocker. The spec calls out this prerequisite explicitly.
 
 - [ ] **Step 2: Locate the golden-trace replay harness**
 
@@ -1279,7 +1279,7 @@ git commit -m "test(app): golden-trace parity for early-decode toggle ON and OFF
 
 ## Final Steps (manual, not coding tasks)
 
-After all coding tasks pass and CI is green, the implementer hands the build to the operator for the on-air field session under `.planning/field-sessions/early-decode-<date>/`:
+After all coding tasks pass and CI is green, the implementer hands the build to the operator for the on-air field session under `docs/planning/field-sessions/early-decode-<date>/`:
 
 - At least one QSO completed where the auto-answer was triggered by an EARLY-pass decode (operator confirms by inspecting trace timestamps — auto-answer-armed timestamp falls between `slotStart + 12.0 s` and `slotStart + 15.0 s`).
 - Toggle OFF for one full QSO cycle, confirming v1.0 single-pass timing end-to-end.
@@ -1287,7 +1287,7 @@ After all coding tasks pass and CI is green, the implementer hands the build to 
 - Operate-tab recompose count over one full slot cycle does not exceed the Phase 0 FOUND-08 baseline by more than 5%.
 - `DecodeSlice.lastDecodePassDurationMs` values from the session log reviewed; sustained values above a sanity ceiling are flagged.
 
-Session is committed to `.planning/field-sessions/early-decode-<date>/` and referenced in the PR before promotion to `main`.
+Session is committed to `docs/planning/field-sessions/early-decode-<date>/` and referenced in the PR before promotion to `main`.
 
 ---
 

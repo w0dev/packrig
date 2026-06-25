@@ -70,7 +70,7 @@ Phase 5 already touches Compose stability (it lands the `combine + distinctUntil
 The captured baseline directory must follow this layout exactly so the promotion checklist's gate logic can locate the number deterministically:
 
 ```
-.planning/field-sessions/recompose-baseline-<YYYY-MM-DD>/
+docs/planning/field-sessions/recompose-baseline-<YYYY-MM-DD>/
 ├── README.md              # Operator notes (see below)
 ├── baseline-number.txt    # Single integer: median OperateScreen delta
 ├── runs/
@@ -113,4 +113,4 @@ Three runs completed.
 
 - FOUND-08 (REQUIREMENTS.md): Project records a Compose recomposition-count baseline for the Operate tab over one full slot cycle, captured pre-refactor and re-captured at the end of each refactor phase; documented in the promotion checklist.
 
-This methodology document satisfies the "documented" half of FOUND-08; the actual captured baseline number (under `.planning/field-sessions/recompose-baseline-<YYYY-MM-DD>/baseline-number.txt`) satisfies the "captured" half.
+This methodology document satisfies the "documented" half of FOUND-08; the actual captured baseline number (under `docs/planning/field-sessions/recompose-baseline-<YYYY-MM-DD>/baseline-number.txt`) satisfies the "captured" half.

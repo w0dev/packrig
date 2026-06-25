@@ -3,11 +3,11 @@
 This is the **authoritative promotion-gate checklist** for the FT8VC v1.x Code Health
 milestone. Every PR merging from `unstable` to `main` must sign off the relevant
 sections of this file in the PR body. The PR template
-([.github/PULL_REQUEST_TEMPLATE.md](../.github/PULL_REQUEST_TEMPLATE.md)) carries the
+([.github/PULL_REQUEST_TEMPLATE.md](../../.github/PULL_REQUEST_TEMPLATE.md)) carries the
 "Promotion checklist signed off" checkbox that links here.
 
 > **Reference rig:** Yaesu FT-891 + Digirig over USB on the Android device named in
-> `.planning/PROJECT.md`. All field-session items below must be exercised on that
+> `docs/planning/PROJECT.md`. All field-session items below must be exercised on that
 > rig — emulator runs do not count.
 
 ## When to Run This Checklist
@@ -24,7 +24,7 @@ sections of this file in the PR body. The PR template
 ## Field-Session Gate (required for every unstable → main promotion)
 
 Run the entire list end-to-end on the reference FT-891 + Digirig in one session.
-Commit the log/screenshots under `.planning/field-sessions/<date>/` (see Evidence
+Commit the log/screenshots under `docs/planning/field-sessions/<date>/` (see Evidence
 Storage). Tick each item only after the in-field observation; do not pre-tick.
 
 - [ ] App boots cold on the reference FT-891 + Digirig device and claims the Digirig automatically.
@@ -44,7 +44,7 @@ Run from the repo root before requesting review. Record the indicated artifact i
 PR body so reviewers can audit which commit and which baseline file were exercised.
 
 - [ ] Golden-trace test (`./gradlew :app:test --tests "*GoldenTraceTest"`) passes — record commit SHA.
-- [ ] Behavior-parity replay passes against the committed baseline under `.planning/field-sessions/baseline-<date>/` — record baseline filename.
+- [ ] Behavior-parity replay passes against the committed baseline under `docs/planning/field-sessions/baseline-<date>/` — record baseline filename.
 - [ ] All module unit tests pass (`./gradlew test`).
 
 ## Recompose-Count Gate (required for every refactor phase)
@@ -52,7 +52,7 @@ PR body so reviewers can audit which commit and which baseline file were exercis
 Every refactor phase (Phases 1–7 of the v1.x milestone) must record the Operate-tab
 recomposition count over one full slot cycle and confirm it does not exceed the
 Phase 0 baseline captured per FOUND-08. The Phase 0 baseline lives under
-`.planning/field-sessions/baseline-<date>/recompose-baseline.md` per the
+`docs/planning/field-sessions/baseline-<date>/recompose-baseline.md` per the
 recompose-baseline scheme established in Plan 00-05.
 
 - [ ] Operate-tab recomposition count over one full slot cycle measured for this PR.
@@ -66,7 +66,7 @@ A phase may skip the Field-Session Gate **only** if it CANNOT possibly affect RF
 USB, audio, or threading. The PR author must include a single-line justification on
 the PR explaining why no RF surface is touched.
 
-- **Examples of legitimately skippable changes:** docstring-only PR, `.planning/`
+- **Examples of legitimately skippable changes:** docstring-only PR, `docs/`
   markdown-only PR, repository-config-only PR (e.g., `.github/` workflows that do not
   ship into the APK).
 - **Examples NOT skippable:** anything under `app/`, `audio/`, `core/`, `rig/`,
@@ -76,7 +76,7 @@ the PR explaining why no RF surface is touched.
 ## Evidence Storage
 
 Field-session evidence (log, screenshots, decode CSV, PTT trace, etc.) is committed
-under `.planning/field-sessions/<date>/`, with one subdirectory per session named
+under `docs/planning/field-sessions/<date>/`, with one subdirectory per session named
 `YYYY-MM-DD-<phase>-<description>/` per PARITY-02. The PR body MUST link the relevant
 subdirectory path so reviewers can audit the artefact without leaving GitHub.
 
@@ -92,7 +92,7 @@ reviewer reading only this file.
 - **PARITY-01** — The behavior-parity replay (FOUND-07) passes against the recorded
   baseline; RX/TX/CAT/QSO behavior is byte-equivalent to v1.0 on the reference rig.
 - **PARITY-02** — The full promotion checklist (this file) is signed off in the PR
-  with field-session evidence committed under `.planning/field-sessions/<date>/`.
+  with field-session evidence committed under `docs/planning/field-sessions/<date>/`.
 - **PARITY-03** — No phase introduces user-visible behavior changes outside those
-  explicitly enumerated in `.planning/REQUIREMENTS.md`; any new UX surface inlines
+  explicitly enumerated in `docs/planning/REQUIREMENTS.md`; any new UX surface inlines
   via snackbars, chips, or existing Settings rows.

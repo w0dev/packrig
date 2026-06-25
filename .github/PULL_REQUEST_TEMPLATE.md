@@ -9,8 +9,8 @@ Requirement IDs addressed: <e.g., REFACTOR-02, TEST-02>
 
 ## Promotion Checklist
 
-- [ ] Promotion checklist signed off (see [.planning/promotion-checklist.md](../.planning/promotion-checklist.md))
-  - <!-- If checked: paste the field-session date and the path under .planning/field-sessions/<date>/ where evidence was committed. -->
+- [ ] Promotion checklist signed off (see [docs/planning/promotion-checklist.md](../docs/planning/promotion-checklist.md))
+  - <!-- If checked: paste the field-session date and the path under docs/planning/field-sessions/<date>/ where evidence was committed. -->
 
 ## RF-Irrelevant Skip
 

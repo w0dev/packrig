@@ -13,7 +13,7 @@
 These three requirements are **not** owned by a single phase. They are the non-negotiable bar that every phase must clear before promotion from `unstable` to `main`. The promotion checklist (FOUND-01) enforces them.
 
 - **PARITY-01** — After every phase, the behavior-parity replay (FOUND-07) passes against the recorded baseline; RX/TX/CAT/QSO behavior is byte-equivalent to v1.0 on the reference rig (PITFALLS Pitfall 1).
-- **PARITY-02** — Before any promotion from `unstable` to `main`, the full promotion checklist (FOUND-01) is signed off in the PR, with field-session evidence committed under `.planning/field-sessions/<date>/` (PITFALLS Pitfall 12).
+- **PARITY-02** — Before any promotion from `unstable` to `main`, the full promotion checklist (FOUND-01) is signed off in the PR, with field-session evidence committed under `docs/planning/field-sessions/<date>/` (PITFALLS Pitfall 12).
 - **PARITY-03** — No phase introduces user-visible behavior changes outside those explicitly enumerated in REQUIREMENTS.md (CAT timeout chip, USB disconnect snackbar/chip, TX-safety snackbar/chip, decode-counter chip, decode-list cap indicator + Clear button, Settings → About decoder row, Settings → Logbook backup row). Any new UX surfaces inline via snackbars, chips, or existing Settings rows — no new top-level screens or tabs.
 
 ---
@@ -40,10 +40,10 @@ These three requirements are **not** owned by a single phase. They are the non-n
 **Requirements**: FOUND-01, FOUND-02, FOUND-03, FOUND-04, FOUND-05, FOUND-06, FOUND-07, FOUND-08, TEST-06, TEST-07, TEST-08
 **Success Criteria** (what must be TRUE):
 
-  1. `.planning/promotion-checklist.md` exists, lists every required field check (cold boot, CAT read, 5 decodes in 3 slots, PTT key/release on both modes, dummy-load QSO cycle, mid-RX disconnect snackbar, relaunch with no PTT-stuck), and is referenced by the PR template's "Promotion checklist signed off" checkbox.
+  1. `docs/planning/promotion-checklist.md` exists, lists every required field check (cold boot, CAT read, 5 decodes in 3 slots, PTT key/release on both modes, dummy-load QSO cycle, mid-RX disconnect snackbar, relaunch with no PTT-stuck), and is referenced by the PR template's "Promotion checklist signed off" checkbox.
   2. `FakeRigBackend`, `FakeUsbAudio` (capture + playback), and `Ft8DecoderFake` test fakes exist at the same interface boundaries as their production siblings, support detach/timeout/zero-sample injection, and compile cleanly against the unchanged production code.
   3. A golden-trace harness replays a recorded decode sequence through real `QsoMachine` / `SlotCollector` / `QsoMessages` / `TxSlotParity` types, asserts on resulting QSO state transitions, and is wired into CI to run on every commit.
-  4. A 5-minute behavior-parity baseline captured on the reference FT-891 + Digirig rig is committed under `.planning/field-sessions/baseline-<date>/` (UTC timestamps, slot indices, dial freq, PTT edges) and is replayable by the golden-trace harness.
+  4. A 5-minute behavior-parity baseline captured on the reference FT-891 + Digirig rig is committed under `docs/planning/field-sessions/baseline-<date>/` (UTC timestamps, slot indices, dial freq, PTT edges) and is replayable by the golden-trace harness.
   5. A pre-refactor Compose recomposition-count baseline for the Operate tab over one full slot cycle is captured and documented in the promotion checklist as the regression threshold for every subsequent phase.
 
 **Plans**: 5 plans

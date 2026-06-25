@@ -12,7 +12,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 
 ### Validated
 
-<!-- Inferred from the v1.0 codebase + codebase map (.planning/codebase/). These are shipping today and locked. -->
+<!-- Inferred from the v1.0 codebase + the codebase map (the GSD map under .planning/codebase/ has since been removed; its summary now lives in .claude/CLAUDE.md). These are shipping today and locked. -->
 
 - ✓ USB audio RX from Digirig with 12 kHz, UTC slot-aligned decode — v1.0
 - ✓ FT8 encode/decode via native `ft8_lib` JNI (`Ft8Native`) — v1.0
@@ -28,7 +28,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 
 ### Active
 
-<!-- Hypotheses for this milestone — derived from .planning/codebase/CONCERNS.md (2026-06-21).
+<!-- Hypotheses for this milestone — derived from the v1.0 codebase concerns audit (2026-06-21).
      Scope: 7 numbered recommendations + the unranked items they naturally touch. -->
 
 **HIGH — Architecture**
@@ -70,8 +70,8 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 
 ## Context
 
-- **Brownfield project.** v1.0 is live on GitHub Releases; `unstable` channel is in active field use. Codebase already mapped: see `.planning/codebase/ARCHITECTURE.md`, `STACK.md`, `STRUCTURE.md`, `CONCERNS.md`, `CONVENTIONS.md`, `TESTING.md`, `INTEGRATIONS.md` (all refreshed 2026-06-21).
-- **The concerns audit is the source of truth for this milestone's scope.** See `.planning/codebase/CONCERNS.md` for the full priority list with file paths and line numbers.
+- **Brownfield project.** v1.0 is live on GitHub Releases; `unstable` channel is in active field use. The codebase was mapped during the 2026-06-21 audit (architecture, stack, structure, concerns, conventions, testing, integrations); the GSD map under `.planning/codebase/` has since been removed and its summary consolidated into `.claude/CLAUDE.md`.
+- **The concerns audit is the source of truth for this milestone's scope.** The full priority list with file paths and line numbers came from that audit (formerly `.planning/codebase/CONCERNS.md`, now removed).
 - **The refactor target is already documented in code.** `OperateViewModel.kt` lines 66–81 enumerate the five controllers and what each owns — this milestone executes that plan rather than redesigning it.
 - **Existing test coverage** lives in `core/src/test/` (QsoMachine, QsoMessages, slot timing, DSP). `OperateViewModel` and `audio/UsbAudio*` are currently untested; this milestone changes that for the controllers extracted from `OperateViewModel`.
 - **Recent work** on the `readiness` branch (`cc8c805`, `c53ef77`) tightened the license-acknowledgment flow and dropped dummy-load wording — that hardening continues here.

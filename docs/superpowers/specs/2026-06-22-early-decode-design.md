@@ -186,12 +186,12 @@ Concrete walk-through for one slot with the toggle ON, a CQ landing at slot-rela
 
 Golden-trace replay (Phase 0 FOUND-06):
 
-- Run with `early_decode_enabled = false`: must produce byte-identical state-transition output to the **post-Phase-9 baseline** (`.planning/field-sessions/late-tx-<date>/`). This is the **PARITY-01 escape hatch is real** assertion for this phase.
+- Run with `early_decode_enabled = false`: must produce byte-identical state-transition output to the **post-Phase-9 baseline** (`docs/planning/field-sessions/late-tx-<date>/`). This is the **PARITY-01 escape hatch is real** assertion for this phase.
 - Run with `early_decode_enabled = true`: must also pass, under the additive tolerance — EARLY decodes appear in `_decodesOut` earlier than the FULL pass would have produced them, but **never** duplicate a key. The 100-slot duplicate-check subscriber asserts zero key collisions across the trace.
 
 ### Field verification (promotion-to-`main` gate)
 
-Recorded session on the reference FT-891 + Digirig under `.planning/field-sessions/early-decode-<date>/`:
+Recorded session on the reference FT-891 + Digirig under `docs/planning/field-sessions/early-decode-<date>/`:
 
 - **Mandatory:** At least one QSO completed where the auto-answer was triggered by an EARLY-pass decode (operator confirms by inspecting trace timestamps — auto-answer-armed timestamp falls between `slotStart + 12.0 s` and `slotStart + 15.0 s`)
 - **Mandatory:** Toggle OFF for one full QSO cycle, confirming v1.0 single-pass timing end-to-end
@@ -224,7 +224,7 @@ Recorded session on the reference FT-891 + Digirig under `.planning/field-sessio
 - Decode-pass duration instrumentation in `DecodeSlice` (no console logging)
 - Combined-feature integration test for the Phase-9 + Phase-10 hunt-and-pounce loop
 - Golden-trace parity test with toggle OFF and ON
-- On-air field session on the reference FT-891 + Digirig under `.planning/field-sessions/early-decode-<date>/`
+- On-air field session on the reference FT-891 + Digirig under `docs/planning/field-sessions/early-decode-<date>/`
 
 ### Out of scope
 
@@ -259,7 +259,7 @@ Recorded session on the reference FT-891 + Digirig under `.planning/field-sessio
 - [ ] Golden-trace replay against the post-Phase-9 baseline passes with zero diff when `early_decode_enabled = false`
 - [ ] Golden-trace replay passes with `early_decode_enabled = true` under the additive-tolerance contract (zero key collisions over 100 simulated slots)
 - [ ] Operate-tab recomposition count over one full slot cycle with EARLY-then-FULL update-in-place does not exceed the Phase 0 FOUND-08 baseline by more than 5 %
-- [ ] On-air session under `.planning/field-sessions/early-decode-<date>/` completes at least one QSO where the operator confirms the auto-answer fired on an EARLY-pass decode, plus one toggle-OFF QSO confirming v1.0 timing, plus one combined-feature QSO confirming the hunt-and-pounce loop end-to-end
+- [ ] On-air session under `docs/planning/field-sessions/early-decode-<date>/` completes at least one QSO where the operator confirms the auto-answer fired on an EARLY-pass decode, plus one toggle-OFF QSO confirming v1.0 timing, plus one combined-feature QSO confirming the hunt-and-pounce loop end-to-end
 
 ## Open questions for the implementation plan
 
@@ -274,4 +274,4 @@ These do not block the design but should be resolved during `writing-plans`:
 
 ## Migration note
 
-This design supersedes the GSD-format spec at [.planning/phases/10-early-decode/10-SPEC.md](../../../.planning/phases/10-early-decode/10-SPEC.md). The two are content-equivalent — same nine requirements, same locked decisions, same acceptance criteria — but this file is the source of truth going forward. The GSD spec should be marked superseded or removed before implementation begins, matching the precedent set by the [late-start-ft8-tx-design](2026-06-22-late-start-ft8-tx-design.md) → `.planning/phases/09-late-tx-ap-decode/09-SPEC.md` migration.
+This design is the source of truth for early-decode. It supersedes an earlier GSD-format spec (formerly at `.planning/phases/10-early-decode/10-SPEC.md`) that has since been removed along with the rest of the GSD `.planning/` tree — the two were content-equivalent (same nine requirements, locked decisions, and acceptance criteria).

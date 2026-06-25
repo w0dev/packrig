@@ -4,7 +4,7 @@
 **Researched:** 2026-06-21
 **Confidence:** HIGH for items that are direct extensions of CONCERNS.md + CONVENTIONS.md; MEDIUM for items drawn from general Android/Kotlin/coroutines field experience and ham-radio app norms.
 
-This file extends — does not duplicate — `.planning/codebase/CONCERNS.md`. Where CONCERNS already names a defect, this document names the *mistake we are likely to make while fixing it*.
+This file extends — does not duplicate — the v1.0 codebase concerns audit (formerly `.planning/codebase/CONCERNS.md`, since removed). Where that audit already names a defect, this document names the *mistake we are likely to make while fixing it*.
 
 ---
 
@@ -249,7 +249,7 @@ This file extends — does not duplicate — `.planning/codebase/CONCERNS.md`. W
 **Why it happens:** Manual checklists rot under deadline pressure, especially for "low-risk" phases. No automated enforcement of the gate.
 
 **How to avoid:**
-- **Promotion checklist as a committed file** (`.planning/promotion-checklist.md`) with explicit items, signed off via PR template checkbox.
+- **Promotion checklist as a committed file** (`docs/planning/promotion-checklist.md`) with explicit items, signed off via PR template checkbox.
 - Minimum field-session checklist (every promotion, no exceptions):
   - [ ] App boots cold on the reference device, claims the Digirig automatically.
   - [ ] CAT reads dial frequency within 2 s of opening Operate.
@@ -359,7 +359,7 @@ Run this before declaring any phase done:
 - [ ] **Slot parity:** No `Int` literal `0`/`1` appears for parity in this commit; only `TxSlotParity` enum.
 - [ ] **Manifest:** INTERNET permission removed (Phase 5); `usb_device_filter.xml` tightened (Phase 3 or 5).
 - [ ] **Promotion checklist** signed off in PR before merging to `unstable` for end-of-milestone (Pitfall 12).
-- [ ] **Field session** performed on FT-891 + Digirig with log/screenshots committed under `.planning/field-sessions/` before promoting to `main`.
+- [ ] **Field session** performed on FT-891 + Digirig with log/screenshots committed under `docs/planning/field-sessions/` before promoting to `main`.
 
 ---
 
@@ -405,10 +405,10 @@ Run this before declaring any phase done:
 
 ## Sources
 
-- `.planning/codebase/CONCERNS.md` (audit dated 2026-06-21) — the issues this document extends.
-- `.planning/codebase/TESTING.md` — test stack reality (JUnit 4, no mocking framework, pure-function bias).
-- `.planning/codebase/INTEGRATIONS.md` — hardware boundary (Digirig USB audio + CP2102 serial, FT-891 CAT).
-- `.planning/PROJECT.md` — Core Value ("rig still keys, decodes still arrive"), Constraints (behavior parity, real-rig gate), Out of Scope.
+- v1.0 codebase concerns audit (2026-06-21, formerly `.planning/codebase/CONCERNS.md`, since removed) — the issues this document extends.
+- Test stack reality (JUnit 4, no mocking framework, pure-function bias) — see `.claude/CLAUDE.md`.
+- Hardware boundary (Digirig USB audio + CP2102 serial, FT-891 CAT) — see `.claude/CLAUDE.md`.
+- `docs/planning/PROJECT.md` — Core Value ("rig still keys, decodes still arrive"), Constraints (behavior parity, real-rig gate), Out of Scope.
 - `OperateViewModel.kt` lines 66–81 — the controller split the developer pre-documented.
 - General Android/Kotlin field experience: cooperative cancellation semantics, USB driver behaviors across Android 9–14, Compose recomposition stability rules.
 - Amateur radio operator practice: defense-in-depth for PTT, idempotent unkey commands, license-gated TX.

@@ -1,6 +1,6 @@
 # recompose-baseline-PENDING — placeholder until FOUND-08 capture lands
 
-This directory is committed only so the recompose-baseline tree is visible in `.planning/field-sessions/` before any refactor phase begins. The actual baseline directory MUST be named `recompose-baseline-<YYYY-MM-DD>/` (UTC date of capture) — it replaces this placeholder.
+This directory is committed only so the recompose-baseline tree is visible in `docs/planning/field-sessions/` before any refactor phase begins. The actual baseline directory MUST be named `recompose-baseline-<YYYY-MM-DD>/` (UTC date of capture) — it replaces this placeholder.
 
 A `gate="blocking"` human-verify checkpoint in Phase 0 Plan 05 gates Phase 1 on the real baseline number being captured per the methodology in [`./METHODOLOGY.md`](./METHODOLOGY.md). Until the real directory is committed and `./baseline-number.txt` contains a valid integer, the Phase 1 (and every subsequent refactor phase) PR template **Recompose-Count Gate** checkbox cannot be honestly checked.
 

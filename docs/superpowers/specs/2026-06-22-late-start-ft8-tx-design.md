@@ -214,7 +214,7 @@ Golden-trace replay (Phase 0 FOUND-06):
 
 ### Field verification (promotion-to-`main` gate)
 
-Recorded session on the reference FT-891 + Digirig under `.planning/field-sessions/late-tx-<date>/`:
+Recorded session on the reference FT-891 + Digirig under `docs/planning/field-sessions/late-tx-<date>/`:
 
 - **Mandatory:** At least one QSO completed using late-TX, where the recorded trace shows `PTT keyed at slot-relative time t > 3.0 s` (measurable from trace timestamps, not operator self-report) **AND** the partner's next decode confirms our message was received and decoded
 - **Mandatory:** At least one tap at `t > 7.0 s` confirming the silent-queue-to-next-slot path fires correctly
@@ -271,7 +271,7 @@ Recorded session on the reference FT-891 + Digirig under `.planning/field-sessio
 - [ ] On-air session on the reference FT-891 + Digirig completes at least one QSO using late-TX (trace shows PTT keyed at `t > 3.0 s`) with partner-confirmed decode
 - [ ] On-air session demonstrates the silent-queue-past-cutoff path (tap at `t > 7.0 s`) and the floor path (tap at `t < 1.34 s`) and the toggle-OFF path each at least once
 - [ ] Operate-tab recomposition count over one full slot cycle does not exceed the Phase 0 FOUND-08 baseline at all
-- [ ] Session recorded under `.planning/field-sessions/late-tx-<date>/` and referenced in the PR
+- [ ] Session recorded under `docs/planning/field-sessions/late-tx-<date>/` and referenced in the PR
 
 ## Open questions for the implementation plan
 
@@ -284,4 +284,4 @@ These do not block the design but should be resolved during `writing-plans`:
 
 ## Migration note
 
-This design supersedes the GSD-format spec previously written at `.planning/phases/09-late-tx-ap-decode/09-SPEC.md`, which combined Late-TX with A-priori decoding. That spec should be removed (or marked superseded) before implementation begins.
+This design is the source of truth for Late-TX. It supersedes an earlier GSD-format spec (formerly at `.planning/phases/09-late-tx-ap-decode/09-SPEC.md`, which combined Late-TX with A-priori decoding) that has since been removed along with the rest of the GSD `.planning/` tree.

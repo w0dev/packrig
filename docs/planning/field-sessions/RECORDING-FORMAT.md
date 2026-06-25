@@ -79,7 +79,7 @@ The canonical synthetic trace at `app/src/test/resources/traces/cq-answer-73.jso
 
 5. **Convert raw logcat → JSONL** via the Converter Script below. Phase 1+ will wire a debug-build env-var (`FT8VC_FIELD_TRACE=1`) so the app emits JSONL directly; for Phase 0 this conversion is a one-shot scripted (or hand-authored) step.
 
-6. **Commit the baseline** under `.planning/field-sessions/baseline-<YYYY-MM-DD>/` with `trace.jsonl` + `README.md` (operator notes per `README.md` schema in this directory).
+6. **Commit the baseline** under `docs/planning/field-sessions/baseline-<YYYY-MM-DD>/` with `trace.jsonl` + `README.md` (operator notes per `README.md` schema in this directory).
 
 ## Converter Script
 

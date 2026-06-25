@@ -1456,7 +1456,7 @@ production code change — pure regression guard."
 **Files:** No code change. CI gate verification.
 
 **Interfaces:**
-- Consumes: existing golden-trace harness from Phase 0 FOUND-06 (search `.planning/field-sessions/` and `core/src/test` for the harness entry point — likely a `GoldenTraceTest`).
+- Consumes: existing golden-trace harness from Phase 0 FOUND-06 (search `docs/planning/field-sessions/` and `core/src/test` for the harness entry point — likely a `GoldenTraceTest`).
 
 - [ ] **Step 1: Locate the golden-trace test and CI workflow**
 
@@ -1501,8 +1501,8 @@ If no CI change is needed (the workflow already invokes the harness in a way tha
 ### Task 11: Field verification — promotion-to-`main` gate (manual)
 
 **Files:**
-- Create: `.planning/field-sessions/late-tx-<YYYY-MM-DD>/README.md` (manual operator step)
-- Create: `.planning/field-sessions/late-tx-<YYYY-MM-DD>/trace.jsonl` (captured by the operator on-rig)
+- Create: `docs/planning/field-sessions/late-tx-<YYYY-MM-DD>/README.md` (manual operator step)
+- Create: `docs/planning/field-sessions/late-tx-<YYYY-MM-DD>/trace.jsonl` (captured by the operator on-rig)
 
 **Interfaces:** None — this is a manual gate, not an automated task.
 
@@ -1527,12 +1527,12 @@ Cover all required path coverage:
 
 - [ ] **Step 3: Verify the recompose-baseline (Phase 0 FOUND-08) is not exceeded**
 
-During the session, capture an Operate-tab recompose count over one full slot cycle (per the FOUND-08 methodology under `.planning/field-sessions/recompose-baseline-*/METHODOLOGY.md`). Confirm it does **not exceed** the Phase 0 baseline at all (late-TX has zero new Compose surfaces).
+During the session, capture an Operate-tab recompose count over one full slot cycle (per the FOUND-08 methodology under `docs/planning/field-sessions/recompose-baseline-*/METHODOLOGY.md`). Confirm it does **not exceed** the Phase 0 baseline at all (late-TX has zero new Compose surfaces).
 
 - [ ] **Step 4: Commit the session artifact**
 
 ```bash
-git add .planning/field-sessions/late-tx-$(date +%Y-%m-%d)/
+git add docs/planning/field-sessions/late-tx-$(date +%Y-%m-%d)/
 git commit -m "field-session: late-TX on-air verification on FT-891 + Digirig
 
 All four path-coverage gates passed: late-TX (t > 3.0s), past-cutoff

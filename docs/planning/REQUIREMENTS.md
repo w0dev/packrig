@@ -3,7 +3,7 @@
 **Defined:** 2026-06-21
 **Core Value:** The rig still keys, decodes still arrive, and QSOs still complete on a real FT-891 + Digirig in the field — every change in this milestone must preserve that.
 
-All v1 requirements below derive from `.planning/codebase/CONCERNS.md`, the research in `.planning/research/`, and the questioning answers captured in `.planning/PROJECT.md`. Each requirement carries a back-reference to its source feature (`TS-*` / `D-*` in `research/FEATURES.md`) or codebase concern.
+All v1 requirements below derive from the v1.0 codebase concerns audit, the milestone research, and the questioning answers captured in `docs/planning/PROJECT.md`. (The GSD `.planning/codebase/` and `.planning/research/` sources have since been removed.) Each requirement carries a back-reference to its source feature (`TS-*` / `D-*`) or codebase concern.
 
 ## v1 Requirements
 
@@ -11,13 +11,13 @@ All v1 requirements below derive from `.planning/codebase/CONCERNS.md`, the rese
 
 Pre-refactor scaffolding. These exist before any controller moves so that subsequent phases have parity tooling and a working test harness.
 
-- [ ] **FOUND-01**: Project commits a `.planning/promotion-checklist.md` listing the field-session checks every `unstable → main` promotion must satisfy (cold boot, CAT read, 5 decodes in 3 slots, PTT key/release on both modes, dummy-load QSO cycle, mid-RX disconnect snackbar, relaunch with no PTT-stuck) (D-6, PITFALLS Pitfall 12)
+- [ ] **FOUND-01**: Project commits a `docs/planning/promotion-checklist.md` listing the field-session checks every `unstable → main` promotion must satisfy (cold boot, CAT read, 5 decodes in 3 slots, PTT key/release on both modes, dummy-load QSO cycle, mid-RX disconnect snackbar, relaunch with no PTT-stuck) (D-6, PITFALLS Pitfall 12)
 - [ ] **FOUND-02**: PR template adds a "Promotion checklist signed off" checkbox referencing the above file, and an "RF-irrelevant skip" justification line for the rare phase that genuinely cannot affect RF (D-6, PITFALLS Pitfall 12)
 - [ ] **FOUND-03**: Project ships a `FakeRigBackend` test fake at the same interface boundary as `DigirigRigBackend`, supporting `simulateDetach()` mid-call, configurable CAT response delay, configurable timeout-then-error, and configurable PTT-state observation (D-3, PITFALLS Pitfalls 5, 10)
 - [ ] **FOUND-04**: Project ships a `FakeUsbAudio` test fake at the same boundary as `UsbAudioCapture`/`UsbAudioPlayback`, supporting injectable PCM frames, configurable zero-sample return, and simulated device removal (D-3, PITFALLS Pitfall 8)
 - [ ] **FOUND-05**: Project ships a `Ft8DecoderFake` (or equivalent test seam) so controller tests can run without loading `libft8vc.so` on the JVM (D-3, PITFALLS Pitfall 5)
 - [ ] **FOUND-06**: Project ships a golden-trace test harness that replays a recorded decode sequence through real domain types (`QsoMachine`, `SlotCollector`, `QsoMessages`, `TxSlotParity`) and asserts on the resulting QSO state transitions (D-3, PITFALLS Pitfalls 5, 10)
-- [ ] **FOUND-07**: Project captures a behavior-parity baseline under `.planning/field-sessions/baseline-<date>/` — a 5-minute decode/TX session log from the reference FT-891 + Digirig rig (UTC timestamps, slot indices, dial freq, PTT edges) — committed before any controller extraction begins (D-4, PITFALLS Pitfall 1)
+- [ ] **FOUND-07**: Project captures a behavior-parity baseline under `docs/planning/field-sessions/baseline-<date>/` — a 5-minute decode/TX session log from the reference FT-891 + Digirig rig (UTC timestamps, slot indices, dial freq, PTT edges) — committed before any controller extraction begins (D-4, PITFALLS Pitfall 1)
 - [ ] **FOUND-08**: Project records a Compose recomposition-count baseline for the Operate tab over one full slot cycle, captured pre-refactor and re-captured at the end of each refactor phase; documented in the promotion checklist (D-5, PITFALLS Pitfall 6)
 
 ### Refactor (Controller Split + Coroutine Migration)
@@ -92,7 +92,7 @@ Tests are a hard deliverable, not aspirational. Coverage shape is "every transit
 - [ ] **TEST-04**: `QsoSessionController` has unit tests on `qsoDispatcher`; covers the invariants the old `qsoLock` enforced (REFACTOR-04), rapid start/stop, and decode-during-TX-slot ordering (PITFALLS Pitfalls 5, 7)
 - [ ] **TEST-05**: `TxOrchestrator` has unit tests covering all four PTT-safety layers (SAFETY-01..04) AND a "throw inside playback callback" scenario; PTT confirmed released in every failure path; tests exercise the watchdog directly (PITFALLS Pitfall 3)
 - [ ] **TEST-06**: Golden-trace test (FOUND-06) is wired into CI and runs on every commit (PITFALLS Pitfalls 5, 10)
-- [ ] **TEST-07**: A "rapid restart" smoke test (start-stop x 10 in 5 s) is included in the manual promotion checklist (FOUND-01) and documented in `.planning/promotion-checklist.md` (PITFALLS Pitfall 2)
+- [ ] **TEST-07**: A "rapid restart" smoke test (start-stop x 10 in 5 s) is included in the manual promotion checklist (FOUND-01) and documented in `docs/planning/promotion-checklist.md` (PITFALLS Pitfall 2)
 - [ ] **TEST-08**: A "cable wiggle" recovery test (detach-then-reattach within 1 slot) is included in the manual promotion checklist (PITFALLS Pitfall 8)
 
 ### Cross-Cutting (Behavior Parity)
@@ -100,7 +100,7 @@ Tests are a hard deliverable, not aspirational. Coverage shape is "every transit
 The non-negotiable bar that every phase must clear before promotion.
 
 - [ ] **PARITY-01**: After every phase, the behavior-parity replay (FOUND-07) passes against the recorded baseline — RX/TX/CAT/QSO behavior is byte-equivalent to v1.0 on the reference rig (PITFALLS Pitfall 1)
-- [ ] **PARITY-02**: Before any promotion from `unstable` to `main`, the full promotion checklist (FOUND-01) is signed off in the PR, with field-session evidence (log or screenshot) committed under `.planning/field-sessions/<date>/` (D-6, PITFALLS Pitfall 12)
+- [ ] **PARITY-02**: Before any promotion from `unstable` to `main`, the full promotion checklist (FOUND-01) is signed off in the PR, with field-session evidence (log or screenshot) committed under `docs/planning/field-sessions/<date>/` (D-6, PITFALLS Pitfall 12)
 - [ ] **PARITY-03**: No phase introduces user-visible behavior changes outside those explicitly enumerated in this REQUIREMENTS.md (CAT timeout chip, USB disconnect snackbar/chip, TX-safety snackbar/chip, decode-counter chip, decode-list cap indicator + Clear button, Settings → About decoder row, Settings → Logbook backup row); any new UX must surface inline via snackbars, chips, or existing Settings rows — no new top-level screens or tabs (PROJECT.md Constraints; PITFALLS AF-1, AF-4)
 
 ## v2 Requirements
