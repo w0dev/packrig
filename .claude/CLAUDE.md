@@ -374,19 +374,39 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
 <!-- GSD:skills-end -->
 
+<!-- SUPERPOWERS:workflow-start -->
+
+## Primary Workflow: Superpowers
+
+This project uses the **superpowers** skills as the primary working methodology.
+This section takes precedence over any GSD enforcement block below.
+
+- **New work** (features, components, behavior changes): start with
+  `superpowers:brainstorming` → `superpowers:writing-plans` → execute the plan.
+- **Bugs / unexpected behavior**: start with `superpowers:systematic-debugging`.
+- **Implementing a feature or fix**: use `superpowers:test-driven-development`
+  (write the failing test first).
+- **Finishing work**: `superpowers:verification-before-completion` before
+  claiming anything is done, then `superpowers:finishing-a-development-branch`.
+- Planning artifacts live under `docs/superpowers/` (specs, plans, reports).
+
+Direct edits are fine when they flow from a superpowers skill (e.g. executing a
+written plan). GSD commands remain available on explicit request, but are no
+longer mandatory and do not gate file edits.
+<!-- SUPERPOWERS:workflow-end -->
+
 <!-- GSD:workflow-start source:GSD defaults -->
 
-## GSD Workflow Enforcement
+## GSD Workflow (optional — superseded by Superpowers above)
 
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
+GSD commands are available when explicitly invoked, but are not required.
+The Superpowers workflow above is the default and governs how work starts.
 
-Use these entry points:
+Optional entry points, when you choose to use them:
 
 - `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
 - `/gsd-debug` for investigation and bug fixing
 - `/gsd-execute-phase` for planned phase work
-
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
 <!-- GSD:workflow-end -->
 
 <!-- GSD:profile-start -->
