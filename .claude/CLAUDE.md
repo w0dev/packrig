@@ -1,4 +1,3 @@
-<!-- GSD:project-start source:PROJECT.md -->
 
 ## Project
 
@@ -17,9 +16,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 - **Behavior parity**: RX/TX/CAT/QSO behavior must be byte-equivalent to v1.0 on the reference rig. UX deltas are allowed (CAT timeout status, USB disconnect snackbar, decode counter, ADIF auto-export), but they must not crowd or claim main-screen real estate.
 - **License gate**: TX stays gated behind license acknowledgment; nothing in the refactor weakens the receive-only default.
 
-<!-- GSD:project-end -->
 
-<!-- GSD:stack-start source:codebase/STACK.md -->
 
 ## Technology Stack
 
@@ -98,9 +95,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 - x86_64 (emulator and some tablets)
 - 16 KB page size alignment (Android 15+ / Pixel emulators)
 
-<!-- GSD:stack-end -->
 
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
 
 ## Conventions
 
@@ -213,9 +208,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 
 ## Sealed Types and ADTs
 
-<!-- GSD:conventions-end -->
 
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
 
 ## Architecture
 
@@ -365,21 +358,15 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 
 ## Cross-Cutting Concerns
 
-<!-- GSD:architecture-end -->
 
-<!-- GSD:skills-start source:skills/ -->
 
 ## Project Skills
 
 No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
-<!-- GSD:skills-end -->
-
-<!-- SUPERPOWERS:workflow-start -->
 
 ## Primary Workflow: Superpowers
 
-This project uses the **superpowers** skills as the primary working methodology.
-This section takes precedence over any GSD enforcement block below.
+This project uses the **superpowers** skills as the working methodology.
 
 - **New work** (features, components, behavior changes): start with
   `superpowers:brainstorming` → `superpowers:writing-plans` → execute the plan.
@@ -389,30 +376,3 @@ This section takes precedence over any GSD enforcement block below.
 - **Finishing work**: `superpowers:verification-before-completion` before
   claiming anything is done, then `superpowers:finishing-a-development-branch`.
 - Planning artifacts live under `docs/superpowers/` (specs, plans, reports).
-
-Direct edits are fine when they flow from a superpowers skill (e.g. executing a
-written plan). GSD commands remain available on explicit request, but are no
-longer mandatory and do not gate file edits.
-<!-- SUPERPOWERS:workflow-end -->
-
-<!-- GSD:workflow-start source:GSD defaults -->
-
-## GSD Workflow (optional — superseded by Superpowers above)
-
-GSD commands are available when explicitly invoked, but are not required.
-The Superpowers workflow above is the default and governs how work starts.
-
-Optional entry points, when you choose to use them:
-
-- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd-debug` for investigation and bug fixing
-- `/gsd-execute-phase` for planned phase work
-<!-- GSD:workflow-end -->
-
-<!-- GSD:profile-start -->
-
-## Developer Profile
-
-> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
