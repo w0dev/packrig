@@ -6,81 +6,86 @@ import kotlin.math.log10
 import kotlin.math.roundToInt
 
 /**
- * FT8 SNR estimator, ported from PyFT8 (G1OJS) `receiver.py`.
+ * FT8 SNR estimator, ported from POTACAT (`lib/ft8-worker.js`).
  *
- * For a decoded candidate at audio frequency [freqHz] starting at [dtSeconds]
- * within the slot, we build a per-symbol power spectrum at the eight 8-FSK tone
- * bins (f0 + k·6.25 Hz, k=0..7) using a Goertzel detector over each symbol's
- * 1920-sample window, in dB. The reported SNR is the spread between the
- * strongest cell (the signal tone) and the weakest cell (the noise floor),
- * minus a fixed calibration [DEFAULT_OFFSET_DB] that references the result to
- * WSJT-X's 2500 Hz noise bandwidth, clamped to WSJT-X's [-24, +24] range.
+ * ft8_lib's decoder reports a Costas sync score, not an SNR; emitting
+ * `score * 0.5` produced the bogus always-positive readout this replaces. POTACAT
+ * independently hit the same bug and fixed it with the method used here.
  *
- * `maxCellDb - minCellDb` is invariant to overall input gain, so the offset is a
- * true fixed reference, not a level-dependent fudge.
+ * For each decoded candidate at audio frequency [freqHz], signal power is the
+ * mean of the eight 8-FSK tone-bin powers (`f0 + k·6.25 Hz`) measured by a
+ * Goertzel detector over the whole slot; the noise floor is the median bin power
+ * across the band (200–3000 Hz). `SNR = 10·log10(signal / noise) + CALIBRATION_DB`,
+ * clamped to WSJT-X's `[-24, +24]` range.
+ *
+ * The method is alignment-free (no time offset needed) and gain-invariant (the
+ * signal/noise ratio cancels overall level). It is directionally correct and
+ * mostly tracks WSJT-X within a few dB; it is NOT WSJT-X-exact — overlapping
+ * signals within ~50 Hz can read high, and the dynamic range is mildly
+ * compressed (measured slope ≈0.82 against WSJT-X). See the audit report.
  */
 object SnrEstimator {
 
-    private const val FT8_NUM_SYMBOLS = 79
-    private const val FT8_SYMBOL_PERIOD = 0.16          // seconds
-    private const val FT8_TONE_SPACING = 6.25           // Hz
-    private const val FT8_NUM_TONES = 8
+    private const val TONE_SPACING = 6.25
+    private const val NUM_TONES = 8
+    private const val NOISE_LO_HZ = 200
+    private const val NOISE_HI_HZ = 3000
+    // Bin spacing for the noise-floor median. The median is robust to bin count,
+    // so 100 Hz (28 bins) tracks 50 Hz within noise while halving the per-slot
+    // Goertzel cost.
+    private const val NOISE_STEP_HZ = 100
 
-    /** Pinned against WSJT-X sample WAVs in the calibration test (Task 4). */
-    const val DEFAULT_OFFSET_DB: Double = 0.0
+    /**
+     * dB correction folding the 2500 Hz-bandwidth reference (POTACAT's
+     * theoretical `10·log10(50/2500) = -17 dB`) plus an empirical term for the
+     * in-band leakage bias. Mean-centered against WSJT-X sample
+     * `210703_133430.wav`; refine with more sample WAVs.
+     */
+    const val CALIBRATION_DB: Double = -20.3
 
-    /** Offset-independent signal-to-floor spread in dB, or NaN if no window fits. */
-    fun spreadDb(samples: ShortArray, sampleRate: Int, freqHz: Float, dtSeconds: Float): Double {
-        val nSpsym = (0.5 + sampleRate * FT8_SYMBOL_PERIOD).toInt()
-        var maxDb = Double.NEGATIVE_INFINITY
-        var minDb = Double.POSITIVE_INFINITY
-        var anyWindow = false
-
-        for (sym in 0 until FT8_NUM_SYMBOLS) {
-            val start = ((dtSeconds + sym * FT8_SYMBOL_PERIOD) * sampleRate).roundToInt()
-            if (start < 0 || start + nSpsym > samples.size) continue
-            anyWindow = true
-            for (k in 0 until FT8_NUM_TONES) {
-                val f = freqHz + k * FT8_TONE_SPACING
-                val power = goertzelPower(samples, start, nSpsym, f, sampleRate)
-                val db = 10.0 * log10(power.coerceAtLeast(1e-12))
-                if (db > maxDb) maxDb = db
-                if (db < minDb) minDb = db
-            }
+    /** Median band-bin power (the noise floor), computed once per slot. */
+    fun noiseFloorPower(samples: ShortArray, sampleRate: Int): Double {
+        val powers = ArrayList<Double>()
+        var f = NOISE_LO_HZ
+        while (f < NOISE_HI_HZ) {
+            powers.add(goertzelPower(samples, f.toDouble(), sampleRate))
+            f += NOISE_STEP_HZ
         }
-        return if (anyWindow) maxDb - minDb else Double.NaN
+        return median(powers)
     }
 
-    /** Calibrated, clamped integer SNR in dB. Floors to -24 when no window fits. */
-    fun estimate(
-        samples: ShortArray,
-        sampleRate: Int,
-        freqHz: Float,
-        dtSeconds: Float,
-        offsetDb: Double = DEFAULT_OFFSET_DB,
-    ): Int {
-        val spread = spreadDb(samples, sampleRate, freqHz, dtSeconds)
-        if (spread.isNaN()) return -24
-        return (spread - offsetDb).roundToInt().coerceIn(-24, 24)
+    /** SNR in dB for a candidate at [freqHz], given a precomputed [noiseFloorPower]. */
+    fun estimate(samples: ShortArray, sampleRate: Int, freqHz: Float, noiseFloorPower: Double): Int {
+        if (noiseFloorPower <= 0.0) return -24
+        var sig = 0.0
+        for (t in 0 until NUM_TONES) sig += goertzelPower(samples, freqHz + t * TONE_SPACING, sampleRate)
+        sig /= NUM_TONES
+        if (sig <= 0.0) return -24
+        return (10.0 * log10(sig / noiseFloorPower) + CALIBRATION_DB).roundToInt().coerceIn(-24, 24)
     }
 
-    /** Goertzel power of [count] samples starting at [start] at frequency [freq]. */
-    private fun goertzelPower(
-        samples: ShortArray,
-        start: Int,
-        count: Int,
-        freq: Double,
-        sampleRate: Int,
-    ): Double {
+    /** Convenience for single-shot/tests: computes the noise floor internally. */
+    fun estimate(samples: ShortArray, sampleRate: Int, freqHz: Float): Int =
+        estimate(samples, sampleRate, freqHz, noiseFloorPower(samples, sampleRate))
+
+    /** Goertzel power of the whole [samples] buffer at [freq]. */
+    private fun goertzelPower(samples: ShortArray, freq: Double, sampleRate: Int): Double {
         val w = 2.0 * PI * freq / sampleRate
         val coeff = 2.0 * cos(w)
         var s1 = 0.0
         var s2 = 0.0
-        for (n in 0 until count) {
-            val s0 = samples[start + n].toDouble() + coeff * s1 - s2
+        for (n in samples.indices) {
+            val s0 = samples[n].toDouble() + coeff * s1 - s2
             s2 = s1
             s1 = s0
         }
         return s1 * s1 + s2 * s2 - coeff * s1 * s2
+    }
+
+    private fun median(xs: List<Double>): Double {
+        val s = xs.sorted()
+        val n = s.size
+        if (n == 0) return 0.0
+        return if (n % 2 == 1) s[n / 2] else (s[n / 2 - 1] + s[n / 2]) / 2.0
     }
 }

@@ -25,7 +25,7 @@ class DecodeControllerSnrTest {
 
         val corrected = DecodeController.withRecomputedSnr(decoderOut, samples, rate)
 
-        val expected = SnrEstimator.estimate(samples, rate, 1000f, 0f)
+        val expected = SnrEstimator.estimate(samples, rate, 1000f)
         assertEquals(expected, corrected.single().snr)
         // Other fields preserved.
         assertEquals("CQ K1ABC FN42", corrected.single().message)

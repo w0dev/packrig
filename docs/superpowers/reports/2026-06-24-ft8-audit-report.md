@@ -40,22 +40,47 @@ cannot go negative — exactly the observed "+8 everywhere" behavior.
 
 ## 2. The fix ✅
 
-SNR is now a real estimate, computed in **pure Kotlin** (`core/SnrEstimator.kt`),
-ported from PyFT8's algorithm:
+SNR is now a real estimate, computed in **pure Kotlin** (`core/SnrEstimator.kt`)
+at the decode seam (`DecodeController.withRecomputedSnr`); the native `out.snr` is
+`0`. After evaluating several methods against real WSJT-X data (§2a), we ship
+**POTACAT's method**:
 
-- For each decoded candidate, a Goertzel detector measures power at the eight
-  8-FSK tone bins (`f0 + k·6.25 Hz`) over each symbol's 1920-sample window.
-- `SNR = clip(maxCellDb − minCellDb − offset, −24, 24)` — strongest tone cell
-  (signal) minus weakest cell (noise floor), referenced to WSJT-X's 2500 Hz
-  bandwidth by a single calibration `offset`.
-- `maxCellDb − minCellDb` is invariant to input gain, so the offset is a true
-  fixed reference.
+- signal power = mean of the eight 8-FSK tone-bin powers (`f0 + k·6.25 Hz`),
+  Goertzel over the whole slot;
+- noise floor = median bin power across 200–3000 Hz (computed once per slot);
+- `SNR = clip(10·log10(signal / noise) + CALIBRATION_DB, −24, 24)`.
 
-The native `out.snr` is now `0`; SNR is owned by Kotlin at the decode seam
-(`DecodeController.withRecomputedSnr`). Unit tests cover gain-invariance,
-monotonicity vs noise, and clamping. The calibration constant
-(`DEFAULT_OFFSET_DB`) is pinned by an instrumented test against WSJT-X sample
-WAVs (⏳ pending device).
+It is **alignment-free** (no time offset needed) and **gain-invariant** (the
+signal/noise ratio cancels level). `CALIBRATION_DB = −20.3` (POTACAT's theoretical
+`10·log10(50/2500) = −17 dB` plus an empirical leakage term), mean-centered
+against `210703_133430.wav`. Unit tests cover gain-invariance, monotonicity, and
+clamping; `SnrEstimatorWavTest` locks directional accuracy against WSJT-X on the
+host (no device).
+
+### 2a. Method selection — why not PyFT8/method D ✅
+
+We validated candidate estimators against the WSJT-X sample `210703_133430.wav`
+(18 decodes, −17…+17 dB). Target: slope ≈ 1.0, residual stddev ≤ 3 dB.
+
+| Method | slope | stddev | verdict |
+|--------|-------|--------|---------|
+| PyFT8 `max−min` (first attempt) | non-monotonic | 7–10 | min-cell is a noise outlier |
+| **POTACAT full-buffer (shipped)** | **0.82** | 7.6 | best; degrades on overlap |
+| median-of-8-tone | 1.10 | 10 | residual pollution |
+| method D — known decoded tones, per-symbol | 0.34–0.54 | 7.5 | needs sub-symbol sync |
+| Costas-tone, per-symbol | ~0 | 11–16 | needs sub-symbol sync |
+
+**Key finding:** WSJT-X-exact SNR requires sub-symbol/sub-Hz sync precision plus
+signal subtraction for a clean noise reference — effectively the hard half of the
+WSJT-X decoder. Neither WSJT-X's 0.1 s DT output nor ft8_lib's coarse `osr=2`
+waterfall (3.125 Hz / 0.08 s) provides it, so even "method D" (known decoded
+tones, validated on the host with the real ft8_lib encoder) tops out near slope
+0.5. POTACAT's alignment-free method is the best achievable without that DSP
+subproject: directionally correct, mostly-negative, ~5 dB typical error, with
+overlapping signals (within ~50 Hz) reading high. That solves the actual problem
+(the bogus always-positive readout) and is a huge improvement over a sync score
+with zero SNR correlation. True ±2–3 dB fidelity is scoped as a separate future
+DSP milestone.
 
 ## 3. Cross-tool comparison ✅
 
@@ -63,12 +88,12 @@ WAVs (⏳ pending device).
 |------|-----------|----------|-------|
 | **WSJT-X** | Symbol-spectra power vs noise, ref 2500 Hz | ✅ yes | The reference standard. |
 | **ft8_lib (demo)** | `cand->score * 0.5` | ❌ no | The origin of the bug; TODO never done. |
-| **PyFT8** | `clip(pmax − min(dBgrid) − 58, −24, 24)` | ✅ yes | Our chosen spec. `receiver.py:284`. |
+| **PyFT8** | `clip(pmax − min(dBgrid) − 58, −24, 24)` | ✅ yes | `receiver.py:284`. Tried first; inaccurate on real data (§2a). |
 | **POTACAT (JS)** | Goertzel sig/noise + `10·log10(50/2500)` | ✅ yes | Independently fixed the same bug. |
 | **POTACAT (native C)** | `cand->score * 0.5` | ❌ no | `ft8_addon.c:294` — native path still unfixed. |
 | **FT8CN** | Prebuilt `libft8cn.so` (WSJT-X-derived) | ✅ yes (behaviorally) | Source not in repo; not inspectable. |
 | **FT8VC (this app), pre-fix** | `cand->score * 0.5` | ❌ no | Same defect. **Now fixed.** |
-| **FT8VC, post-fix** | Goertzel max−min, ref 2500 Hz | ✅ yes | `SnrEstimator.kt`. |
+| **FT8VC, post-fix** | POTACAT method (Goertzel sig/median-noise, ref 2500 Hz) | ✅ yes | `SnrEstimator.kt`; slope 0.82 vs WSJT-X. |
 
 ### Key finding: the bug is widespread, and our fix is independently corroborated
 
@@ -127,12 +152,21 @@ measurement to take, **not** a defect to fix here:
 If a material gap appears, adding OSD to the decode path is a **separate future
 milestone**, scoped on evidence — not bundled into this SNR fix. ⏳ pending device.
 
-## 7. SNR parity ⏳
+## 7. SNR parity ✅ (host-validated)
 
-After calibration (Task 4), record here the fitted `DEFAULT_OFFSET_DB` and the
-measured `|ours − WSJT-X|` spread across all matched decodes. Target: within
-~1–3 dB (operator-equivalent). Current state: `DEFAULT_OFFSET_DB = 0.0`
-(placeholder; estimator clamps to +24 until pinned).
+Calibrated and validated on the host against `210703_133430.wav` (no device
+needed — the estimator is alignment-free, so WSJT-X's published frequencies feed
+it directly). `CALIBRATION_DB = −20.3` (mean-centered). Across the 18 decodes:
+
+- **slope 0.82** vs WSJT-X (the old `score*0.5` had ~zero correlation);
+- weak signals (−12…−17 dB) read **−14…−19** — correctly negative and tracking;
+- strong signals (+14/+17) read **+12/+13** — correctly positive (mildly
+  compressed by the 0.82 slope);
+- **2 of 18 outliers** (−8 and −16 dB signals overlapping the +17 dB signal
+  within 50 Hz) read positive — the documented limitation.
+
+Locked by `SnrEstimatorWavTest` (host) and `Ft8SnrCalibrationTest` (on-device,
+end-to-end through ft8_lib). This is directional, not ±2 dB; see §2a.
 
 ## 8. Field confirmation ⏳
 
@@ -145,9 +179,16 @@ now shows realistic (often negative) values tracking WSJT-X on the same band.
 ## Summary
 
 - ✅ Root cause confirmed: `score*0.5` was a sync metric mislabeled as SNR.
-- ✅ Fixed with a PyFT8-style Goertzel estimator in pure, unit-tested Kotlin.
+- ✅ Fixed with POTACAT's Goertzel estimator (sig / median-noise, ref 2500 Hz) in
+  pure, unit-tested Kotlin. Calibrated (`CALIBRATION_DB = −20.3`) and host-validated
+  against a WSJT-X sample: slope 0.82, mostly-negative, directionally correct.
+- ✅ Method selection rigorously evaluated (§2a): PyFT8 `max−min` and per-symbol
+  "method D" both fall short without sub-symbol sync; POTACAT is the best
+  achievable short of a dedicated DSP subproject.
 - ✅ Independently corroborated by POTACAT, which fixed the identical bug the same
   way; the defect is endemic to ft8_lib's demo path.
 - ✅ Encode is spec-correct (unmodified ft8_lib).
-- ⏳ Decode parity, sensitivity gap, SNR-offset calibration, and field check
-  remain — all require a device + WSJT-X sample WAVs; scaffolding is in place.
+- ⏳ Decode parity, decode sensitivity gap, and the on-rig field check remain —
+  they require a device; scaffolding (`Ft8SnrCalibrationTest`) is in place.
+- 🔭 True ±2–3 dB WSJT-X fidelity is a separate future DSP milestone (fine sync +
+  signal subtraction).

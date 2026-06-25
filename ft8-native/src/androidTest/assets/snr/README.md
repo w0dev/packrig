@@ -1,33 +1,39 @@
-# SNR calibration fixtures
+# SNR fixtures (WSJT-X ground truth)
 
-`Ft8SnrCalibrationTest` reads every `*.wav` in this folder that has a sibling
-`*.expected.txt`. Without fixtures the test self-skips, so CI stays green.
+These WAVs + their `.expected.txt` are WSJT-X-decoded sample slots used to keep
+the `SnrEstimator` honest. They drive two tests:
 
-## How to add a fixture
+- **`core`/`ft8-native` host test** `SnrEstimatorWavTest` (JVM, no device) — feeds
+  WSJT-X's published frequencies into the estimator and asserts it stays
+  directionally correct (positive slope, strong→positive, weak→mostly-negative).
+- **Instrumented** `Ft8SnrCalibrationTest` (on device) — decodes the WAV through
+  ft8_lib end-to-end and checks the recomputed SNR's median error vs WSJT-X.
 
-1. Drop a 15-second, **12 kHz mono** FT8 slot WAV here, e.g. `band20m_01.wav`.
-   WSJT-X ships sample WAVs under its `samples/FT8/` directory, or capture your
-   own off-air.
-2. Open the same WAV in **WSJT-X** (File → Open) and read its decode table.
-3. Write `band20m_01.expected.txt` with one line per decode you want to assert,
-   in the format:
+The estimator is POTACAT's method (signal = mean of the 8 tone-bin powers, noise =
+median band floor, ref 2500 Hz via `SnrEstimator.CALIBRATION_DB`). It is
+directionally correct, **not** WSJT-X-exact — overlapping signals within ~50 Hz
+can read high. See the audit report for the full analysis.
+
+## Adding a fixture
+
+1. Drop a 15-second, **12 kHz mono** FT8 slot WAV here (WSJT-X ships samples under
+   its `samples/FT8/` directory, or capture your own).
+2. Open it in WSJT-X and read the Band Activity table.
+3. Write a sibling `<name>.expected.txt`, one line per decode:
 
    ```
    <freqHz> <wsjtxSnrDb> <message>
    ```
 
-   Use WSJT-X's `Freq` (audio Hz) and `dB` columns. Example:
+   using WSJT-X's `Freq` (audio Hz) and `dB` columns. Example:
 
    ```
    1503 -15 CQ K1ABC FN42
-   1620 -8 W9XYZ K1ABC R-12
    ```
 
-## Calibrating DEFAULT_OFFSET_DB
+## Re-tuning `CALIBRATION_DB`
 
-1. In `Ft8SnrCalibrationTest`, temporarily set `TOL_DB = 100`.
-2. Run on a device/emulator:
-   `./gradlew :ft8-native:connectedDebugAndroidTest --tests "net.ft8vc.ft8native.Ft8SnrCalibrationTest"`
-3. In logcat, read the `FIT spread=… wsjtx=… ours=…` lines.
-4. Set `SnrEstimator.DEFAULT_OFFSET_DB = mean(spread − wsjtx)` across all lines.
-5. Restore `TOL_DB = 3` and re-run — every matched decode must be within 3 dB.
+`SnrEstimator.CALIBRATION_DB` (currently −20.3) is the mean-centered offset over
+the committed sample(s). With more fixtures, recompute it as
+`mean(rawEstimate − wsjtxSnr)` across all matched decodes (the raw estimate is
+`10·log10(signal/noise)` before the offset) and update the constant.

@@ -65,9 +65,9 @@ class DecodeControllerEarlyDedupTest {
             controller.decodesOut.toList(emitted)
         }
 
-        // Distinct tones per pass so the row's recomputed SNR differs between
-        // passes — the early row is weak/noisy, the full pass is strong/clean.
-        val earlySamples = tone(1500.0, amp = 0.15, noise = 0.08, length = 115_200)
+        // Distinct content per pass so the row's recomputed SNR differs between
+        // passes — early is pure noise (floors low), the full pass is a strong tone.
+        val earlySamples = tone(1500.0, amp = 0.0, noise = 0.1, length = 115_200)
         val fullSamples = tone(1500.4, amp = 0.8, noise = 0.01, length = 180_000)
         controller.decodeSlot(earlySamples, slotStart, source = DecodePassSource.Early)
         controller.decodeSlot(fullSamples, slotStart, source = DecodePassSource.Full)
@@ -81,16 +81,13 @@ class DecodeControllerEarlyDedupTest {
         assertEquals(allMessages.size, allMessages.distinct().size)
 
         // Full pass updated the early row in place: its SNR is recomputed from the
-        // FULL-pass samples at the full result's freq.
+        // FULL-pass samples at the full result's freq, and differs from the early one
+        // (full pass is the stronger/cleaner signal).
         val updated = controller.slice.value.decodes.first { it.message == "CQ K1ABC FN42" }
-        val expectedFull = SnrEstimator.estimate(fullSamples, 12_000, 1500.4f, 0f)
+        val expectedFull = SnrEstimator.estimate(fullSamples, 12_000, 1500.4f)
+        val expectedEarly = SnrEstimator.estimate(earlySamples, 12_000, 1500.0f)
         assertEquals(expectedFull, updated.snr)
-        // The two passes are genuinely different signals (full is stronger), so the
-        // update is observable once DEFAULT_OFFSET_DB is calibrated (Task 4). The
-        // offset-independent spread distinguishes them even while estimate() clamps.
-        val spreadEarly = SnrEstimator.spreadDb(earlySamples, 12_000, 1500.0f, 0f)
-        val spreadFull = SnrEstimator.spreadDb(fullSamples, 12_000, 1500.4f, 0f)
-        assertNotEquals("full pass must be a different (stronger) signal", spreadEarly, spreadFull, 0.5)
+        assertNotEquals("full-pass update must change the row's SNR", expectedEarly, expectedFull)
 
         collectJob.cancel()
         controller.close()

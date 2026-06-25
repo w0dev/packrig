@@ -412,7 +412,7 @@ class EarlyDecodeLateTxIntegrationTest {
         val dxRow = slice.decodes.firstOrNull { it.message == DX_CQ_MESSAGE }
         // SNR is recomputed from the FULL-pass samples at the full result's freq,
         // confirming the later pass refreshed the row in place.
-        val expectedFullSnr = SnrEstimator.estimate(fullSamples, 12_000, 1500.3f, 0f)
+        val expectedFullSnr = SnrEstimator.estimate(fullSamples, 12_000, 1500.3f)
         assertEquals(
             "K1ABC's row SNR must be updated to the FULL-pass recomputed value",
             expectedFullSnr,

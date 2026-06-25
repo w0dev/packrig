@@ -387,10 +387,14 @@ class DecodeController(
             results: Array<net.ft8vc.ft8native.Ft8DecodeResult>,
             samples: ShortArray,
             sampleRate: Int,
-        ): List<net.ft8vc.ft8native.Ft8DecodeResult> =
-            results.map { r ->
-                r.copy(snr = SnrEstimator.estimate(samples, sampleRate, r.freqHz, r.dtSeconds))
+        ): List<net.ft8vc.ft8native.Ft8DecodeResult> {
+            if (results.isEmpty()) return emptyList()
+            // Noise floor is per-slot, not per-decode — compute it once.
+            val noise = SnrEstimator.noiseFloorPower(samples, sampleRate)
+            return results.map { r ->
+                r.copy(snr = SnrEstimator.estimate(samples, sampleRate, r.freqHz, noise))
             }
+        }
     }
 }
 
