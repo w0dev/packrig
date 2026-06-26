@@ -32,22 +32,37 @@ class QsoSessionControllerTest {
     private lateinit var scope: CoroutineScope
     private lateinit var controller: QsoSessionController
     private val transmittedMessages = mutableListOf<String>()
+    private val currentSlotAttempts = mutableListOf<String>()
     private val completedSnapshots = mutableListOf<QsoSnapshot>()
     private val notifications = mutableListOf<Pair<String, SnackbarEvent.Tag>>()
     private val resumeCaptureCalls = AtomicInteger(0)
     private val clockMs = AtomicLong(BASE_EPOCH_MS)
 
+    private var lateTxEnabled = true
+
     @Before fun setUp() {
         clockMs.set(BASE_EPOCH_MS)
         transmittedMessages.clear()
+        currentSlotAttempts.clear()
         completedSnapshots.clear()
         notifications.clear()
         resumeCaptureCalls.set(0)
+        lateTxEnabled = true
         scope = CoroutineScope(UnconfinedTestDispatcher())
+        rebuildController()
+    }
+
+    /** (Re)build the controller — call after changing [lateTxEnabled]. */
+    private fun rebuildController() {
+        if (::controller.isInitialized) controller.close()
         val executor = Executors.newSingleThreadExecutor()
         controller = QsoSessionController(
             scope = scope,
             transmitFn = { message -> transmittedMessages += message; true },
+            // Records the late-TX attempt and returns false (defer) so the loop's
+            // fall-through to the boundary path keeps existing tests' behavior.
+            transmitIntoCurrentSlotFn = { message -> currentSlotAttempts += message; false },
+            lateStartTxEnabledProvider = { lateTxEnabled },
             onQsoComplete = { snapshot -> completedSnapshots += snapshot },
             notifyFn = { text, tag -> notifications += text to tag },
             resumeCaptureIfNeeded = { resumeCaptureCalls.incrementAndGet() },
@@ -116,6 +131,34 @@ class QsoSessionControllerTest {
         assertFalse(s.qsoActive)
         assertNull(s.qsoState)
         assertNull(s.qsoDx)
+    }
+
+    @Test
+    fun answerCq_attemptsCurrentSlotTxFirst_whenCurrentSlotIsOurParity() = runTest {
+        // BASE_EPOCH is an ODD slot. Answering a CQ heard in an EVEN slot gives TX
+        // parity = answerParity(EVEN) = ODD = the current slot, so the first reply
+        // must be attempted into the CURRENT slot (late-TX), not queued to a future
+        // boundary — the regression that made answering miss the slot.
+        controller.answerCq(decodeRowCq("K1ABC", "FN42")) // row.slotParity defaults EVEN
+        assertEquals("late path attempted exactly once for the first answer TX", 1, currentSlotAttempts.size)
+        assertTrue("late TX must carry our reply", currentSlotAttempts[0].contains("W0DEV"))
+    }
+
+    @Test
+    fun startCq_neverFiresLate() = runTest {
+        // Cold CQ needs the leading Costas — late-TX must NOT apply (spec §Non-goals).
+        controller.startCq()
+        assertTrue("calling CQ must never route through the late path", currentSlotAttempts.isEmpty())
+    }
+
+    @Test
+    fun answerCq_doesNotFireLate_whenToggleOff() = runTest {
+        // PARITY-01: with late-TX disabled, answering must fall back to the v1.0
+        // boundary-aligned path — never the current-slot late path.
+        lateTxEnabled = false
+        rebuildController()
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        assertTrue("toggle OFF must not attempt the late path", currentSlotAttempts.isEmpty())
     }
 
     @Test

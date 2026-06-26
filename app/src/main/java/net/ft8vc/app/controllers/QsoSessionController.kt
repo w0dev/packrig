@@ -98,6 +98,16 @@ import java.util.concurrent.Executors
 class QsoSessionController(
     private val scope: CoroutineScope,
     private val transmitFn: suspend (message: String) -> Boolean,
+    /**
+     * Late-TX entry for the FIRST transmission of an Answer/Resume/auto-answer
+     * QSO: fire into the CURRENT slot if it is ours, choosing full vs truncated
+     * waveform by how far into the slot we are. Returns true if it transmitted
+     * now; false means defer to the boundary-aligned path. Defaults to no-op
+     * (always defer) so call sites that don't wire late-TX keep v1.0 behavior.
+     */
+    private val transmitIntoCurrentSlotFn: suspend (message: String) -> Boolean = { false },
+    /** Late-start TX Settings toggle. OFF preserves v1.0 timing byte-for-byte (PARITY-01). */
+    private val lateStartTxEnabledProvider: () -> Boolean = { false },
     private val onQsoComplete: suspend (QsoSnapshot) -> Unit,
     private val notifyFn: (String, SnackbarEvent.Tag) -> Unit,
     private val resumeCaptureIfNeeded: () -> Unit,
@@ -305,7 +315,27 @@ class QsoSessionController(
         qsoLoopJob = scope.launch(qsoDispatcher) {
             try {
                 val txParity = qsoTxParity ?: return@launch
+                // Answer/Resume/auto-answer (we heard something) may fire the first
+                // reply late into the current slot. A cold CQ (hearingSlotParity ==
+                // null) never does — it needs the full leading Costas. The toggle OFF
+                // reverts to v1.0 boundary-aligned timing (PARITY-01).
+                var lateFirstTxPending = hearingSlotParity != null && lateStartTxEnabledProvider()
                 while (isActive) {
+                    if (lateFirstTxPending) {
+                        lateFirstTxPending = false
+                        // Only fire late if the CURRENT slot is already ours; the
+                        // orchestrator picks full-vs-truncated from t_in_slot and
+                        // returns false (defer) past the cutoff.
+                        if (TxSlotSelection.slotParity(SlotTiming.slotStart(clock())) == txParity) {
+                            val message = qso?.txMessage() ?: break
+                            if (transmitIntoCurrentSlotFn(message)) {
+                                if (afterTransmit()) return@launch
+                                continue
+                            }
+                            // Deferred/blocked → fall through to the boundary path.
+                        }
+                    }
+
                     val wait = SlotTiming.millisUntilNextSlot(clock())
                     if (wait > 0) delay(wait)
                     if (!isActive) break
@@ -319,20 +349,7 @@ class QsoSessionController(
 
                     val message = qso?.txMessage() ?: break
                     transmitFn(message)
-                    val noReplyLimitHit = run {
-                        qso?.recordTransmitted()
-                        qso?.noReplyLimitExceeded(maxUnansweredTxCycles) == true
-                    }
-                    publishQsoState()
-
-                    if (noReplyLimitHit) {
-                        abandonForNoReply()
-                        return@launch
-                    }
-                    if (qso?.state == QsoState.Complete) {
-                        handleQsoComplete()
-                        return@launch
-                    }
+                    if (afterTransmit()) return@launch
                 }
             } catch (t: Throwable) {
                 if (t !is kotlinx.coroutines.CancellationException) {
@@ -344,6 +361,27 @@ class QsoSessionController(
                 publishQsoState()
             }
         }
+    }
+
+    /**
+     * Shared post-transmit bookkeeping: record the TX, check the no-reply limit and
+     * completion. Returns true if the QSO loop should terminate.
+     */
+    private suspend fun afterTransmit(): Boolean {
+        val noReplyLimitHit = run {
+            qso?.recordTransmitted()
+            qso?.noReplyLimitExceeded(maxUnansweredTxCycles) == true
+        }
+        publishQsoState()
+        if (noReplyLimitHit) {
+            abandonForNoReply()
+            return true
+        }
+        if (qso?.state == QsoState.Complete) {
+            handleQsoComplete()
+            return true
+        }
+        return false
     }
 
     private suspend fun stopQsoInternal() {

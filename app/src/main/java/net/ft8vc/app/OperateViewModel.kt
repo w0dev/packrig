@@ -136,6 +136,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private val qsoSession = QsoSessionController(
         scope = viewModelScope,
         transmitFn = ::transmitForQsoLoop,
+        transmitIntoCurrentSlotFn = ::transmitIntoCurrentSlotForQsoLoop,
+        lateStartTxEnabledProvider = { settingsBridge.slice.value.lateStartTxEnabled },
         onQsoComplete = ::onQsoComplete,
         notifyFn = ::notify,
         resumeCaptureIfNeeded = ::resumeCaptureIfNeededForQso,
@@ -667,6 +669,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun transmitForQsoLoop(message: String): Boolean {
         return txOrchestrator.transmit(message, state.value.txFreqHz)
+    }
+
+    /** First-TX late entry for the QSO loop (Answer/Resume/auto-answer). */
+    private suspend fun transmitIntoCurrentSlotForQsoLoop(message: String): Boolean {
+        return txOrchestrator.transmitIntoCurrentSlot(message, state.value.txFreqHz)
     }
 
     private suspend fun onQsoComplete(snapshot: QsoSnapshot) {

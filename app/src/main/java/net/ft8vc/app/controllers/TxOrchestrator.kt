@@ -138,6 +138,28 @@ class TxOrchestrator(
     }
 
     /** Wait for the next 15-s slot boundary (or fire late), then transmit [message]. */
+    /**
+     * Transmit into the CURRENT slot, choosing the waveform from how far into the
+     * slot we are — the Answer/Resume/auto-answer late-TX entry the spec calls for
+     * (`docs/superpowers/specs/2026-06-22-late-start-ft8-tx-design.md`). Unlike
+     * [transmitAfterSlotBoundary], this never waits for the next boundary:
+     *  - `t < 1.34 s` → full waveform now (v1.0, slightly DT-shifted);
+     *  - `1.34–7.0 s` → truncated late waveform;
+     *  - `t > 7.0 s` → no TX; returns false so the caller defers to its next slot.
+     *
+     * Settings toggle OFF forces the full-now branch (PARITY-01). Returns true iff
+     * a transmission was started in the current slot.
+     */
+    suspend fun transmitIntoCurrentSlot(message: String, txFreqHz: Int): Boolean {
+        if (!preflight(message)) return false
+        val tInSlot = clock() - SlotTiming.slotStart(clock())
+        return when (val plan = computeLateTxPlan(tInSlot, lateStartTxEnabledProvider())) {
+            is LateTxPlan.Normal -> doTransmit(message, txFreqHz, waitForSlotBoundary = false)
+            is LateTxPlan.Late -> doTransmitLate(message, txFreqHz, plan)
+            LateTxPlan.Deferred -> false
+        }
+    }
+
     suspend fun transmitAfterSlotBoundary(message: String, txFreqHz: Int): Boolean {
         if (!preflight(message)) return false
 
@@ -347,44 +369,52 @@ class TxOrchestrator(
         _txLog.tryEmit(TxLogEvent(utcMillis = clock(), freqHz = txFreqHz, message = message))
 
         // Layers (c) + (d): outer timeout AND independent watchdog.
-        val result: Boolean = try {
-            withTimeoutOrNull(slotDurationMs + WATCHDOG_OUTER_GRACE_MS) {
-                // Layer (b): AutoCloseable session forces PTT release on any exit.
-                TxSession().use { session ->
-                    // Layer (a): try-finally inside.
-                    session.keyPtt()
-                    try {
-                        val outputId = outputDeviceIdProvider()
-                        withContext(encodeDispatcher) { playback.playBlocking(pcm, outputId) }
-                    } finally {
-                        session.releasePtt()
+        var result = false
+        try {
+            result = try {
+                withTimeoutOrNull(slotDurationMs + WATCHDOG_OUTER_GRACE_MS) {
+                    // Layer (b): AutoCloseable session forces PTT release on any exit.
+                    TxSession().use { session ->
+                        // Layer (a): try-finally inside.
+                        session.keyPtt()
+                        try {
+                            val outputId = outputDeviceIdProvider()
+                            withContext(encodeDispatcher) { playback.playBlocking(pcm, outputId) }
+                        } finally {
+                            session.releasePtt()
+                        }
                     }
+                } ?: run {
+                    // (c) tripped: force release in case (a)/(b) somehow didn't.
+                    forceReleasePtt()
+                    notifyFn("TX timeout — PTT released", SnackbarEvent.Tag.ERROR)
+                    _slice.update { it.copy(txSafetyHaltActive = true) }
+                    false
                 }
-            } ?: run {
-                // (c) tripped: force release in case (a)/(b) somehow didn't.
+            } catch (t: Throwable) {
+                // Layer (a) sibling: catch encode/playback exceptions, force release
+                // (TxSession.close has already done so via use{}), and report failure.
+                // CancellationException is special — let it propagate to honor coroutine cancellation.
+                if (t is kotlinx.coroutines.CancellationException) throw t
                 forceReleasePtt()
-                notifyFn("TX timeout — PTT released", SnackbarEvent.Tag.ERROR)
-                _slice.update { it.copy(txSafetyHaltActive = true) }
+                notifyFn(t.message ?: "Transmit failed", SnackbarEvent.Tag.ERROR)
                 false
             }
-        } catch (t: Throwable) {
-            // Layer (a) sibling: catch encode/playback exceptions, force release
-            // (TxSession.close has already done so via use{}), and report failure.
-            // CancellationException is special — let it propagate to honor coroutine cancellation.
-            if (t is kotlinx.coroutines.CancellationException) throw t
-            forceReleasePtt()
-            notifyFn(t.message ?: "Transmit failed", SnackbarEvent.Tag.ERROR)
-            false
+            return result
+        } finally {
+            // Reset TX state on EVERY exit path — including cancellation. Abandon/stop
+            // mid-TX cancels this coroutine while it's blocked in playBlocking; without
+            // this finally the isTransmitting reset is skipped and the UI sticks on
+            // "transmitting…" with Stop/Start CQ greyed out forever. Both calls are
+            // non-suspending, so they still run during cancellation unwinding.
+            _slice.update {
+                it.copy(
+                    isTransmitting = false,
+                    txStatus = if (result) "Sent: $message" else "TX halted",
+                )
+            }
+            captureControl.resumeAfterTx()
         }
-
-        _slice.update {
-            it.copy(
-                isTransmitting = false,
-                txStatus = if (result) "Sent: $message" else "TX halted",
-            )
-        }
-        captureControl.resumeAfterTx()
-        return result
     }
 
     private suspend fun forceReleasePtt() {

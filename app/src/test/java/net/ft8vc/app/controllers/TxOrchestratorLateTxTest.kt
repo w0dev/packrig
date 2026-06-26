@@ -367,4 +367,80 @@ class TxOrchestratorLateTxTest {
         orchestrator.close()
         rigSession.close()
     }
+
+    // ── transmitIntoCurrentSlot (the Answer/Resume/auto-answer late entry) ───────
+
+    /**
+     * Late window: `transmitIntoCurrentSlot` at 6 500 ms fires a truncated waveform
+     * immediately into the current slot (offsetSymbols 34), no boundary wait.
+     */
+    @Test
+    fun transmitIntoCurrentSlot_lateWindow_firesTruncatedNow() = runBlocking {
+        val clock = { SLOT_START_UTC + 6_500L }
+        val decoder = Ft8DecoderFake()
+        val playback = FakeUsbAudioPlayback()
+        val rig = FakeRigBackend()
+        val (orchestrator, rigSession) = buildOrchestrator(decoder, playback, rig, clock, lateStartTxEnabled = true)
+
+        val result = orchestrator.transmitIntoCurrentSlot("W2DEF K1ABC FN42", txFreqHz = 1500)
+
+        assertTrue("should transmit into the current slot", result)
+        val enc = decoder.encodeInvocationsSnapshot()
+        assertEquals(1, enc.size)
+        assertEquals("offsetSymbols 34 (truncated)", 34, enc.single().offsetSymbols)
+        assertEquals((79 - 34) * 1920, playback.playbackRecordsSnapshot().single().pcm.size)
+        val edges = rig.pttEdgesSnapshot()
+        assertEquals(1, edges.count { it.kind == PttEdgeKind.KEY })
+        assertEquals(1, edges.count { it.kind == PttEdgeKind.RELEASE })
+
+        orchestrator.close()
+        rigSession.close()
+    }
+
+    /**
+     * Early (`t < 1.34 s`): fires the FULL waveform immediately into the current
+     * slot (offsetSymbols 0), without waiting for the next boundary.
+     */
+    @Test
+    fun transmitIntoCurrentSlot_early_firesFullNow() = runBlocking {
+        val clock = { SLOT_START_UTC + 500L }
+        val decoder = Ft8DecoderFake()
+        val playback = FakeUsbAudioPlayback()
+        val rig = FakeRigBackend()
+        val (orchestrator, rigSession) = buildOrchestrator(decoder, playback, rig, clock, lateStartTxEnabled = true)
+
+        val result = orchestrator.transmitIntoCurrentSlot("W2DEF K1ABC FN42", txFreqHz = 1500)
+
+        assertTrue(result)
+        val enc = decoder.encodeInvocationsSnapshot()
+        assertEquals(1, enc.size)
+        assertEquals("offsetSymbols 0 (full)", 0, enc.single().offsetSymbols)
+        assertEquals(15 * 12_000, playback.playbackRecordsSnapshot().single().pcm.size)
+
+        orchestrator.close()
+        rigSession.close()
+    }
+
+    /**
+     * Past the 7 s cutoff: does NOT transmit and returns false so the caller defers
+     * to its next slot. No encode, no PTT.
+     */
+    @Test
+    fun transmitIntoCurrentSlot_pastCutoff_doesNotTransmit() = runBlocking {
+        val clock = { SLOT_START_UTC + 8_000L }
+        val decoder = Ft8DecoderFake()
+        val playback = FakeUsbAudioPlayback()
+        val rig = FakeRigBackend()
+        val (orchestrator, rigSession) = buildOrchestrator(decoder, playback, rig, clock, lateStartTxEnabled = true)
+
+        val result = orchestrator.transmitIntoCurrentSlot("W2DEF K1ABC FN42", txFreqHz = 1500)
+
+        assertFalse("must not transmit past the cutoff", result)
+        assertEquals("no encode", 0, decoder.encodeInvocationsSnapshot().size)
+        assertEquals("no playback", 0, playback.playbackRecordsSnapshot().size)
+        assertEquals("PTT never keyed", 0, rig.pttEdgesSnapshot().count { it.kind == PttEdgeKind.KEY })
+
+        orchestrator.close()
+        rigSession.close()
+    }
 }
