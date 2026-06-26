@@ -245,7 +245,7 @@ Recorded session on the reference FT-891 + Digirig under `docs/planning/field-se
 - **A-priori (AP) decoding** — deferred to its own phase. Late-TX is self-contained and ships first.
 - **Early-decode / streaming partial-slot decode** — tracked as separate follow-up phase. Must ship after late-TX is field-verified.
 - **Decode-list legibility** (own-TX rows, column header, worked-before coloring) — owned by a separate earlier phase.
-- **Late-start CQ** — initial CQ from a cold partner-relationship is operationally counterproductive (receiver needs leading Costas for a cold lock). Late-TX only applies to Answer/Resume, Manual TX, and auto-answer flows.
+- ~~**Late-start CQ** — excluded on the assumption a cold receiver needs the leading Costas.~~ **Superseded:** FT8 carries three Costas arrays (start/middle/end) and receivers sync on any of them, so a front-truncated CQ is still decodable — WSJT-X truncates late CQs too. Late-TX therefore applies to **all** first transmissions: CQ, Answer/Resume, Manual TX, and auto-answer.
 - **Operator-tunable cutoff** — 7.0 s is locked to the symbol math (end Costas survival). If field evidence later supports a different threshold, that's a follow-on tweak.
 - **TX truncation by fractional symbols** — sample alignment is always to a whole symbol boundary so receiver re-sync holds.
 - **In-window UI affordances** (countdown, chip) — explicitly transparent.

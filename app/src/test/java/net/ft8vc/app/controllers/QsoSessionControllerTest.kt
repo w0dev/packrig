@@ -145,10 +145,14 @@ class QsoSessionControllerTest {
     }
 
     @Test
-    fun startCq_neverFiresLate() = runTest {
-        // Cold CQ needs the leading Costas — late-TX must NOT apply (spec §Non-goals).
+    fun startCq_firesLate_whenCurrentSlotIsOurParity() = runTest {
+        // WSJT-X truncates a late CQ into the current slot too (the middle/end Costas
+        // arrays still allow sync). defaultTxSlotParity is EVEN; move the clock to an
+        // EVEN slot so the current slot is ours.
+        clockMs.set(BASE_EPOCH_MS + 15_000L) // slot after the ODD base = EVEN
         controller.startCq()
-        assertTrue("calling CQ must never route through the late path", currentSlotAttempts.isEmpty())
+        assertEquals("cold CQ must also use the current-slot late path", 1, currentSlotAttempts.size)
+        assertTrue("late TX must carry the CQ", currentSlotAttempts[0].startsWith("CQ "))
     }
 
     @Test

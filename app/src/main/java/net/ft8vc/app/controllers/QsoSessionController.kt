@@ -315,11 +315,11 @@ class QsoSessionController(
         qsoLoopJob = scope.launch(qsoDispatcher) {
             try {
                 val txParity = qsoTxParity ?: return@launch
-                // Answer/Resume/auto-answer (we heard something) may fire the first
-                // reply late into the current slot. A cold CQ (hearingSlotParity ==
-                // null) never does — it needs the full leading Costas. The toggle OFF
-                // reverts to v1.0 boundary-aligned timing (PARITY-01).
-                var lateFirstTxPending = hearingSlotParity != null && lateStartTxEnabledProvider()
+                // The FIRST transmission (CQ, Answer, Resume, or auto-answer) may fire
+                // late into the current slot when it is ours — matching WSJT-X, which
+                // truncates a late CQ too (the middle/end Costas arrays still allow
+                // sync). Toggle OFF reverts to v1.0 boundary-aligned timing (PARITY-01).
+                var lateFirstTxPending = lateStartTxEnabledProvider()
                 while (isActive) {
                     if (lateFirstTxPending) {
                         lateFirstTxPending = false
