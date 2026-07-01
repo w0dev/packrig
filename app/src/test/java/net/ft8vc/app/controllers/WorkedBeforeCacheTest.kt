@@ -24,6 +24,7 @@ private class FakeLogbook(
         calls.incrementAndGet()
         return bandsByCall[call] ?: emptySet()
     }
+    override suspend fun setParkRefs(ids: List<Long>, potaParkRefs: String?) {}
     fun set(call: String, bands: Set<String>) { bandsByCall[call] = bands }
 }
 

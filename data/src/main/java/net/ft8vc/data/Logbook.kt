@@ -15,6 +15,7 @@ interface Logbook {
     fun contactCount(): Flow<Int>
     suspend fun clearAll()
     suspend fun workedBands(call: String): Set<String>
+    suspend fun setParkRefs(ids: List<Long>, potaParkRefs: String?)
 }
 
 class RoomLogbook(db: Ft8vcDatabase) : Logbook {
@@ -36,6 +37,9 @@ class RoomLogbook(db: Ft8vcDatabase) : Logbook {
 
     override suspend fun workedBands(call: String): Set<String> =
         dao.workedBands(call).toSet()
+
+    override suspend fun setParkRefs(ids: List<Long>, potaParkRefs: String?) =
+        dao.updateParkRefs(ids, potaParkRefs)
 
     private fun QsoContact.toEntity() = QsoEntity(
         id = id,

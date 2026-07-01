@@ -25,4 +25,7 @@ interface QsoDao {
 
     @Query("SELECT DISTINCT band FROM qso_contacts WHERE dxCall = :call AND band IS NOT NULL")
     suspend fun workedBands(call: String): List<String>
+
+    @Query("UPDATE qso_contacts SET potaParkRefs = :potaParkRefs WHERE id IN (:ids)")
+    suspend fun updateParkRefs(ids: List<Long>, potaParkRefs: String?)
 }

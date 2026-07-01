@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import net.ft8vc.app.settings.SettingsRepository
+import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AppInfo
 import net.ft8vc.data.Activation
 import net.ft8vc.data.Activations
@@ -60,6 +61,28 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
             ),
         )
         return Activations.fileName(myCall, activation.parkRef, activation.utcDate) to adif
+    }
+
+    /**
+     * Replace park refs on [ids]. Blank input clears parks (home QSOs).
+     * Invokes [onDone] with false and writes nothing when the input is invalid.
+     */
+    fun setParksOnContacts(ids: List<Long>, rawInput: String, onDone: (Boolean) -> Unit = {}) {
+        val trimmed = rawInput.trim()
+        val parks: String? = if (trimmed.isEmpty()) {
+            null
+        } else {
+            if (!ActivationProfile.isValidParkRefList(trimmed)) {
+                onDone(false)
+                return
+            }
+            ActivationProfile.formatParkRefs(ActivationProfile.parseParkRefs(trimmed))
+        }
+        viewModelScope.launch {
+            logbook.setParkRefs(ids, parks)
+            AdifAutoBackup.scheduleBackupAfterQso(getApplication(), logbook, settingsRepo)
+            onDone(true)
+        }
     }
 
     fun clearAll() {
