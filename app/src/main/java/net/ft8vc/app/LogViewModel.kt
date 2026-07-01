@@ -6,12 +6,16 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import net.ft8vc.app.settings.SettingsRepository
 import net.ft8vc.core.AppInfo
+import net.ft8vc.data.Activation
+import net.ft8vc.data.Activations
 import net.ft8vc.data.Logbook
 import net.ft8vc.data.RoomLogbook
 import net.ft8vc.data.adif.AdifExportContext
+import net.ft8vc.data.adif.AdifWriter
 import net.ft8vc.data.db.Ft8vcDatabase
 import net.ft8vc.data.model.QsoContact
 
@@ -23,9 +27,15 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
     private val _contacts = MutableStateFlow<List<QsoContact>>(emptyList())
     val contacts: StateFlow<List<QsoContact>> = _contacts.asStateFlow()
 
+    private val _activations = MutableStateFlow<List<Activation>>(emptyList())
+    val activations: StateFlow<List<Activation>> = _activations.asStateFlow()
+
     init {
         viewModelScope.launch {
-            logbook.contacts().collect { _contacts.value = it }
+            logbook.contacts().collect { list ->
+                _contacts.value = list
+                _activations.value = Activations.groupActivations(list)
+            }
         }
     }
 
@@ -36,6 +46,21 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
                 programVersion = AppInfo.VERSION_NAME,
             ),
         )
+
+    /** Build one activation's upload file. Returns (fileName, adif content). */
+    suspend fun exportActivation(activation: Activation): Pair<String, String> {
+        val myCall = settingsRepo.settings.first().myCall
+        val group = Activations.contactsFor(_contacts.value, activation.parkRef, activation.utcDate)
+        val adif = AdifWriter.export(
+            group,
+            AdifExportContext(
+                programId = AppInfo.APP_NAME,
+                programVersion = AppInfo.VERSION_NAME,
+                activationParkRef = activation.parkRef,
+            ),
+        )
+        return Activations.fileName(myCall, activation.parkRef, activation.utcDate) to adif
+    }
 
     fun clearAll() {
         viewModelScope.launch { logbook.clearAll() }

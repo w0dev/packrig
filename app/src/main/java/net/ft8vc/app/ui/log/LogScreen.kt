@@ -11,12 +11,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -39,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import net.ft8vc.app.LogViewModel
+import net.ft8vc.data.Activation
 import net.ft8vc.data.adif.AdifExportException
 import net.ft8vc.data.model.QsoContact
 import java.io.File
@@ -51,10 +54,12 @@ import java.util.TimeZone
 @Composable
 fun LogScreen(vm: LogViewModel = viewModel()) {
     val contacts by vm.contacts.collectAsStateWithLifecycle()
+    val activations by vm.activations.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var showClearConfirm by remember { mutableStateOf(false) }
+    var showActivations by remember { mutableStateOf(false) }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -72,24 +77,16 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
                 },
                 actions = {
                     IconButton(
+                        onClick = { showActivations = true },
+                        enabled = activations.isNotEmpty(),
+                    ) {
+                        Icon(Icons.Filled.Park, contentDescription = "POTA activation export")
+                    }
+                    IconButton(
                         onClick = {
                             scope.launch {
                                 try {
-                                    val adif = vm.exportAdif()
-                                    val file = File(context.cacheDir, "ft8vc_export.adi")
-                                    file.writeText(adif)
-                                    val uri = FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        file,
-                                    )
-                                    context.startActivity(
-                                        Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(Intent.EXTRA_STREAM, uri)
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        },
-                                    )
+                                    shareAdif(context, "ft8vc_export.adi", vm.exportAdif())
                                 } catch (e: AdifExportException) {
                                     snackbarHostState.showSnackbar(e.message ?: "ADIF export failed")
                                 }
@@ -144,6 +141,60 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
             },
         )
     }
+
+    if (showActivations) {
+        ModalBottomSheet(onDismissRequest = { showActivations = false }) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("POTA activations", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "One file per park per UTC day — upload each to pota.app",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                LazyColumn {
+                    items(activations, key = { "${it.parkRef}:${it.utcDate}" }) { activation ->
+                        val dateLabel = activation.utcDate.let {
+                            "${it.take(4)}-${it.substring(4, 6)}-${it.takeLast(2)}"
+                        }
+                        androidx.compose.foundation.layout.Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                "${activation.parkRef} · $dateLabel · ${activation.qsoCount} QSOs",
+                                fontFamily = FontFamily.Monospace,
+                            )
+                            IconButton(onClick = {
+                                scope.launch {
+                                    try {
+                                        val (name, adif) = vm.exportActivation(activation)
+                                        shareAdif(context, name, adif)
+                                    } catch (e: AdifExportException) {
+                                        snackbarHostState.showSnackbar(e.message ?: "Export failed")
+                                    }
+                                }
+                            }) {
+                                Icon(Icons.Filled.Share, contentDescription = "Share ${activation.parkRef}")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun shareAdif(context: android.content.Context, fileName: String, adif: String) {
+    val file = File(context.cacheDir, fileName)
+    file.writeText(adif)
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    context.startActivity(
+        Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        },
+    )
 }
 
 @Composable
