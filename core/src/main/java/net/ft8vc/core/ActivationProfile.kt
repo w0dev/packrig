@@ -18,6 +18,29 @@ object ActivationProfile {
 
     fun isValidParkRef(ref: String): Boolean = normalizeParkRef(ref) != null
 
+    /** Tolerant split of a comma-separated input into normalized refs; invalid/blank entries dropped. */
+    fun parseParkRefs(raw: String?): List<String> =
+        raw.orEmpty().split(',').mapNotNull { normalizeParkRef(it) }
+
+    /** Normalized, deduped CSV for storage/ADIF, or null when nothing valid remains. */
+    fun formatParkRefs(refs: List<String>): String? =
+        refs.mapNotNull { normalizeParkRef(it) }
+            .distinct()
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(",")
+
+    /** Strict gate: at least one entry and EVERY comma-separated entry is a valid park ref. */
+    fun isValidParkRefList(raw: String): Boolean {
+        val entries = raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        return entries.isNotEmpty() && entries.all { isValidParkRef(it) }
+    }
+
+    /** CSV to stamp on a completed QSO, or null when POTA mode is off or no ref is valid. */
+    fun parkRefsForLogging(potaEnabled: Boolean, raw: String): String? {
+        if (!potaEnabled) return null
+        return formatParkRefs(parseParkRefs(raw))
+    }
+
     const val DEFAULT_CQ_MODIFIER = "POTA"
     const val POTA_SIG = "POTA"
 }
