@@ -11,7 +11,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.ft8vc.app.settings.SettingsRepository
-import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AppInfo
 import net.ft8vc.data.Logbook
 import net.ft8vc.data.adif.AdifExportContext
@@ -76,14 +75,10 @@ object AdifAutoBackup {
         settings: SettingsRepository,
     ): File? = withContext(Dispatchers.IO) {
         try {
-            val s = settings.settingsFirst()
-            val parkRef = if (s.potaModeEnabled) ActivationProfile.normalizeParkRef(s.potaParkRef) else null
             val adif = logbook.exportAdif(
                 AdifExportContext(
                     programId = AppInfo.APP_NAME,
                     programVersion = AppInfo.VERSION_NAME,
-                    potaEnabled = s.potaModeEnabled,
-                    potaParkRef = parkRef,
                 ),
             )
             val dir = context.getExternalFilesDir(null) ?: context.filesDir
@@ -103,6 +98,3 @@ object AdifAutoBackup {
         }
     }
 }
-
-/** Read-once helper since SettingsRepository exposes a Flow. */
-private suspend fun SettingsRepository.settingsFirst() = settings.first()

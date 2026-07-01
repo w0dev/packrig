@@ -5,8 +5,8 @@ data class AdifExportContext(
     val programId: String = "FT8VC",
     val programVersion: String = "1.0.0",
     val adifVersion: String = "3.1.4",
-    val potaEnabled: Boolean = false,
-    val potaParkRef: String? = null,
+    /** When set (single-activation export), every record is stamped with this one park. */
+    val activationParkRef: String? = null,
 )
 
 class AdifExportException(message: String) : IllegalStateException(message)

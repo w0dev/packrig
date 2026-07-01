@@ -39,18 +39,33 @@ class AdifWriterTest {
     }
 
     @Test
-    fun exportsPotaFieldsWhenEnabled() {
-        val adif = AdifWriter.export(
-            listOf(contact),
-            AdifExportContext(potaEnabled = true, potaParkRef = "US-3315"),
-        )
+    fun stampsPerRecordParkRefsInFullExport() {
+        val potaContact = contact.copy(potaParkRefs = "US-3315,US-0891")
+        val adif = AdifWriter.export(listOf(potaContact))
         assertTrue(adif.contains("<MY_SIG:4>POTA"))
+        assertTrue(adif.contains("<MY_SIG_INFO:15>US-3315,US-0891"))
+    }
+
+    @Test
+    fun omitsPotaFieldsForHomeQsos() {
+        val adif = AdifWriter.export(listOf(contact))
+        assertFalse(adif.contains("MY_SIG"))
+    }
+
+    @Test
+    fun activationExportStampsEveryRecordWithSinglePark() {
+        val twoFer = contact.copy(potaParkRefs = "US-3315,US-0891")
+        val adif = AdifWriter.export(
+            listOf(twoFer, contact.copy(dxCall = "K2DEF", potaParkRefs = "US-3315")),
+            AdifExportContext(activationParkRef = "US-3315"),
+        )
         assertTrue(adif.contains("<MY_SIG_INFO:7>US-3315"))
+        assertFalse(adif.contains("US-0891"))
     }
 
     @Test(expected = AdifExportException::class)
-    fun rejectsPotaExportWithoutParkRef() {
-        AdifWriter.export(listOf(contact), AdifExportContext(potaEnabled = true, potaParkRef = null))
+    fun rejectsInvalidActivationParkRef() {
+        AdifWriter.export(listOf(contact), AdifExportContext(activationParkRef = "banana"))
     }
 
     @Test(expected = AdifExportException::class)

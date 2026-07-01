@@ -44,11 +44,15 @@ object AdifNormalizer {
         contact.rstSent?.let { fields["RST_SENT"] = QsoMessages.formatAdifRst(it) }
         contact.rstRcvd?.let { fields["RST_RCVD"] = QsoMessages.formatAdifRst(it) }
         if (contact.notes.isNotBlank()) fields["NOTES"] = contact.notes
-        if (context.potaEnabled) {
-            val parkRef = context.potaParkRef?.let { ActivationProfile.normalizeParkRef(it) }
-                ?: throw AdifExportException("POTA mode enabled but park reference is missing or invalid")
+        val parkForRecord = context.activationParkRef
+            ?.let {
+                ActivationProfile.normalizeParkRef(it)
+                    ?: throw AdifExportException("Invalid activation park ref: $it")
+            }
+            ?: contact.potaParkRefs
+        if (parkForRecord != null) {
             fields["MY_SIG"] = ActivationProfile.POTA_SIG
-            fields["MY_SIG_INFO"] = parkRef
+            fields["MY_SIG_INFO"] = parkForRecord
         }
         return fields
     }
