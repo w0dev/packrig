@@ -218,7 +218,7 @@ fun OperateScreen(
                     value = parkRefDraft,
                     onValueChange = { parkRefDraft = it.uppercase() },
                     label = { Text("Park reference") },
-                    placeholder = { Text("US-3315") },
+                    placeholder = { Text("US-3315, US-0891") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

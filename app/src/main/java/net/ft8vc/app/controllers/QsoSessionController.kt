@@ -174,8 +174,8 @@ class QsoSessionController(
 
     fun startCq() {
         if (!hasValidStationProfile()) return
-        if (potaModeEnabled && !ActivationProfile.isValidParkRef(potaParkRef)) {
-            notifyFn("Set a valid POTA park reference in Settings (e.g. US-3315)", SnackbarEvent.Tag.ERROR)
+        if (potaModeEnabled && !ActivationProfile.isValidParkRefList(potaParkRef)) {
+            notifyFn("Set valid POTA park reference(s) in Settings (e.g. US-3315 or US-3315,US-0891)", SnackbarEvent.Tag.ERROR)
             return
         }
         if (!txEnabled) {

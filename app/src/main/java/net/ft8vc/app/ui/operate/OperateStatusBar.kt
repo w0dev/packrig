@@ -116,7 +116,7 @@ fun OperateStatusBar(
             if (state.potaModeEnabled) {
                 val parkLabel = state.potaParkRef.ifBlank { "POTA?" }
                 val validPark = state.potaParkRef.isNotBlank() &&
-                    ActivationProfile.isValidParkRef(state.potaParkRef)
+                    ActivationProfile.isValidParkRefList(state.potaParkRef)
                 WithTooltip(text = "Tap to edit POTA park reference") {
                     Surface(
                         modifier = Modifier

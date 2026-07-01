@@ -97,15 +97,15 @@ fun SettingsScreen(vm: OperateViewModel) {
                         value = state.potaParkRef,
                         onValueChange = vm::setPotaParkRef,
                         label = { Text("Park reference") },
-                        placeholder = { Text("US-3315") },
+                        placeholder = { Text("US-3315, US-0891") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         isError = state.potaParkRef.isNotBlank() &&
-                            !ActivationProfile.isValidParkRef(state.potaParkRef),
+                            !ActivationProfile.isValidParkRefList(state.potaParkRef),
                         supportingText = {
                             Text(
-                                if (state.potaParkRef.isBlank()) "Required for POTA ADIF export"
-                                else if (!ActivationProfile.isValidParkRef(state.potaParkRef)) "Format: prefix-number (e.g. US-3315)"
+                                if (state.potaParkRef.isBlank()) "Required to call CQ POTA — comma-separate for two-fers"
+                                else if (!ActivationProfile.isValidParkRefList(state.potaParkRef)) "Format: prefix-number (e.g. US-3315)"
                                 else "Valid park reference",
                             )
                         },
