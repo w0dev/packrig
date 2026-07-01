@@ -1,6 +1,9 @@
 package net.ft8vc.app.ui.log
 
 import android.content.Intent
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -19,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -44,6 +50,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.ft8vc.app.LogViewModel
 import net.ft8vc.data.Activation
+import net.ft8vc.data.Activations
 import net.ft8vc.data.adif.AdifExportException
 import net.ft8vc.data.model.QsoContact
 import java.io.File
@@ -52,7 +59,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun LogScreen(vm: LogViewModel = viewModel()) {
     val contacts by vm.contacts.collectAsStateWithLifecycle()
@@ -62,44 +69,73 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showClearConfirm by remember { mutableStateOf(false) }
     var showActivations by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(setOf<Long>()) }
+    var showSetParksDialog by remember { mutableStateOf(false) }
+    var parksDraft by remember { mutableStateOf("") }
+    val selectionActive = selectedIds.isNotEmpty()
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Log (${contacts.size})")
-                        Text(
-                            "Share exports validated ADIF 3.1",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    if (selectionActive) {
+                        Text("${selectedIds.size} selected")
+                    } else {
+                        Column {
+                            Text("Log (${contacts.size})")
+                            Text(
+                                "Share exports validated ADIF 3.1",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = { showActivations = true },
-                        enabled = activations.isNotEmpty(),
-                    ) {
-                        Icon(Icons.Filled.Park, contentDescription = "POTA activation export")
-                    }
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                try {
-                                    shareAdif(context, "ft8vc_export.adi", vm.exportAdif())
-                                } catch (e: AdifExportException) {
-                                    snackbarHostState.showSnackbar(e.message ?: "ADIF export failed")
+                    if (selectionActive) {
+                        TextButton(onClick = {
+                            val days = contacts.filter { it.id in selectedIds }
+                                .map { Activations.utcDateOf(it.utcMillis) }
+                                .toSet()
+                            selectedIds = contacts
+                                .filter { Activations.utcDateOf(it.utcMillis) in days }
+                                .map { it.id }
+                                .toSet()
+                        }) { Text("Day") }
+                        IconButton(onClick = {
+                            parksDraft = ""
+                            showSetParksDialog = true
+                        }) {
+                            Icon(Icons.Filled.EditNote, contentDescription = "Set parks")
+                        }
+                        IconButton(onClick = { selectedIds = emptySet() }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Cancel selection")
+                        }
+                    } else {
+                        IconButton(
+                            onClick = { showActivations = true },
+                            enabled = activations.isNotEmpty(),
+                        ) {
+                            Icon(Icons.Filled.Park, contentDescription = "POTA activation export")
+                        }
+                        IconButton(
+                            onClick = {
+                                scope.launch {
+                                    try {
+                                        shareAdif(context, "ft8vc_export.adi", vm.exportAdif())
+                                    } catch (e: AdifExportException) {
+                                        snackbarHostState.showSnackbar(e.message ?: "ADIF export failed")
+                                    }
                                 }
-                            }
-                        },
-                        enabled = contacts.isNotEmpty(),
-                    ) {
-                        Icon(Icons.Filled.Share, contentDescription = "Export ADIF")
-                    }
-                    IconButton(onClick = { showClearConfirm = true }, enabled = contacts.isNotEmpty()) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Clear log")
+                            },
+                            enabled = contacts.isNotEmpty(),
+                        ) {
+                            Icon(Icons.Filled.Share, contentDescription = "Export ADIF")
+                        }
+                        IconButton(onClick = { showClearConfirm = true }, enabled = contacts.isNotEmpty()) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Clear log")
+                        }
                     }
                 },
             )
@@ -120,7 +156,18 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
                     items(contacts, key = { it.id }) { contact ->
-                        LogRow(contact)
+                        LogRow(
+                            contact = contact,
+                            selected = contact.id in selectedIds,
+                            onTap = {
+                                if (selectionActive) {
+                                    selectedIds =
+                                        if (contact.id in selectedIds) selectedIds - contact.id
+                                        else selectedIds + contact.id
+                                }
+                            },
+                            onLongPress = { selectedIds = selectedIds + contact.id },
+                        )
                     }
                 }
             }
@@ -140,6 +187,49 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
             },
             dismissButton = {
                 TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showSetParksDialog) {
+        AlertDialog(
+            onDismissRequest = { showSetParksDialog = false },
+            title = { Text("Set parks on ${selectedIds.size} QSOs") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = parksDraft,
+                        onValueChange = { parksDraft = it.uppercase() },
+                        label = { Text("Park reference(s)") },
+                        placeholder = { Text("US-3315, US-0891") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        "Replaces parks on all selected QSOs. Leave empty to clear (home QSOs).",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.setParksOnContacts(selectedIds.toList(), parksDraft) { ok ->
+                        scope.launch {
+                            if (ok) {
+                                showSetParksDialog = false
+                                selectedIds = emptySet()
+                            } else {
+                                snackbarHostState.showSnackbar(
+                                    "Invalid park list — use refs like US-3315, comma-separated",
+                                )
+                            }
+                        }
+                    }
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSetParksDialog = false }) { Text("Cancel") }
             },
         )
     }
@@ -202,8 +292,14 @@ private suspend fun shareAdif(context: android.content.Context, fileName: String
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LogRow(contact: QsoContact) {
+private fun LogRow(
+    contact: QsoContact,
+    selected: Boolean,
+    onTap: () -> Unit,
+    onLongPress: () -> Unit,
+) {
     val fmt = remember {
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
@@ -212,6 +308,11 @@ private fun LogRow(contact: QsoContact) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .combinedClickable(onClick = onTap, onLongClick = onLongPress)
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                else androidx.compose.ui.graphics.Color.Transparent,
+            )
             .padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -220,6 +321,7 @@ private fun LogRow(contact: QsoContact) {
             buildString {
                 contact.dxGrid?.let { append("$it · ") }
                 contact.band?.let { append("$it · ") }
+                contact.potaParkRefs?.let { append("$it · ") }
                 append("RST ${contact.rstRcvd ?: "?"} / ${contact.rstSent ?: "?"}")
             },
             style = MaterialTheme.typography.bodySmall,
