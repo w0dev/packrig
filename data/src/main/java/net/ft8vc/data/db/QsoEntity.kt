@@ -21,4 +21,5 @@ data class QsoEntity(
     val mode: String,
     val band: String?,
     val notes: String,
+    val potaParkRefs: String? = null,
 )

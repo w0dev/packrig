@@ -16,9 +16,16 @@ data class QsoContact(
     val mode: String = "FT8",
     val band: String?,
     val notes: String = "",
+    /** Normalized comma-separated POTA park refs captured at QSO completion; null = home QSO. */
+    val potaParkRefs: String? = null,
 ) {
     companion object {
-        fun fromSnapshot(snapshot: QsoSnapshot, freqHz: Long?, band: String?): QsoContact =
+        fun fromSnapshot(
+            snapshot: QsoSnapshot,
+            freqHz: Long?,
+            band: String?,
+            potaParkRefs: String? = null,
+        ): QsoContact =
             QsoContact(
                 utcMillis = snapshot.completedAtEpochMs,
                 myCall = snapshot.myCall,
@@ -30,6 +37,7 @@ data class QsoContact(
                 freqHz = freqHz,
                 mode = "FT8",
                 band = band,
+                potaParkRefs = potaParkRefs,
             )
     }
 }

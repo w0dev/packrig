@@ -50,6 +50,7 @@ class RoomLogbook(db: Ft8vcDatabase) : Logbook {
         mode = mode,
         band = band,
         notes = notes,
+        potaParkRefs = potaParkRefs,
     )
 
     private fun QsoEntity.toContact() = QsoContact(
@@ -65,5 +66,6 @@ class RoomLogbook(db: Ft8vcDatabase) : Logbook {
         mode = mode,
         band = band,
         notes = notes,
+        potaParkRefs = potaParkRefs,
     )
 }
