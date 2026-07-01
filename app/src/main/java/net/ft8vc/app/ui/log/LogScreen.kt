@@ -39,7 +39,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.ft8vc.app.LogViewModel
 import net.ft8vc.data.Activation
 import net.ft8vc.data.adif.AdifExportException
@@ -184,15 +186,18 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
     }
 }
 
-private fun shareAdif(context: android.content.Context, fileName: String, adif: String) {
-    val file = File(context.cacheDir, fileName)
-    file.writeText(adif)
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+private suspend fun shareAdif(context: android.content.Context, fileName: String, adif: String) {
+    val uri = withContext(Dispatchers.IO) {
+        val file = File(context.cacheDir, fileName)
+        file.writeText(adif)
+        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    }
     context.startActivity(
         Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            if (context !is android.app.Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         },
     )
 }
