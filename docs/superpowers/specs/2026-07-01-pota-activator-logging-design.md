@@ -77,7 +77,9 @@ two-fer support, and no way to fix a wrong park after the fact.
   (park, UTC date, QSO count). Tapping one generates a single ADIF
   containing exactly that group's QSOs, each record stamped
   `MY_SIG=POTA`, `MY_SIG_INFO=<that one park>`, then hands it to the
-  Android share sheet named `CALL@PARK-YYYYMMDD.adi`.
+  Android share sheet named `CALL@PARK-YYYYMMDD.adi` (characters
+  outside `[A-Za-z0-9@-]` in the callsign, e.g. the `/` in `W0DEV/P`,
+  are replaced with `-`).
 - Per-record stamping replaces global stamping:
   - `AdifNormalizer.normalizeRecord` reads park data from the contact
     (plus an optional "stamp as this single park" parameter used by
