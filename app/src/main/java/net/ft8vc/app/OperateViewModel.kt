@@ -18,6 +18,7 @@ import net.ft8vc.audio.AudioInputs
 import net.ft8vc.audio.AudioOutputs
 import net.ft8vc.audio.UsbAudioCapture
 import net.ft8vc.audio.UsbAudioPlayback
+import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.AppInfo
 import net.ft8vc.core.DecodeViewMode
@@ -679,7 +680,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun onQsoComplete(snapshot: QsoSnapshot) {
         val freq = state.value.rigFreqHz
         val band = bandLabelForFreq(freq)
-        val contact = QsoContact.fromSnapshot(snapshot, freq, band)
+        val parks = ActivationProfile.parkRefsForLogging(
+            state.value.potaModeEnabled,
+            state.value.potaParkRef,
+        )
+        val contact = QsoContact.fromSnapshot(snapshot, freq, band, parks)
         withContext(Dispatchers.IO) { logbook.log(contact) }
         workedBeforeCache.invalidate(contact.dxCall)
         // Phase 7 (HYG-04): atomic ADIF auto-export on ApplicationScope so the
