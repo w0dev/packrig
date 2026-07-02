@@ -277,4 +277,39 @@ class QsoMachineTest {
         assertTrue(m.onDecodes(decode("W0DEV <PJ4/K1ABC> R-15")))
         assertEquals(QsoState.SendingRoger, m.state)
     }
+
+    @Test
+    fun rr73ModeSendsRr73AndCompletesOnTransmit() {
+        val m = QsoMachine("W0DEV", "EM26", initiatorRr73 = true)
+        m.startCq()
+        m.onDecodes(decode("W0DEV K1ABC FN42", snr = -8))
+        m.onDecodes(decode("W0DEV K1ABC R-15"))
+        assertEquals(QsoState.SendingRoger, m.state)
+        assertEquals("K1ABC W0DEV RR73", m.txMessage())
+        m.markTransmitted()
+        assertEquals(QsoState.Complete, m.state)
+        assertNull(m.txMessage())
+        assertFalse(m.isActive)
+    }
+
+    @Test
+    fun rrrModeUnchangedWhenFlagOff() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        m.onDecodes(decode("W0DEV K1ABC FN42", snr = -8))
+        m.onDecodes(decode("W0DEV K1ABC R-15"))
+        assertEquals("K1ABC W0DEV RRR", m.txMessage())
+        m.markTransmitted()
+        assertEquals(QsoState.SendingRoger, m.state) // still waiting for their 73
+    }
+
+    @Test
+    fun rr73ModeStillAcceptsEarly73BeforeOurTransmit() {
+        val m = QsoMachine("W0DEV", "EM26", initiatorRr73 = true)
+        m.startCq()
+        m.onDecodes(decode("W0DEV K1ABC FN42", snr = -8))
+        m.onDecodes(decode("W0DEV K1ABC R-15"))
+        assertTrue(m.onDecodes(decode("W0DEV K1ABC 73")))
+        assertEquals(QsoState.Complete, m.state)
+    }
 }

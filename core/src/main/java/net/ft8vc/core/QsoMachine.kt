@@ -46,6 +46,8 @@ class QsoMachine(
     private val myCall: String,
     private val myGrid: String,
     private val cqModifier: String? = null,
+    /** Initiator sends RR73 and completes on transmit (WSJT-X style). OFF = v1.0 RRR. */
+    private val initiatorRr73: Boolean = false,
 ) {
     var state: QsoState = QsoState.Idle
         private set
@@ -213,14 +215,18 @@ class QsoMachine(
             QsoState.Answering -> dx?.let { QsoMessages.reply(it, myCall, myGrid) }
             QsoState.SendingReport -> dx?.let { QsoMessages.report(it, myCall, reportSent ?: 0) }
             QsoState.SendingRReport -> dx?.let { QsoMessages.rReport(it, myCall, reportSent ?: 0) }
-            QsoState.SendingRoger -> dx?.let { QsoMessages.rrr(it, myCall) }
+            QsoState.SendingRoger -> dx?.let {
+                if (initiatorRr73) QsoMessages.rr73(it, myCall) else QsoMessages.rrr(it, myCall)
+            }
             QsoState.SendingSeventyThree -> dx?.let { QsoMessages.bye73(it, myCall) }
         }
     }
 
-    /** Call after a TX slot completes. Advances terminal (73) state to Complete. */
+    /** Call after a TX slot completes. Advances terminal states to Complete. */
     fun markTransmitted() {
-        if (state == QsoState.SendingSeventyThree) {
+        if (state == QsoState.SendingSeventyThree ||
+            (initiatorRr73 && state == QsoState.SendingRoger)
+        ) {
             state = QsoState.Complete
         }
     }
