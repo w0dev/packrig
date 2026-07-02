@@ -483,7 +483,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setTxFreqHz(freqHz: Int) {
-        val hz = freqHz.coerceIn(300, 3000)
+        val hz = freqHz.coerceIn(300, 4000)
         viewModelScope.launch { settingsRepo.setTxToneHz(hz) }
     }
 

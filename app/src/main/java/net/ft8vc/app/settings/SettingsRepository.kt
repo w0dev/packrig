@@ -67,7 +67,7 @@ class SettingsRepository(context: Context) {
     }
 
     suspend fun setTxToneHz(hz: Int) {
-        appContext.settingsDataStore.edit { it[Keys.TX_TONE_HZ] = hz.coerceIn(300, 3000) }
+        appContext.settingsDataStore.edit { it[Keys.TX_TONE_HZ] = hz.coerceIn(300, 4000) }
     }
 
     suspend fun setSelectedAudioDeviceId(id: Int?) {

@@ -5,12 +5,12 @@ package net.ft8vc.audio.dsp
  * for a scrolling waterfall.
  *
  * Uses a Hann window with 50% overlap. Only bins up to [maxFreqHz] are returned
- * since FT8 audio lives roughly in the 0-3000 Hz passband.
+ * since FT8 audio lives roughly in the 0-4000 Hz passband.
  */
 class SpectrumProcessor(
     private val sampleRate: Int = 12_000,
     private val fftSize: Int = 2048,
-    maxFreqHz: Int = 3000,
+    maxFreqHz: Int = 4000,
 ) {
     val binWidthHz: Double = sampleRate.toDouble() / fftSize
     val binCount: Int = (maxFreqHz / binWidthHz).toInt().coerceIn(1, fftSize / 2)

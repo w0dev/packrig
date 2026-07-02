@@ -25,7 +25,7 @@ static const float kTxAmplitude = 0.7f;     // PCM headroom for transmit audio
 
 // Decoder tuning (mirrors ft8_lib's demo/decode_ft8.c).
 static const int kMinScore = 10;
-static const int kMaxCandidates = 140;
+static const int kMaxCandidates = 180;
 static const int kLdpcIterations = 25;
 static const int kFreqOsr = 2;
 static const int kTimeOsr = 2;
@@ -211,7 +211,7 @@ Java_net_ft8vc_ft8native_Ft8Native_nativeDecode(
 
     monitor_config_t cfg = {};
     cfg.f_min = 200;
-    cfg.f_max = 3000;
+    cfg.f_max = 4000;
     cfg.sample_rate = sampleRate;
     cfg.time_osr = kTimeOsr;
     cfg.freq_osr = kFreqOsr;
