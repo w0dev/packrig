@@ -6,7 +6,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import net.ft8vc.app.DecodeRow
 import net.ft8vc.core.DecodePassSource
 import net.ft8vc.core.DecodeViewMode
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 
@@ -18,14 +17,9 @@ import org.junit.Test
  * Pixel-parity acceptance criterion: "UI must NOT branch on passSource"
  * (see [DecodePassSource] KDoc and DecodeRow.passSource field KDoc).
  *
- * @Ignore reason: this module has no Compose UI test infrastructure
- * (no createComposeRule in any test source set, no Paparazzi/Roborazzi wired up,
- * no androidTest source set populated before this task). These tests require a
- * connected Android device or emulator via connectedDebugAndroidTest.
- * Pixel-parity is verified manually via field-session smoke check (Task 8).
- * To activate: wire up androidx.compose.ui:ui-test-junit4 in androidTestImplementation
- * and run: ./gradlew :app:connectedDebugAndroidTest --tests
- * "net.ft8vc.app.ui.operate.DecodeListPanelEarlyParityTest"
+ * Requires a connected Android device or emulator via connectedDebugAndroidTest.
+ * Method names must stay camelCase: backtick names with spaces fail D8 dexing
+ * below DEX version 040 (minSdk 28).
  */
 class DecodeListPanelEarlyParityTest {
 
@@ -46,12 +40,8 @@ class DecodeListPanelEarlyParityTest {
         passSource = passSource,
     )
 
-    @Ignore(
-        "No Compose UI test infrastructure in this module; pixel parity verified manually " +
-            "via field session. See class KDoc for activation instructions."
-    )
     @Test
-    fun `early and full rows render the same set of text nodes`() {
+    fun earlyAndFullRowsRenderTheSameSetOfTextNodes() {
         composeTestRule.setContent {
             DecodeListPanel(
                 decodes = listOf(
@@ -75,7 +65,9 @@ class DecodeListPanelEarlyParityTest {
         }
 
         // Both rows display the same message text — two occurrences, one per row.
-        composeTestRule.onAllNodesWithText("CQ K1ABC FN42").assertCountEquals(2)
+        // substring = true: rows render the message behind a DecodePrefix marker.
+        composeTestRule.onAllNodesWithText("CQ K1ABC FN42", substring = true)
+            .assertCountEquals(2)
 
         // No EARLY-source-specific marker text may appear anywhere in the tree.
         composeTestRule.onAllNodesWithText("EARLY").assertCountEquals(0)
