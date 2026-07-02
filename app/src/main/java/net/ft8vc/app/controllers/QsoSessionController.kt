@@ -303,6 +303,9 @@ class QsoSessionController(
                     publishQsoState()
                     if (qso?.state == QsoState.Complete) {
                         handleQsoComplete()
+                        // Capture before nulling so maybeAutoResumeCq can join the
+                        // cancelled loop (symmetric with the TX path in afterTransmit).
+                        val finished = qsoLoopJob
                         // Tear the loop down from the decode-path coroutine (safe: this
                         // coroutine is NOT qsoLoopJob, so cancelling it doesn't self-cancel).
                         qsoLoopJob?.cancel()
@@ -311,7 +314,7 @@ class QsoSessionController(
                         qso = null
                         operateTxUserEdited = false
                         publishQsoState()
-                        maybeAutoResumeCq("QSO logged — resuming CQ")
+                        maybeAutoResumeCq("QSO logged — resuming CQ", finished)
                     }
                 }
             } else if (!running && isOperating && txEnabled && myCall.isNotBlank()) {
@@ -443,13 +446,18 @@ class QsoSessionController(
      * The pending flag is re-checked on the dispatcher right before the restart,
      * so a manual Stop/Abandon queued in between always wins. Gates mirror
      * [startCq] but fail silently — this is a background action.
+     *
+     * @param finishedJob The already-cancelled loop job to join before restarting.
+     *   Pass explicitly from the decode-path Complete branch (where qsoLoopJob has
+     *   already been nulled); omit from the TX-path (afterTransmit) where qsoLoopJob
+     *   still points to the running loop at call time.
      */
-    private fun maybeAutoResumeCq(snackbar: String) {
+    private fun maybeAutoResumeCq(snackbar: String, finishedJob: Job? = null) {
         if (!autoCqResumeEnabled) return
         pendingAutoCqResume = true
-        val finishedJob = qsoLoopJob
+        val jobToJoin = finishedJob ?: qsoLoopJob
         scope.launch(qsoDispatcher) {
-            finishedJob?.cancelAndJoin()
+            jobToJoin?.cancelAndJoin()
             if (!pendingAutoCqResume) return@launch
             pendingAutoCqResume = false
             if (!isOperating || !txEnabled) return@launch
@@ -601,7 +609,8 @@ class QsoSessionController(
         QsoState.Answering -> "Answering ${dx ?: "?"}…"
         QsoState.SendingReport -> "QSO ${dx ?: "?"} — Report"
         QsoState.SendingRReport -> "QSO ${dx ?: "?"} — R-report"
-        QsoState.SendingRoger -> "QSO ${dx ?: "?"} — RRR"
+        QsoState.SendingRoger ->
+            if (sendRr73) "QSO ${dx ?: "?"} — RR73" else "QSO ${dx ?: "?"} — RRR"
         QsoState.SendingSeventyThree -> "QSO ${dx ?: "?"} — 73"
         QsoState.Complete -> "QSO complete${dx?.let { " with $it" } ?: ""}"
     }

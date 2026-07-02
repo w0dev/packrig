@@ -388,6 +388,7 @@ class QsoSessionControllerTest {
             label.startsWith("Answering") -> QsoState.Answering
             label.contains("Report") && !label.contains("R-report") -> QsoState.SendingReport
             label.contains("R-report") -> QsoState.SendingRReport
+            label.contains("RR73") -> QsoState.SendingRoger
             label.contains("RRR") -> QsoState.SendingRoger
             label.contains("73") -> QsoState.SendingSeventyThree
             label.contains("complete") -> QsoState.Complete
