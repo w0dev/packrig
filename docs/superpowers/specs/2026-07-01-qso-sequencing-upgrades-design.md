@@ -133,8 +133,13 @@ Four sequencing behaviors cost an activator QSOs or time:
 ### 5. CallsignMatcher (base-call matching)
 
 - New core object `CallsignMatcher`:
-  - `base(call: String): String` — strips `<`/`>` hash brackets, takes
-    `substringBefore('/')`, uppercases.
+  - `base(call: String): String` — strips `<`/`>` hash brackets, splits
+    on `/`, and picks the segment that looks most like a callsign (has
+    at least one digit AND one letter; longest such segment wins;
+    fallback: first segment), then strips any `-suffix` and uppercases.
+    This handles both suffix compounds (`K1ABC/P` → `K1ABC`) and prefix
+    compounds (`PJ4/K1ABC` → `K1ABC`), which a naive
+    `substringBefore('/')` gets wrong.
   - `matches(token: String, call: String): Boolean` — true when the
     bracket-stripped forms match case-insensitively, or when the bases
     match AND the base contains a digit (so modifiers like `DX`, `POTA`,
