@@ -45,7 +45,10 @@ import net.ft8vc.app.ui.theme.Ft8Amber
 import net.ft8vc.app.ui.theme.Ft8Green
 import net.ft8vc.app.ui.theme.Ft8Red
 import net.ft8vc.core.ActivationProfile
+import net.ft8vc.core.ClockOffsetEstimator
 import net.ft8vc.core.TxSlotParity
+import java.util.Locale
+import kotlin.math.abs
 
 @Composable
 fun OperateStatusBar(
@@ -113,6 +116,27 @@ fun OperateStatusBar(
                 maxLines = 1,
             )
             CompactChip(text = "TX ${state.txFreqHz}")
+            state.clockOffsetSeconds?.let { off ->
+                if (abs(off) >= ClockOffsetEstimator.WARN_S) {
+                    val severe = abs(off) >= ClockOffsetEstimator.SEVERE_S
+                    val color = if (severe) Ft8Red else Ft8Amber
+                    WithTooltip(
+                        text = "Phone clock differs from FT8 band time — fix in Android date & time settings",
+                    ) {
+                        Surface(shape = Ft8Compact.chipShape, color = color.copy(alpha = 0.2f)) {
+                            Text(
+                                text = "Clock %+.1fs".format(Locale.US, off),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.SemiBold,
+                                color = color,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            }
             if (state.potaModeEnabled) {
                 val parkLabel = state.potaParkRef.ifBlank { "POTA?" }
                 val validPark = state.potaParkRef.isNotBlank() &&

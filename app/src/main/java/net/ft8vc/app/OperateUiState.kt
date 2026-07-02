@@ -147,6 +147,10 @@ data class OperateUiState(
     /** Consecutive slots with all-zero PCM. >2 cross-checked with AudioManager triggers capture recreate. */
     val zeroSampleSlots: Int = 0,
 
+    // ── Clock health ──────────────────────────────────────────────────────
+    /** Estimated phone-clock offset vs FT8 band time (median DT), null when unknown. */
+    val clockOffsetSeconds: Float? = null,
+
     // ── Misc ──────────────────────────────────────────────────────────────
     val operateStatus: String? = null,
     val contactCount: Int = 0,

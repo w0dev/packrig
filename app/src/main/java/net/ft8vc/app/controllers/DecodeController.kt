@@ -21,6 +21,7 @@ import net.ft8vc.app.DecodeRow
 import net.ft8vc.app.OperateUiState
 import net.ft8vc.audio.dsp.SpectrumProcessor
 import net.ft8vc.core.AppInfo
+import net.ft8vc.core.ClockOffsetEstimator
 import net.ft8vc.core.DecodeDistance
 import net.ft8vc.core.DecodePassSource
 import net.ft8vc.core.QsoDecode
@@ -90,6 +91,7 @@ class DecodeController(
     val maxAudioFreqHz: Int = spectrum.freqForBin(spectrum.binCount).toInt()
 
     private val slotCollector = SlotCollector(sampleRateHz)
+    private val clockOffset = ClockOffsetEstimator()
 
     private val earlyDecodeEnabled = MutableStateFlow(true)
     private val currentSlotStart = MutableStateFlow<Long?>(null)
@@ -160,10 +162,11 @@ class DecodeController(
 
     fun reset() {
         slotCollector.reset()
+        clockOffset.reset()
         levelEma = OperateUiState.SILENCE_DBFS
         lastUiUpdateNs = 0L
         _slice.update {
-            it.copy(levelDbfs = OperateUiState.SILENCE_DBFS, clip = false)
+            it.copy(levelDbfs = OperateUiState.SILENCE_DBFS, clip = false, clockOffsetSeconds = null)
         }
     }
 
@@ -263,6 +266,11 @@ class DecodeController(
                 lastDecodePassDurationMs = passDurationMs,
                 lastDecodePassSource = source,
             )
+        }
+
+        if (source == DecodePassSource.Full) {
+            clockOffset.onSlotDts(results.map { it.dtSeconds })
+            _slice.update { it.copy(clockOffsetSeconds = clockOffset.offsetSeconds) }
         }
 
         // Phase 6 (RELY-04): clear the "Decodes dropped" chip after 5 consecutive
@@ -413,6 +421,8 @@ data class DecodeSlice(
     val lastDecodePassDurationMs: Long = 0L,
     /** Which pass produced [lastDecodePassDurationMs]. Null before any pass runs. */
     val lastDecodePassSource: net.ft8vc.core.DecodePassSource? = null,
+    /** Estimated phone-clock offset vs FT8 band time (median DT), null when unknown. */
+    val clockOffsetSeconds: Float? = null,
 )
 
 data class DecodeBatch(

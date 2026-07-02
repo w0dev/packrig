@@ -8,6 +8,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.ft8vc.app.OperateUiState
+import net.ft8vc.core.AppInfo
+import net.ft8vc.core.DecodePassSource
 import net.ft8vc.core.TxSlotParity
 import net.ft8vc.ft8native.Ft8DecodeResult
 import net.ft8vc.ft8native.Ft8DecoderApi
@@ -15,6 +17,7 @@ import net.ft8vc.ft8native.fakes.Ft8DecoderFake
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -186,6 +189,34 @@ class DecodeControllerTest {
             assertTrue(batch.slotParity == TxSlotParity.EVEN || batch.slotParity == TxSlotParity.ODD)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    /** Convenience: queue an Array<Ft8DecodeResult> via the fake's list API. */
+    private fun queueDecodes(results: Array<Ft8DecodeResult>) {
+        decoder.queueDecodeResults(results.toList())
+    }
+
+    @Test
+    fun clockOffset_fromFullPassesOnly_andExpiresOnQuiet() = runTest {
+        // Fake decoder returning four decodes with DT 2.0 s (clock ≈1.3 s fast).
+        val results = Array(4) { i ->
+            Ft8DecodeResult("CQ K${i}AA EM1$i", 0, 2.0f, (500 + 100 * i).toFloat(), 10)
+        }
+        queueDecodes(results)
+        val samples = ShortArray(AppInfo.SAMPLE_RATE_HZ * 15) { 100 } // non-zero PCM
+        controller.decodeSlot(samples, slotStartEpochMs = 0L, source = DecodePassSource.Full)
+        assertEquals(1.32f, controller.slice.value.clockOffsetSeconds!!, 0.01f)
+
+        // Early passes must NOT feed the estimator.
+        queueDecodes(results)
+        controller.decodeSlot(samples, slotStartEpochMs = 15_000L, source = DecodePassSource.Early)
+
+        // Four quiet FULL slots expire the estimate.
+        repeat(4) { n ->
+            queueDecodes(emptyArray())
+            controller.decodeSlot(samples, slotStartEpochMs = 30_000L + n * 15_000L, source = DecodePassSource.Full)
+        }
+        assertNull(controller.slice.value.clockOffsetSeconds)
     }
 
     private companion object {

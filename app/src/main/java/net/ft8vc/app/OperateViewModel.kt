@@ -239,6 +239,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 catUnreachable = rig.catUnreachable,
                 decodeFailureRecent = decode.decodeFailureRecent,
                 zeroSampleSlots = decode.zeroSampleSlots,
+                clockOffsetSeconds = decode.clockOffsetSeconds,
                 operateStatus = view.operateStatus,
                 contactCount = view.contactCount,
                 lastAdifBackupAtMs = settings.lastAdifBackupAtMs,
