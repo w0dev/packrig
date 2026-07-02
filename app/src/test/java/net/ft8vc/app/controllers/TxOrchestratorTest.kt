@@ -131,6 +131,26 @@ class TxOrchestratorTest {
         assertTrue(rig.pttEdgesSnapshot().any { it.kind == PttEdgeKind.RELEASE })
     }
 
+    @Test
+    fun isTransmitting_resetToFalse_whenCallerCancelledMidTx() = runBlocking {
+        // Reproduces the "stuck on transmitting…" bug: abandon/stop mid-TX cancels
+        // the coroutine that's blocked in playBlocking. runTxBody's normal-return
+        // reset of isTransmitting must not be skipped by the CancellationException.
+        playback.blockUntilLatch = CountDownLatch(1)
+        val txJob = scope.launch { orchestrator.transmit("CQ W0DEV EM26", 1000) }
+        waitUntil { orchestrator.slice.value.isTransmitting }
+        assertTrue(orchestrator.slice.value.isTransmitting)
+
+        txJob.cancel()
+        playback.releaseBlock()
+
+        waitUntil { !orchestrator.slice.value.isTransmitting }
+        assertFalse(
+            "isTransmitting must reset to false after a mid-TX cancel",
+            orchestrator.slice.value.isTransmitting,
+        )
+    }
+
     // ── Layer (c) withTimeoutOrNull (outer 500 ms grace beyond slot) ───
 
     @Test
