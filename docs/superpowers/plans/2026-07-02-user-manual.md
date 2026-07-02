@@ -336,8 +336,10 @@ for f in docs/manual/*.md README.md docs/README.md; do
 done
 ```
 
-Expected: three `BROKEN` lines (`logging.md`, `settings.md`,
-`troubleshooting.md`).
+Expected: four `BROKEN` lines — `docs/manual/README.md` → `logging.md`,
+`settings.md`, `troubleshooting.md`, plus `docs/manual/operating.md` →
+`settings.md` (the Automation section's cross-link; that page arrives in a
+later task).
 
 - [ ] **Step 5: Commit**
 
@@ -403,7 +405,8 @@ for f in docs/manual/*.md README.md docs/README.md; do
 done
 ```
 
-Expected: two `BROKEN` lines (`settings.md`, `troubleshooting.md`).
+Expected: three `BROKEN` lines — `docs/manual/README.md` → `settings.md` and
+`troubleshooting.md`, plus `docs/manual/operating.md` → `settings.md`.
 
 - [ ] **Step 5: Commit**
 
