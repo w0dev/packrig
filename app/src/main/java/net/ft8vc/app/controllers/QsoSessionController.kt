@@ -19,6 +19,7 @@ import net.ft8vc.app.SnackbarEvent
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AbandonedPartners
 import net.ft8vc.core.AnswerPolicy
+import net.ft8vc.core.DupeLogGuard
 import net.ft8vc.core.AnswerSelector
 import net.ft8vc.core.QsoDecode
 import net.ft8vc.core.QsoForm
@@ -120,11 +121,11 @@ class QsoSessionController(
 ) : AutoCloseable {
 
     private val abandonedPartners = AbandonedPartners()
+    private val dupeLogGuard = DupeLogGuard()
     private var qso: QsoMachine? = null
     private var qsoLoopJob: Job? = null
     private var slotClockJob: Job? = null
     private var qsoTxParity: TxSlotParity? = null
-    private var lastLoggedKey: String? = null
     private var operateTxUserEdited: Boolean = false
 
     // Mutable settings/profile state — written from VM, read from dispatcher coroutines.
@@ -418,9 +419,10 @@ class QsoSessionController(
 
     private suspend fun handleQsoComplete() {
         val snapshot = qso?.snapshot(clock()) ?: return
-        val key = "${snapshot.dxCall}:${snapshot.completedAtEpochMs}"
-        if (key == lastLoggedKey) return
-        lastLoggedKey = key
+        if (!dupeLogGuard.shouldLog(snapshot.dxCall, clock())) {
+            notifyFn("Re-confirmed ${snapshot.dxCall} — already logged", SnackbarEvent.Tag.TRANSIENT)
+            return
+        }
         onQsoComplete(snapshot)
         notifyFn("QSO complete with ${snapshot.dxCall} — logged", SnackbarEvent.Tag.QSO_COMPLETE)
     }
