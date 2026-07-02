@@ -150,6 +150,7 @@ class SettingsBridgeTest {
             txSlotParity = TxSlotParity.ODD,
             useDarkTheme = false,
             cq73OnlyFilter = true,
+            sendRr73 = false,
         )
         val (repo, _) = makeRepo(initial = settings)
         val bridge = SettingsBridge(repo, bridgeScope)
@@ -163,6 +164,7 @@ class SettingsBridgeTest {
         assertEquals(TxSlotParity.ODD, s.txSlotParity)
         assertFalse(s.useDarkTheme)
         assertTrue(s.cq73OnlyFilter)
+        assertFalse(s.sendRr73)
     }
 
     @Test

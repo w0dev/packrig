@@ -271,6 +271,13 @@ fun SettingsScreen(vm: OperateViewModel) {
                     onCheckedChange = vm::setEarlyDecodeEnabled,
                     enabled = true,
                 )
+                AutoToggleRow(
+                    title = "Send RR73 (log on send)",
+                    subtitle = "OFF sends RRR and waits for 73 (v1.0 behavior)",
+                    checked = state.sendRr73,
+                    onCheckedChange = vm::setSendRr73,
+                    enabled = state.txEnabled,
+                )
                 Text(
                     "Set TX slot (Even/Odd) on Operate when TX is enabled.",
                     style = MaterialTheme.typography.bodySmall,

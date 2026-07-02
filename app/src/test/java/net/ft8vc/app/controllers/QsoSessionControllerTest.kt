@@ -80,6 +80,7 @@ class QsoSessionControllerTest {
         controller.setAnswerPolicy(AnswerPolicy.FIRST)
         controller.setMaxUnansweredTxCycles(5)
         controller.setDefaultTxSlotParity(TxSlotParity.EVEN)
+        controller.setSendRr73(true)
     }
 
     @After fun tearDown() {
@@ -284,6 +285,24 @@ class QsoSessionControllerTest {
         controller.resumeFromDecode(decodeRowDirected("W0DEV K1ABC R-15"))
         controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
         assertEquals(2, completedSnapshots.size)
+    }
+
+    @Test
+    fun sendRr73On_nextTxMessageIsRr73() = runTest {
+        controller.setSendRr73(true)
+        controller.startCq()
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC R-15", -8)), TxSlotParity.ODD)
+        assertEquals("K1ABC W0DEV RR73", controller.slice.value.nextTxMessage)
+    }
+
+    @Test
+    fun sendRr73Off_nextTxMessageIsRrr() = runTest {
+        controller.setSendRr73(false)
+        controller.startCq()
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC R-15", -8)), TxSlotParity.ODD)
+        assertEquals("K1ABC W0DEV RRR", controller.slice.value.nextTxMessage)
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

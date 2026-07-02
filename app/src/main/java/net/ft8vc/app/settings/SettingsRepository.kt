@@ -39,6 +39,7 @@ class SettingsRepository(context: Context) {
             autoAnswerCqEnabled = prefs[Keys.AUTO_ANSWER_CQ] ?: false,
             lateStartTxEnabled = prefs[Keys.LATE_START_TX_ENABLED] ?: true,
             earlyDecodeEnabled = prefs[Keys.EARLY_DECODE_ENABLED] ?: true,
+            sendRr73 = prefs[Keys.SEND_RR73] ?: true,
             answerPolicy = prefs[Keys.ANSWER_POLICY]?.let { AnswerPolicy.valueOf(it) }
                 ?: AnswerPolicy.FIRST,
             maxUnansweredTxCycles = prefs[Keys.MAX_UNANSWERED_TX] ?: 5,
@@ -106,6 +107,10 @@ class SettingsRepository(context: Context) {
         appContext.settingsDataStore.edit { it[Keys.EARLY_DECODE_ENABLED] = enabled }
     }
 
+    suspend fun setSendRr73(enabled: Boolean) {
+        appContext.settingsDataStore.edit { it[Keys.SEND_RR73] = enabled }
+    }
+
     suspend fun setAnswerPolicy(policy: AnswerPolicy) {
         appContext.settingsDataStore.edit { it[Keys.ANSWER_POLICY] = policy.name }
     }
@@ -170,6 +175,7 @@ class SettingsRepository(context: Context) {
         val AUTO_ANSWER_CQ = booleanPreferencesKey("auto_answer_cq")
         val LATE_START_TX_ENABLED = booleanPreferencesKey("late_start_tx_enabled")
         val EARLY_DECODE_ENABLED = booleanPreferencesKey("early_decode_enabled")
+        val SEND_RR73 = booleanPreferencesKey("send_rr73")
         val ANSWER_POLICY = stringPreferencesKey("answer_policy")
         val MAX_UNANSWERED_TX = intPreferencesKey("max_unanswered_tx")
         val INPUT_GAIN = floatPreferencesKey("input_gain")

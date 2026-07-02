@@ -103,6 +103,7 @@ data class OperateUiState(
     val maxUnansweredTxCycles: Int = 5,
     val lateStartTxEnabled: Boolean = true,
     val earlyDecodeEnabled: Boolean = true,
+    val sendRr73: Boolean = true,
 
     // ── Qso (active contact) ──────────────────────────────────────────────
     val qsoActive: Boolean = false,

@@ -143,6 +143,7 @@ class QsoSessionController(
     @Volatile private var maxUnansweredTxCycles: Int = 5
     @Volatile private var defaultTxSlotParity: TxSlotParity = TxSlotParity.EVEN
     @Volatile private var isOperating: Boolean = false
+    @Volatile private var sendRr73: Boolean = true
 
     private val _slice = MutableStateFlow(QsoSlice())
     val slice: StateFlow<QsoSlice> = _slice.asStateFlow()
@@ -170,6 +171,7 @@ class QsoSessionController(
     fun setMaxUnansweredTxCycles(cycles: Int) { maxUnansweredTxCycles = cycles }
     fun setDefaultTxSlotParity(parity: TxSlotParity) { defaultTxSlotParity = parity }
     fun setOperating(operating: Boolean) { isOperating = operating }
+    fun setSendRr73(enabled: Boolean) { sendRr73 = enabled }
 
     // ── UI actions ──────────────────────────────────────────────────────
 
@@ -484,7 +486,8 @@ class QsoSessionController(
 
     private fun effectiveCqModifier(): String? = ActivationProfile.cqModifier(potaModeEnabled)
 
-    private fun newQsoMachine(): QsoMachine = QsoMachine(myCall, myGrid, effectiveCqModifier())
+    private fun newQsoMachine(): QsoMachine =
+        QsoMachine(myCall, myGrid, effectiveCqModifier(), initiatorRr73 = sendRr73)
 
     private fun defaultOperateTxText(): String = QsoMessages.cq(myCall, myGrid, effectiveCqModifier())
 
