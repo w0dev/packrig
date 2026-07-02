@@ -25,11 +25,14 @@ object AnswerSelector {
         decodes: List<QsoDecode>,
         policy: AnswerPolicy,
         excludedDx: Set<String> = emptySet(),
+        allowedKinds: Set<QsoResume.Kind> = QsoResume.Kind.entries.toSet(),
     ): QsoResume.Opportunity? {
         val candidates = decodes.mapNotNull { d ->
-            QsoResume.opportunityFromDecode(myCall, d)?.let { opp ->
-                Candidate(d, opp.dxCall, opp.dxGrid ?: gridFromOpportunity(opp, d))
-            }
+            QsoResume.opportunityFromDecode(myCall, d)
+                ?.takeIf { it.kind in allowedKinds }
+                ?.let { opp ->
+                    Candidate(d, opp.dxCall, opp.dxGrid ?: gridFromOpportunity(opp, d))
+                }
         }.filterNot { isExcluded(it.dxCall, excludedDx) }
         if (candidates.isEmpty()) return null
         val picked = pick(candidates, myGrid, policy) { it.grid }

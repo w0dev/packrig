@@ -309,14 +309,20 @@ class QsoMachine(
         answerPolicy: AnswerPolicy,
         excludedDx: Set<String>,
     ): Boolean {
-        val picked = AnswerSelector.selectGridReply(
+        val opp = AnswerSelector.selectOpportunity(
             myCall, myGrid, decodes, answerPolicy, excludedDx,
+            allowedKinds = CQ_REPLY_KINDS,
         ) ?: return false
-        val rx = QsoMessages.parse(picked.message) as? QsoRx.GridReply ?: return false
-        dxCall = rx.sender
-        dxGrid = rx.grid
-        reportSent = picked.snr
-        state = QsoState.SendingReport
+        when (opp.kind) {
+            QsoResume.Kind.InitiatorGridReply ->
+                resumeInitiatorAfterGridReply(opp.dxCall, opp.dxGrid ?: "", opp.snr)
+            QsoResume.Kind.AnswererReport ->
+                resumeAnswererAfterReport(opp.dxCall, opp.payloadReport ?: opp.snr, opp.snr)
+            QsoResume.Kind.InitiatorRReport ->
+                resumeInitiatorAfterRReport(opp.dxCall, opp.payloadReport ?: opp.snr, opp.snr)
+            // Filtered out by CQ_REPLY_KINDS; kept exhaustive for the compiler.
+            QsoResume.Kind.AnswererRoger -> return false
+        }
         return true
     }
 
@@ -339,3 +345,10 @@ class QsoMachine(
         return CallsignMatcher.matches(target, myCall) && CallsignMatcher.matches(sender, dx)
     }
 }
+
+/** Reply kinds an active CQ responds to. A stray RRR/RR73 has no exchange to repair. */
+private val CQ_REPLY_KINDS = setOf(
+    QsoResume.Kind.InitiatorGridReply,
+    QsoResume.Kind.AnswererReport,
+    QsoResume.Kind.InitiatorRReport,
+)

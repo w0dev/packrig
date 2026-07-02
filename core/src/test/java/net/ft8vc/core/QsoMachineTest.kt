@@ -312,4 +312,60 @@ class QsoMachineTest {
         assertTrue(m.onDecodes(decode("W0DEV K1ABC 73")))
         assertEquals(QsoState.Complete, m.state)
     }
+
+    @Test
+    fun cqAcceptsDirectReportReply() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        // Tx1-skip hunter: payload report -10; we measured them at -5.
+        assertTrue(m.onDecodes(decode("W0DEV K3XYZ -10", snr = -5)))
+        assertEquals(QsoState.SendingRReport, m.state)
+        assertEquals("K3XYZ", m.dxCall)
+        assertEquals(-10, m.reportRcvd)
+        assertEquals(-5, m.reportSent)
+        assertEquals("K3XYZ W0DEV R-05", m.txMessage())
+        // They roger; we send 73; complete on transmit.
+        assertTrue(m.onDecodes(decode("W0DEV K3XYZ RR73")))
+        assertEquals(QsoState.SendingSeventyThree, m.state)
+        m.markTransmitted()
+        assertEquals(QsoState.Complete, m.state)
+    }
+
+    @Test
+    fun cqAcceptsRReportTailRepair() {
+        val m = QsoMachine("W0DEV", "EM26", initiatorRr73 = true)
+        m.startCq()
+        // Partner lost our RR73 and retried their R-report while we resumed CQ.
+        assertTrue(m.onDecodes(decode("W0DEV K1ABC R-08", snr = -6)))
+        assertEquals(QsoState.SendingRoger, m.state)
+        assertEquals("K1ABC W0DEV RR73", m.txMessage())
+        m.markTransmitted()
+        assertEquals(QsoState.Complete, m.state)
+    }
+
+    @Test
+    fun cqIgnoresStrayRogerBye() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        assertFalse(m.onDecodes(decode("W0DEV K1ABC RR73")))
+        assertEquals(QsoState.CallingCq, m.state)
+    }
+
+    @Test
+    fun cqPrefersActionableReplyOverStrayRoger() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        // FIRST policy: the stray RR73 comes first in decode order but is not
+        // an accepted kind, so the grid reply must win.
+        assertTrue(
+            m.onDecodes(
+                listOf(
+                    QsoDecode("W0DEV K9AAA RR73", -3),
+                    QsoDecode("W0DEV K1ABC FN42", -8),
+                ),
+            ),
+        )
+        assertEquals(QsoState.SendingReport, m.state)
+        assertEquals("K1ABC", m.dxCall)
+    }
 }
