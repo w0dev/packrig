@@ -27,6 +27,12 @@ a CP2102-style serial bridge will get you on the air for RX.
 A valid amateur radio license is required to transmit. The app boots into
 **receive-only** and will not key the rig until you enable TX in Settings.
 
+## Documentation
+
+The [Operator's Manual](docs/manual/README.md) covers usage and behavior end to
+end — getting started, operating, QSO automation, logging, a full settings
+reference, and troubleshooting. The quick start below is the condensed version.
+
 ## Quick start
 
 1. **Plug in the radio** — phone → USB-C OTG cable → Digirig → rig DATA and CAT

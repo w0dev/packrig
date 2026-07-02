@@ -6,6 +6,12 @@ For AI agents and contributors: see [AGENTS.md](../AGENTS.md) (mandatory unit te
 
 Start here for component docs; existing setup guides remain at [SDK_SETUP.md](SDK_SETUP.md) and [HARDWARE.md](HARDWARE.md).
 
+## User documentation
+
+| Document | Description |
+|----------|-------------|
+| [manual/](manual/README.md) | **Operator's Manual**: end-to-end usage and behavior for operators (not developers). |
+
 ## Setup and hardware
 
 | Document | Description |
