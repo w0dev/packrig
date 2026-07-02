@@ -110,6 +110,10 @@ class Ft8HashPersistenceTest {
      */
     @Test
     fun calibrationWavMedianDtNearNominal() {
+        assumeTrue(
+            "snr/210703_133430.wav not present",
+            runCatching { assets.open("snr/210703_133430.wav").close() }.isSuccess,
+        )
         // Step 1: measure the decoder's DT axis using the known encode geometry.
         Ft8Native.clearCallsignTable()
         val encodeSlot = Ft8Native.encode("CQ W0DEV EM26", 1200f)
@@ -127,6 +131,7 @@ class Ft8HashPersistenceTest {
         val decoded = Ft8Native.decode(samples)
         assertTrue("calibration WAV must decode signals", decoded.size >= 4)
         val dts = decoded.map { it.dtSeconds }.sorted()
+        // Upper-middle element for even N; adequate for a spread check.
         val median = dts[dts.size / 2]
 
         Log.i(
