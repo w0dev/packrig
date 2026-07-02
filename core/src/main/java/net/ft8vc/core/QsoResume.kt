@@ -24,7 +24,10 @@ object QsoResume {
         val dxCall: String,
         val dxGrid: String?,
         val kind: Kind,
+        /** Our measured SNR of their transmission. */
         val snr: Int,
+        /** The report carried in the message payload (Report / RReport kinds). */
+        val payloadReport: Int? = null,
     )
 
     /** Directed resume opportunity in [decodes], chosen by [policy], or null. */
@@ -42,9 +45,9 @@ object QsoResume {
             is QsoRx.GridReply if CallsignMatcher.matches(rx.target, myCall) ->
                 Opportunity(rx.sender, rx.grid, Kind.InitiatorGridReply, decode.snr)
             is QsoRx.Report if CallsignMatcher.matches(rx.target, myCall) ->
-                Opportunity(rx.sender, null, Kind.AnswererReport, decode.snr)
+                Opportunity(rx.sender, null, Kind.AnswererReport, decode.snr, payloadReport = rx.snr)
             is QsoRx.RReport if CallsignMatcher.matches(rx.target, myCall) ->
-                Opportunity(rx.sender, null, Kind.InitiatorRReport, decode.snr)
+                Opportunity(rx.sender, null, Kind.InitiatorRReport, decode.snr, payloadReport = rx.snr)
             is QsoRx.Roger if CallsignMatcher.matches(rx.target, myCall) ->
                 Opportunity(rx.sender, null, Kind.AnswererRoger, decode.snr)
             is QsoRx.RogerBye if CallsignMatcher.matches(rx.target, myCall) ->
@@ -62,9 +65,9 @@ object QsoResume {
             Kind.InitiatorGridReply ->
                 machine.resumeInitiatorAfterGridReply(opp.dxCall, opp.dxGrid ?: "", opp.snr)
             Kind.AnswererReport ->
-                machine.resumeAnswererAfterReport(opp.dxCall, opp.snr)
+                machine.resumeAnswererAfterReport(opp.dxCall, opp.payloadReport ?: opp.snr, opp.snr)
             Kind.InitiatorRReport ->
-                machine.resumeInitiatorAfterRReport(opp.dxCall, opp.snr)
+                machine.resumeInitiatorAfterRReport(opp.dxCall, opp.payloadReport ?: opp.snr, opp.snr)
             Kind.AnswererRoger ->
                 machine.resumeAnswererAfterRoger(opp.dxCall)
         }

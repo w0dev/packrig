@@ -162,23 +162,23 @@ class QsoMachine(
         state = QsoState.SendingReport
     }
 
-    /** Answerer: we missed our grid TX; initiator sent report — reply with R-report. */
-    fun resumeAnswererAfterReport(dxCall: String, reportSnr: Int) {
+    /** Answerer: we missed our grid TX; initiator sent [reportRcvd] — reply R+[reportSent]. */
+    fun resumeAnswererAfterReport(dxCall: String, reportRcvd: Int, reportSent: Int) {
         reset()
         role = QsoRole.Answerer
         this.dxCall = dxCall
-        reportSent = reportSnr
-        reportRcvd = reportSnr
+        this.reportSent = reportSent
+        this.reportRcvd = reportRcvd
         state = QsoState.SendingRReport
     }
 
-    /** Initiator: answerer sent R-report — next TX is RRR. */
-    fun resumeInitiatorAfterRReport(dxCall: String, reportRcvdSnr: Int) {
+    /** Initiator: answerer sent R-[reportRcvd] — next TX is RRR/RR73. */
+    fun resumeInitiatorAfterRReport(dxCall: String, reportRcvd: Int, reportSent: Int) {
         reset()
         role = QsoRole.Initiator
         this.dxCall = dxCall
-        reportSent = reportRcvdSnr
-        reportRcvd = reportRcvdSnr
+        this.reportSent = reportSent
+        this.reportRcvd = reportRcvd
         state = QsoState.SendingRoger
     }
 
