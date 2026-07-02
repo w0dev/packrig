@@ -328,6 +328,8 @@ class QsoMachine(
         return false
     }
 
-    private fun fromDx(target: String, sender: String): Boolean =
-        target == myCall && sender == dxCall
+    private fun fromDx(target: String, sender: String): Boolean {
+        val dx = dxCall ?: return false
+        return CallsignMatcher.matches(target, myCall) && CallsignMatcher.matches(sender, dx)
+    }
 }

@@ -39,15 +39,15 @@ object QsoResume {
     fun opportunityFromDecode(myCall: String, decode: QsoDecode): Opportunity? {
         if (myCall.isBlank()) return null
         return when (val rx = QsoMessages.parse(decode.message)) {
-            is QsoRx.GridReply if rx.target == myCall ->
+            is QsoRx.GridReply if CallsignMatcher.matches(rx.target, myCall) ->
                 Opportunity(rx.sender, rx.grid, Kind.InitiatorGridReply, decode.snr)
-            is QsoRx.Report if rx.target == myCall ->
+            is QsoRx.Report if CallsignMatcher.matches(rx.target, myCall) ->
                 Opportunity(rx.sender, null, Kind.AnswererReport, decode.snr)
-            is QsoRx.RReport if rx.target == myCall ->
+            is QsoRx.RReport if CallsignMatcher.matches(rx.target, myCall) ->
                 Opportunity(rx.sender, null, Kind.InitiatorRReport, decode.snr)
-            is QsoRx.Roger if rx.target == myCall ->
+            is QsoRx.Roger if CallsignMatcher.matches(rx.target, myCall) ->
                 Opportunity(rx.sender, null, Kind.AnswererRoger, decode.snr)
-            is QsoRx.RogerBye if rx.target == myCall ->
+            is QsoRx.RogerBye if CallsignMatcher.matches(rx.target, myCall) ->
                 Opportunity(rx.sender, null, Kind.AnswererRoger, decode.snr)
             else -> null
         }

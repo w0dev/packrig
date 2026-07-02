@@ -104,12 +104,6 @@ object AnswerSelector {
         return excludedDx.any { it.equals(dxCall, ignoreCase = true) || it.equals(base, ignoreCase = true) }
     }
 
-    private fun callsignMatches(token: String, myCall: String): Boolean {
-        if (token.equals(myCall, ignoreCase = true)) return true
-        val myBase = myCall.substringBefore('/').substringBefore('-')
-        val tokenBase = token.substringBefore('/').substringBefore('-')
-        return myBase.isNotEmpty() &&
-            myBase.any(Char::isDigit) &&
-            myBase.equals(tokenBase, ignoreCase = true)
-    }
+    private fun callsignMatches(token: String, myCall: String): Boolean =
+        CallsignMatcher.matches(token, myCall)
 }

@@ -264,4 +264,17 @@ class QsoMachineTest {
         assertEquals(QsoState.SendingReport, m.state)
         assertEquals("K1ABC W0DEV -08", m.txMessage())
     }
+
+    @Test
+    fun fromDxMatchesCompoundAndHashedForms() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        // Caller addresses our portable form; we still capture them.
+        assertTrue(m.onDecodes(decode("W0DEV/P K1ABC FN42", snr = -8)))
+        assertEquals(QsoState.SendingReport, m.state)
+        assertEquals("K1ABC", m.dxCall)
+        // Their R-report arrives under a hashed compound form of the same call.
+        assertTrue(m.onDecodes(decode("W0DEV <PJ4/K1ABC> R-15")))
+        assertEquals(QsoState.SendingRoger, m.state)
+    }
 }
