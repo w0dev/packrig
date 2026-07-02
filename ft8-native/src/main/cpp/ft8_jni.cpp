@@ -5,6 +5,7 @@
 #include <mutex>
 #include <cstring>
 #include <cmath>
+#include <ctime>
 
 extern "C" {
 #include "ft8/constants.h"
@@ -49,8 +50,14 @@ static void hashtable_init() {
     std::memset(g_callsignHashtable, 0, sizeof(g_callsignHashtable));
 }
 
-// Entries not re-heard within this many decode passes (~15 s each) age out.
+// Entries not re-heard within ~40 aging intervals (~12 s each, wall-clock gated) age out — ≈10 minutes.
 static const uint8_t kHashMaxAgeSlots = 40;
+
+// Aging is wall-clock gated so multiple decode passes per slot (early decode)
+// don't accelerate eviction: age advances at most once per ~12 s regardless of
+// how many nativeDecode calls a slot makes. 40 ages ≈ 10 minutes.
+static const int64_t kHashCleanupMinIntervalMs = 12000;
+static int64_t g_lastHashCleanupMs = 0;
 
 // Ported from ft8_lib demo/decode_ft8.c: age lives in bits 24-31 of the stored
 // hash; survivors age by one per call, entries older than max_age are freed.
@@ -217,7 +224,15 @@ Java_net_ft8vc_ft8native_Ft8Native_nativeDecode(
     cfg.freq_osr = kFreqOsr;
     cfg.protocol = FTX_PROTOCOL_FT8;
 
-    hashtable_cleanup(kHashMaxAgeSlots);
+    {
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        int64_t nowMs = (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+        if (nowMs - g_lastHashCleanupMs >= kHashCleanupMinIntervalMs) {
+            g_lastHashCleanupMs = nowMs;
+            hashtable_cleanup(kHashMaxAgeSlots);
+        }
+    }
 
     monitor_t mon;
     monitor_init(&mon, &cfg);
@@ -372,4 +387,5 @@ extern "C" JNIEXPORT void JNICALL
 Java_net_ft8vc_ft8native_Ft8Native_nativeClearCallsignTable(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> guard(g_decodeMutex);
     hashtable_init();
+    g_lastHashCleanupMs = 0;
 }

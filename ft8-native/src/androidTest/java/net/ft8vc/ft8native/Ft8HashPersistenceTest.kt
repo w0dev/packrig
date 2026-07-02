@@ -77,13 +77,12 @@ class Ft8HashPersistenceTest {
      * Spec §3 validation gate for ClockOffsetEstimator.NOMINAL_DT_S: encoded
      * slots place the waveform centered via silence padding — the DT the
      * decoder reports for our own encode output tells us the buffer-relative
-     * nominal. The estimator's constant must match the SLOT-ALIGNED nominal
-     * (0.5 s), which this asserts within tolerance using the encode layout:
-     * (15 s - 12.64 s) / 2 = 1.18 s pad → expected DT ≈ 1.18 for encode
-     * output. The LIVE-capture nominal is 0.5 s (signals start 0.5 s after
-     * the boundary and SlotCollector buffers are boundary-aligned), so this
-     * test documents the encode-buffer DT and sanity-checks the decoder's DT
-     * axis; the 0.5 s live constant is confirmed in field gate (iii).
+     * nominal. The estimator's NOMINAL_DT_S is 0.68f = physical 0.5 s nominal
+     * + the +0.18 s DT-axis bias this file measures: (15 s - 12.64 s) / 2 =
+     * 1.18 s pad → expected DT ≈ 1.18 for encode output; axisBias = 1.18 −
+     * 1.18 ≈ +0.18 s; NOMINAL_DT_S = 0.5 + 0.18 = 0.68 s. This test
+     * documents the encode-buffer DT and sanity-checks the decoder's DT axis;
+     * the live confirmation is field gate (iii).
      */
     @Test
     fun decoderDtAxisMatchesEncodePadding() {

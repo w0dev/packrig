@@ -207,9 +207,10 @@ class DecodeControllerTest {
         controller.decodeSlot(samples, slotStartEpochMs = 0L, source = DecodePassSource.Full)
         assertEquals(1.32f, controller.slice.value.clockOffsetSeconds!!, 0.01f)
 
-        // Early passes must NOT feed the estimator.
-        queueDecodes(results)
+        // Early passes must NOT feed the estimator (different DTs would shift the median).
+        queueDecodes(Array(4) { i -> Ft8DecodeResult("CQ K${i}BB EM2$i", 0, 5.0f, (900 + 100 * i).toFloat(), 10) })
         controller.decodeSlot(samples, slotStartEpochMs = 15_000L, source = DecodePassSource.Early)
+        assertEquals(1.32f, controller.slice.value.clockOffsetSeconds!!, 0.01f)
 
         // Four quiet FULL slots expire the estimate.
         repeat(4) { n ->
