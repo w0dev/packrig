@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -127,6 +128,8 @@ class QsoSessionController(
     private var slotClockJob: Job? = null
     private var qsoTxParity: TxSlotParity? = null
     private var operateTxUserEdited: Boolean = false
+    /** Set when a completed/abandoned QSO should auto-restart CQ; cleared by manual stop. */
+    private var pendingAutoCqResume: Boolean = false
 
     // Mutable settings/profile state — written from VM, read from dispatcher coroutines.
     // No lock needed: writes happen at known points, reads happen inside qsoDispatcher;
@@ -144,6 +147,7 @@ class QsoSessionController(
     @Volatile private var defaultTxSlotParity: TxSlotParity = TxSlotParity.EVEN
     @Volatile private var isOperating: Boolean = false
     @Volatile private var sendRr73: Boolean = true
+    @Volatile private var autoCqResumeEnabled: Boolean = false
 
     private val _slice = MutableStateFlow(QsoSlice())
     val slice: StateFlow<QsoSlice> = _slice.asStateFlow()
@@ -172,6 +176,7 @@ class QsoSessionController(
     fun setDefaultTxSlotParity(parity: TxSlotParity) { defaultTxSlotParity = parity }
     fun setOperating(operating: Boolean) { isOperating = operating }
     fun setSendRr73(enabled: Boolean) { sendRr73 = enabled }
+    fun setAutoCqResumeEnabled(enabled: Boolean) { autoCqResumeEnabled = enabled }
 
     // ── UI actions ──────────────────────────────────────────────────────
 
@@ -306,6 +311,7 @@ class QsoSessionController(
                         qso = null
                         operateTxUserEdited = false
                         publishQsoState()
+                        maybeAutoResumeCq("QSO logged — resuming CQ")
                     }
                 }
             } else if (!running && isOperating && txEnabled && myCall.isNotBlank()) {
@@ -392,12 +398,14 @@ class QsoSessionController(
         }
         if (qso?.state == QsoState.Complete) {
             handleQsoComplete()
+            maybeAutoResumeCq("QSO logged — resuming CQ")
             return true
         }
         return false
     }
 
     private suspend fun stopQsoInternal() {
+        pendingAutoCqResume = false
         qsoLoopJob?.cancel()
         qsoLoopJob = null
         qsoTxParity = null
@@ -427,6 +435,33 @@ class QsoSessionController(
         }
         stopQsoInternal()
         notifyFn(message, SnackbarEvent.Tag.TRANSIENT)
+        if (dx != null) maybeAutoResumeCq("Resuming CQ")
+    }
+
+    /**
+     * Queue an automatic CQ restart after a completed or partner-abandoned QSO.
+     * The pending flag is re-checked on the dispatcher right before the restart,
+     * so a manual Stop/Abandon queued in between always wins. Gates mirror
+     * [startCq] but fail silently — this is a background action.
+     */
+    private fun maybeAutoResumeCq(snackbar: String) {
+        if (!autoCqResumeEnabled) return
+        pendingAutoCqResume = true
+        val finishedJob = qsoLoopJob
+        scope.launch(qsoDispatcher) {
+            finishedJob?.cancelAndJoin()
+            if (!pendingAutoCqResume) return@launch
+            pendingAutoCqResume = false
+            if (!isOperating || !txEnabled) return@launch
+            if (!StationProfileValidator.isValidCall(myCall) ||
+                !StationProfileValidator.isValidGrid(myGrid)
+            ) return@launch
+            if (potaModeEnabled && !ActivationProfile.isValidParkRefList(potaParkRef)) return@launch
+            notifyFn(snackbar, SnackbarEvent.Tag.TRANSIENT)
+            val machine = newQsoMachine()
+            machine.startCq()
+            startQsoLoop(machine, hearingSlotParity = null)
+        }
     }
 
     private suspend fun handleQsoComplete() {

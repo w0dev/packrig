@@ -213,6 +213,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 lateStartTxEnabled = settings.lateStartTxEnabled,
                 earlyDecodeEnabled = settings.earlyDecodeEnabled,
                 sendRr73 = settings.sendRr73,
+                autoCqResumeEnabled = settings.autoCqResumeEnabled,
                 qsoActive = qso.qsoActive,
                 qsoState = qso.qsoState,
                 qsoDx = qso.qsoDx,
@@ -296,6 +297,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 qsoSession.setAnswerPolicy(s.answerPolicy)
                 qsoSession.setMaxUnansweredTxCycles(s.maxUnansweredTxCycles)
                 qsoSession.setSendRr73(s.sendRr73)
+                qsoSession.setAutoCqResumeEnabled(s.autoCqResumeEnabled)
                 qsoSession.setDefaultTxSlotParity(s.txSlotParity)
             }
         }
@@ -425,6 +427,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setSendRr73(enabled: Boolean) {
         viewModelScope.launch { settingsRepo.setSendRr73(enabled) }
+    }
+
+    fun setAutoCqResumeEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepo.setAutoCqResumeEnabled(enabled) }
     }
 
     fun clearAbandonedPartners() = qsoSession.clearAbandonedPartners()

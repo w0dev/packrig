@@ -81,6 +81,7 @@ class QsoSessionControllerTest {
         controller.setMaxUnansweredTxCycles(5)
         controller.setDefaultTxSlotParity(TxSlotParity.EVEN)
         controller.setSendRr73(true)
+        controller.setAutoCqResumeEnabled(false)
     }
 
     @After fun tearDown() {
@@ -303,6 +304,52 @@ class QsoSessionControllerTest {
         controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
         controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC R-15", -8)), TxSlotParity.ODD)
         assertEquals("K1ABC W0DEV RRR", controller.slice.value.nextTxMessage)
+    }
+
+    @Test
+    fun autoResumeCq_restartsAfterCompletion() = runTest {
+        controller.setAutoCqResumeEnabled(true)
+        controller.startCq()
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC R-15", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
+        assertEquals(1, completedSnapshots.size)
+        assertTrue(controller.slice.value.qsoActive)
+        assertEquals("Calling CQ…", controller.slice.value.qsoState)
+        assertTrue(notifications.any { it.first.contains("resuming CQ") })
+    }
+
+    @Test
+    fun autoResumeCq_disabled_staysStopped() = runTest {
+        controller.setAutoCqResumeEnabled(false)
+        controller.startCq()
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC R-15", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
+        assertEquals(1, completedSnapshots.size)
+        assertFalse(controller.slice.value.qsoActive)
+    }
+
+    @Test
+    fun autoResumeCq_notAfterManualAbandon() = runTest {
+        controller.setAutoCqResumeEnabled(true)
+        controller.startCq()
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
+        controller.abandonQso()
+        assertFalse(controller.slice.value.qsoActive)
+        assertNull(controller.slice.value.qsoState)
+    }
+
+    @Test
+    fun autoResumeCq_notWhenTxDisabledAtFireTime() = runTest {
+        controller.setAutoCqResumeEnabled(true)
+        controller.startCq()
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC R-15", -8)), TxSlotParity.ODD)
+        controller.setTxEnabled(false)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
+        assertEquals(1, completedSnapshots.size)
+        assertFalse(controller.slice.value.qsoActive)
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

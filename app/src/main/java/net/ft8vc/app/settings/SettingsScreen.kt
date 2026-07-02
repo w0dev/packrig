@@ -278,6 +278,13 @@ fun SettingsScreen(vm: OperateViewModel) {
                     onCheckedChange = vm::setSendRr73,
                     enabled = state.txEnabled,
                 )
+                AutoToggleRow(
+                    title = "Resume CQ after QSO",
+                    subtitle = "Keep calling CQ after each logged or abandoned QSO",
+                    checked = state.autoCqResumeEnabled,
+                    onCheckedChange = vm::setAutoCqResumeEnabled,
+                    enabled = state.txEnabled,
+                )
                 Text(
                     "Set TX slot (Even/Odd) on Operate when TX is enabled.",
                     style = MaterialTheme.typography.bodySmall,

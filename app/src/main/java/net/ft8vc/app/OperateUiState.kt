@@ -104,6 +104,7 @@ data class OperateUiState(
     val lateStartTxEnabled: Boolean = true,
     val earlyDecodeEnabled: Boolean = true,
     val sendRr73: Boolean = true,
+    val autoCqResumeEnabled: Boolean = false,
 
     // ── Qso (active contact) ──────────────────────────────────────────────
     val qsoActive: Boolean = false,
