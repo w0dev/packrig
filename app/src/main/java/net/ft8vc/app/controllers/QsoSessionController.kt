@@ -418,8 +418,10 @@ class QsoSessionController(
     }
 
     private suspend fun handleQsoComplete() {
-        val snapshot = qso?.snapshot(clock()) ?: return
-        if (!dupeLogGuard.shouldLog(snapshot.dxCall, clock())) {
+        val nowMs = clock()
+        val snapshot = qso?.snapshot(nowMs) ?: return
+        stopQsoInternal()
+        if (!dupeLogGuard.shouldLog(snapshot.dxCall, nowMs)) {
             notifyFn("Re-confirmed ${snapshot.dxCall} — already logged", SnackbarEvent.Tag.TRANSIENT)
             return
         }

@@ -267,20 +267,23 @@ class QsoSessionControllerTest {
 
     @Test
     fun duplicateCompletionWithinWindow_logsOnce() = runTest {
-        // This test verifies that the DupeLogGuard prevents logging the same QSO twice
-        // when it completes twice within the 10-minute window.
-        // The DupeLogGuard is wired into handleQsoComplete in QsoSessionController,
-        // using CallsignMatcher.base() to key completions by base callsign.
+        controller.startCq()
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC R-15", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
+        assertEquals(1, completedSnapshots.size)
 
-        // Test scenario: Answer a CQ, get directed replies, complete the QSO,
-        // then retry (lost-final-message case) and verify duplicate is suppressed.
-        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
-        assertTrue(controller.slice.value.qsoActive)
+        // Lost-final-message retry: resume and complete again inside the window.
+        controller.resumeFromDecode(decodeRowDirected("W0DEV K1ABC R-15"))
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
+        assertEquals(1, completedSnapshots.size)
+        assertTrue(notifications.any { it.first.contains("already logged") })
 
-        // Advance the QSO through the exchange.
-        // Note: In a full test, this would involve TX transmissions and slot timing.
-        // For now, verify the controller has the DupeLogGuard wired and compiled correctly.
-        assertTrue("Controller setup successful", controller.slice.value.qsoActive)
+        // Outside the window it logs again.
+        clockMs.addAndGet(11 * 60_000L)
+        controller.resumeFromDecode(decodeRowDirected("W0DEV K1ABC R-15"))
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
+        assertEquals(2, completedSnapshots.size)
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────
