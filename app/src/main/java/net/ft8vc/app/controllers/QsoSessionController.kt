@@ -294,7 +294,17 @@ class QsoSessionController(
                 if (advanced) {
                     operateTxUserEdited = false
                     publishQsoState()
-                    if (qso?.state == QsoState.Complete) handleQsoComplete()
+                    if (qso?.state == QsoState.Complete) {
+                        handleQsoComplete()
+                        // Tear the loop down from the decode-path coroutine (safe: this
+                        // coroutine is NOT qsoLoopJob, so cancelling it doesn't self-cancel).
+                        qsoLoopJob?.cancel()
+                        qsoLoopJob = null
+                        qsoTxParity = null
+                        qso = null
+                        operateTxUserEdited = false
+                        publishQsoState()
+                    }
                 }
             } else if (!running && isOperating && txEnabled && myCall.isNotBlank()) {
                 if (answerWhenCalledEnabled) tryAnswerWhenCalled(decodes, slotParity)
@@ -420,7 +430,6 @@ class QsoSessionController(
     private suspend fun handleQsoComplete() {
         val nowMs = clock()
         val snapshot = qso?.snapshot(nowMs) ?: return
-        stopQsoInternal()
         if (!dupeLogGuard.shouldLog(snapshot.dxCall, nowMs)) {
             notifyFn("Re-confirmed ${snapshot.dxCall} — already logged", SnackbarEvent.Tag.TRANSIENT)
             return
