@@ -68,8 +68,9 @@ multiple references for a two-fer.
 
 In the **Audio** section, use the **Audio input** picker to select your USB
 interface. FT8VC lists whatever input devices Android reports; pick the
-Digirig's USB audio device. Fine-tune the RX input level from the level meter
-on the Operate tab once you're capturing.
+Digirig's USB audio device. Once you start operating, tap the volume icon on
+the Operate tab's status bar to open an input-gain slider; watch the adjacent
+level meter to confirm audio levels are healthy.
 
 ### Rig
 
