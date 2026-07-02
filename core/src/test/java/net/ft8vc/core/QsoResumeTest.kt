@@ -48,6 +48,8 @@ class QsoResumeTest {
         )
         assertEquals(QsoState.SendingRReport, m.state)
         assertEquals("W0DEV K1ABC R-03", m.txMessage())
+        assertEquals(-3, m.reportRcvd)
+        assertEquals(-3, m.reportSent)
     }
 
     @Test
