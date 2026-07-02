@@ -49,15 +49,40 @@ static void hashtable_init() {
     std::memset(g_callsignHashtable, 0, sizeof(g_callsignHashtable));
 }
 
+// Entries not re-heard within this many decode passes (~15 s each) age out.
+static const uint8_t kHashMaxAgeSlots = 40;
+
+// Ported from ft8_lib demo/decode_ft8.c: age lives in bits 24-31 of the stored
+// hash; survivors age by one per call, entries older than max_age are freed.
+static void hashtable_cleanup(uint8_t max_age) {
+    for (int idx = 0; idx < CALLSIGN_HASHTABLE_SIZE; ++idx) {
+        if (g_callsignHashtable[idx].callsign[0] != '\0') {
+            uint8_t age = (uint8_t)(g_callsignHashtable[idx].hash >> 24);
+            if (age > max_age) {
+                g_callsignHashtable[idx].callsign[0] = '\0';
+                g_callsignHashtable[idx].hash = 0;
+                g_callsignHashtableSize--;
+            } else {
+                g_callsignHashtable[idx].hash =
+                    (((uint32_t)age + 1u) << 24) | (g_callsignHashtable[idx].hash & 0x3FFFFFu);
+            }
+        }
+    }
+}
+
 static void hashtable_add(const char* callsign, uint32_t hash) {
     uint16_t hash10 = (hash >> 12) & 0x3FFu;
     int idx = (hash10 * 23) % CALLSIGN_HASHTABLE_SIZE;
+    int probes = 0;
     while (g_callsignHashtable[idx].callsign[0] != '\0') {
         if (((g_callsignHashtable[idx].hash & 0x3FFFFFu) == hash) &&
             (0 == std::strcmp(g_callsignHashtable[idx].callsign, callsign))) {
-            g_callsignHashtable[idx].hash &= 0x3FFFFFu;
+            g_callsignHashtable[idx].hash &= 0x3FFFFFu;  // known call re-heard: reset age
             return;
         }
+        // Full table: skip the add rather than probing forever (upstream lacks
+        // this guard; with persistence a spin here would ANR the decode thread).
+        if (++probes >= CALLSIGN_HASHTABLE_SIZE) return;
         idx = (idx + 1) % CALLSIGN_HASHTABLE_SIZE;
     }
     g_callsignHashtableSize++;
@@ -192,7 +217,7 @@ Java_net_ft8vc_ft8native_Ft8Native_nativeDecode(
     cfg.freq_osr = kFreqOsr;
     cfg.protocol = FTX_PROTOCOL_FT8;
 
-    hashtable_init();
+    hashtable_cleanup(kHashMaxAgeSlots);
 
     monitor_t mon;
     monitor_init(&mon, &cfg);
@@ -341,4 +366,10 @@ Java_net_ft8vc_ft8native_Ft8Native_nativeEncode(
     jshortArray out = env->NewShortArray(total);
     env->SetShortArrayRegion(out, 0, total, pcm.data());
     return out;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_net_ft8vc_ft8native_Ft8Native_nativeClearCallsignTable(JNIEnv*, jobject) {
+    std::lock_guard<std::mutex> guard(g_decodeMutex);
+    hashtable_init();
 }

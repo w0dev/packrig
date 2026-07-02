@@ -17,4 +17,6 @@ interface Ft8DecoderApi {
         sampleRate: Int = 12_000,
         offsetSymbols: Int = 0,
     ): ShortArray
+    /** Test hook: clears the persistent callsign hash table. Production never calls it. */
+    fun clearCallsignTable() {}
 }

@@ -69,6 +69,10 @@ object Ft8Native : Ft8DecoderApi {
             ShortArray(0)
         }
 
+    override fun clearCallsignTable() {
+        if (loaded) runCatching { nativeClearCallsignTable() }
+    }
+
     private external fun nativeVersion(): String
 
     private external fun nativeDecode(samples: ShortArray, sampleRate: Int): Array<Ft8DecodeResult>
@@ -79,4 +83,6 @@ object Ft8Native : Ft8DecoderApi {
         sampleRate: Int,
         offsetSymbols: Int,
     ): ShortArray
+
+    private external fun nativeClearCallsignTable()
 }
