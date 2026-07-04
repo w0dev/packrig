@@ -36,8 +36,8 @@ then additionally calls `DocumentsAdifMirror.write(context, adif)`:
 - Writes the same ADIF text to `Documents/ft8vc/ft8vc-logbook.adi` via
   `MediaStore.Files` insert with `RELATIVE_PATH = "Documents/ft8vc"`.
 - If a MediaStore entry with that display name in that path is **owned by
-  this install**, update it in place (query + `openOutputStream` with
-  `IS_PENDING` around the write). If not found, insert a new entry. If an
+  this install**, update it in place (query + truncating
+  `openOutputStream`). If not found, insert a new entry. If an
   unowned same-name file exists, MediaStore auto-uniquifies (e.g.
   `ft8vc-logbook (1).adi`) — the stale copy is intentionally left behind as
   history.
