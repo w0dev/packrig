@@ -23,6 +23,7 @@ import net.ft8vc.audio.UsbAudioPlayback
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.AppInfo
+import net.ft8vc.core.DecodeCategory
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.QsoSnapshot
 import net.ft8vc.core.QsoTxStep
@@ -461,6 +462,14 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setDecodeViewMode(mode: DecodeViewMode) {
         viewModelScope.launch { settingsRepo.setDecodeViewMode(mode) }
+    }
+
+    fun setDecodeColor(category: DecodeCategory, argb: Int) {
+        viewModelScope.launch { settingsRepo.setDecodeColor(category, argb) }
+    }
+
+    fun resetDecodeColors() {
+        viewModelScope.launch { settingsRepo.resetDecodeColors() }
     }
 
     fun setTxSlotParity(parity: TxSlotParity) {
