@@ -143,8 +143,10 @@ class DecodeController(
     /**
      * Per-slot dedup set: slotStart → set of [DecodeRowKey.stableId] values
      * already inserted into the list and emitted on [_decodesOut] for that
-     * slot. Capped at 4 most-recent slots — oldest evicted when a 5th slot
-     * arrives (bounded memory; aged slots are off the screen anyway).
+     * slot. Lookups match via [DecodeRowKey.candidateIds] so cross-pass freq
+     * jitter across a 6.25 Hz bin edge cannot split the key. Capped at 4
+     * most-recent slots — oldest evicted when a 5th slot arrives (bounded
+     * memory; aged slots are off the screen anyway).
      */
     private val seenKeys: LinkedHashMap<Long, HashSet<Long>> =
         object : LinkedHashMap<Long, HashSet<Long>>(/* initialCapacity = */ 8) {
@@ -292,8 +294,14 @@ class DecodeController(
 
         for (r in sorted) {
             val message = r.message.trim()
-            val id = DecodeRowKey.stableId(slotStartEpochMs, r.freqHz.toDouble(), message)
-            if (keysThisSlot.add(id)) {
+            // Match against the two nearest-bin candidate ids: cross-pass freq
+            // jitter near a bin boundary rounds to adjacent bins, and a single
+            // stableId lookup would split the key (duplicate row + double emit).
+            val candidates = DecodeRowKey.candidateIds(slotStartEpochMs, r.freqHz.toDouble(), message)
+            val existingId = candidates.firstOrNull { it in keysThisSlot }
+            if (existingId == null) {
+                val id = candidates[0]
+                keysThisSlot.add(id)
                 // First time we see this key in this slot — insert new row + emit
                 val sender = senderCallFromMessage(message)
                 val worked = if (sender != null) workedBeforeLookup(sender) else WorkedBefore.Never
@@ -314,7 +322,7 @@ class DecodeController(
                 newlyEmitted += QsoDecode(message, r.snr)
             } else if (source == DecodePassSource.Full) {
                 // FULL pass: update the already-inserted EARLY row in place
-                updates[id] = r
+                updates[existingId] = r
             }
             // EARLY pass duplicate within itself: no-op (shouldn't happen given the single
             // early trigger per slot, but cheap defense-in-depth).

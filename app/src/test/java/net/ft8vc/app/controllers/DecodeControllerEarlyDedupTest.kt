@@ -94,6 +94,42 @@ class DecodeControllerEarlyDedupTest {
     }
 
     @Test
+    fun `freq jitter across a bin edge does not split the dedup key`() = runTest {
+        // 1503.1 Hz rounds to bin 240, 1503.2 Hz to bin 241 — raw stableIds differ,
+        // but it's the same logical decode with sub-bin jitter between passes.
+        val earlyResults = listOf(result("CQ K1ABC FN42", 1503.1, snr = -10))
+        val fullResults = listOf(result("CQ K1ABC FN42", 1503.2, snr = -8))
+        val fake = QueuedFake(ArrayDeque(listOf(earlyResults, fullResults)))
+        val scope = TestScope(StandardTestDispatcher())
+        val controller = DecodeController(decoder = fake, scope = scope)
+
+        val emitted = mutableListOf<DecodeBatch>()
+        val collectJob = scope.launch(UnconfinedTestDispatcher(scope.testScheduler)) {
+            controller.decodesOut.toList(emitted)
+        }
+
+        val earlySamples = tone(1503.1, amp = 0.0, noise = 0.1, length = 115_200)
+        val fullSamples = tone(1503.2, amp = 0.8, noise = 0.01, length = 180_000)
+        controller.decodeSlot(earlySamples, slotStart, source = DecodePassSource.Early)
+        controller.decodeSlot(fullSamples, slotStart, source = DecodePassSource.Full)
+        scope.advanceUntilIdle()
+
+        // One logical decode → one row in the list, not two
+        assertEquals(1, controller.slice.value.decodes.size)
+        // ...and one emission on decodesOut across both passes, not two
+        val allMessages = emitted.flatMap { it.decodes.map { d -> d.message } }
+        assertEquals(listOf("CQ K1ABC FN42"), allMessages)
+
+        // The full pass still refreshed the early row in place
+        val updated = controller.slice.value.decodes.single()
+        val expectedFull = SnrEstimator.estimate(fullSamples, 12_000, 1503.2f)
+        assertEquals(expectedFull, updated.snr)
+
+        collectJob.cancel()
+        controller.close()
+    }
+
+    @Test
     fun `duration instrumentation updates after each pass`() = runTest {
         val fake = QueuedFake(ArrayDeque(listOf(emptyList(), emptyList())))
         val scope = TestScope(StandardTestDispatcher())
