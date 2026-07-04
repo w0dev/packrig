@@ -7,6 +7,7 @@ import net.ft8vc.app.settings.StationSettings
 import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.TxSlotParity
+import net.ft8vc.rig.DigirigRigBackend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,6 +58,7 @@ class SettingsBridge(
         txToneHz = txToneHz,
         selectedAudioDeviceId = selectedAudioDeviceId,
         pttPreference = pttPreference,
+        catBaud = catBaud,
         licenseAcknowledged = licenseAcknowledged,
         txEnabledInSettings = txEnabledInSettings,
         lateStartTxEnabled = lateStartTxEnabled,
@@ -87,6 +89,7 @@ data class SettingsSlice(
     val txToneHz: Int = 1000,
     val selectedAudioDeviceId: Int? = null,
     val pttPreference: PttPreference = PttPreference.AUTO,
+    val catBaud: Int = DigirigRigBackend.DEFAULT_CAT_BAUD,
     val licenseAcknowledged: Boolean = false,
     val txEnabledInSettings: Boolean = false,
     val lateStartTxEnabled: Boolean = true,

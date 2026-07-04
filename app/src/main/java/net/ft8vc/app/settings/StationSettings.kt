@@ -3,6 +3,7 @@ package net.ft8vc.app.settings
 import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.TxSlotParity
+import net.ft8vc.rig.DigirigRigBackend
 
 /** PTT keying strategy for the Digirig serial port. */
 enum class PttPreference(val displayName: String, val description: String) {
@@ -18,6 +19,8 @@ data class StationSettings(
     val txToneHz: Int = 1000,
     val selectedAudioDeviceId: Int? = null,
     val pttPreference: PttPreference = PttPreference.AUTO,
+    /** CAT serial baud — must match FT-891 menu 05-06 (CAT RATE). Default = v1.0 behavior. */
+    val catBaud: Int = DigirigRigBackend.DEFAULT_CAT_BAUD,
     val licenseAcknowledged: Boolean = false,
     val txEnabledInSettings: Boolean = false,
     val autoSeqEnabled: Boolean = true,

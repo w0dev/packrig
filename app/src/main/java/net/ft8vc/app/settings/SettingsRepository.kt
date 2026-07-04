@@ -16,6 +16,7 @@ import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.DecodeCategory
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.TxSlotParity
+import net.ft8vc.rig.DigirigRigBackend
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "ft8vc_settings",
@@ -33,6 +34,7 @@ class SettingsRepository(context: Context) {
             selectedAudioDeviceId = prefs[Keys.AUDIO_DEVICE_ID],
             pttPreference = prefs[Keys.PTT_PREFERENCE]?.let { PttPreference.valueOf(it) }
                 ?: PttPreference.AUTO,
+            catBaud = coerceCatBaud(prefs[Keys.CAT_BAUD] ?: DigirigRigBackend.DEFAULT_CAT_BAUD),
             licenseAcknowledged = prefs[Keys.LICENSE_ACK] ?: false,
             txEnabledInSettings = prefs[Keys.TX_ENABLED] ?: false,
             autoSeqEnabled = prefs[Keys.AUTO_SEQ] ?: true,
@@ -89,6 +91,10 @@ class SettingsRepository(context: Context) {
 
     suspend fun setPttPreference(pref: PttPreference) {
         appContext.settingsDataStore.edit { it[Keys.PTT_PREFERENCE] = pref.name }
+    }
+
+    suspend fun setCatBaud(baud: Int) {
+        appContext.settingsDataStore.edit { it[Keys.CAT_BAUD] = coerceCatBaud(baud) }
     }
 
     suspend fun setLicenseAcknowledged(ack: Boolean) {
@@ -210,6 +216,7 @@ class SettingsRepository(context: Context) {
         val TX_TONE_HZ = intPreferencesKey("tx_tone_hz")
         val AUDIO_DEVICE_ID = intPreferencesKey("audio_device_id")
         val PTT_PREFERENCE = stringPreferencesKey("ptt_preference")
+        val CAT_BAUD = intPreferencesKey("cat_baud")
         val LICENSE_ACK = booleanPreferencesKey("license_ack")
         val TX_ENABLED = booleanPreferencesKey("tx_enabled")
         val AUTO_SEQ = booleanPreferencesKey("auto_seq")
@@ -240,5 +247,12 @@ class SettingsRepository(context: Context) {
 
     companion object {
         const val INPUT_GAIN_MIN = 0.1f
+
+        /** FT-891 menu 05-06 (CAT RATE) choices — the only valid CAT bauds. */
+        val CAT_BAUD_OPTIONS = listOf(4800, 9600, 19200, 38400)
+
+        /** Unknown values fall back to the rig-module default (38400). */
+        fun coerceCatBaud(baud: Int): Int =
+            if (baud in CAT_BAUD_OPTIONS) baud else DigirigRigBackend.DEFAULT_CAT_BAUD
     }
 }
