@@ -111,9 +111,10 @@ One new button under "Backup now": **"Import ADIF…"**
   garbage input. Merge — duplicate window boundaries (89 s dup / 91 s not),
   case-insensitive call match, null band, re-import of own export is a
   full no-op.
-- **On-device manual verification (installDebug — never
-  `connectedAndroidTest` on the field phone; it uninstalls the app and
-  wipes the logbook):** mirror file appears in Documents/ft8vc after
-  "Backup now"; survives uninstall/reinstall; import restores it;
-  double-import shows all-duplicates.
-- Any instrumented test additions run on an emulator only.
+- **On-device manual verification (installDebug):** mirror file appears in
+  Documents/ft8vc after "Backup now"; survives uninstall/reinstall; import
+  restores it; double-import shows all-duplicates.
+- Instrumented tests may run on the field phone (owner OK, 2026-07-04),
+  but `connectedAndroidTest` uninstalls the app and wipes the logbook —
+  pull a logbook copy over adb first (`run-as` the Room DB, or the
+  app-private ADIF), and restore/import it afterwards.
