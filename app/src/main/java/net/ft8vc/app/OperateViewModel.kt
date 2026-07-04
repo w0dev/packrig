@@ -183,6 +183,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 useDarkTheme = settings.useDarkTheme,
                 decodeViewMode = settings.decodeViewMode,
                 cq73OnlyFilter = settings.cq73OnlyFilter,
+                decodeColors = settings.decodeColors,
                 devices = view.devices,
                 selectedDeviceId = settings.selectedAudioDeviceId ?: view.selectedDeviceId,
                 isOperating = view.isOperating,

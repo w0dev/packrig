@@ -28,19 +28,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.ft8vc.app.DecodeRow
+import net.ft8vc.app.settings.DecodeColorScheme
 import net.ft8vc.app.ui.WithTooltip
-import net.ft8vc.app.ui.theme.Ft8Amber
-import net.ft8vc.app.ui.theme.Ft8Green
+import net.ft8vc.core.DecodeCategory
+import net.ft8vc.core.DecodeCategoryResolver
 import net.ft8vc.core.DecodeDistance
 import net.ft8vc.core.DecodePrefix
 import net.ft8vc.core.DecodeRowSource
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.MonitorDecodeFilter
-import net.ft8vc.core.WorkedBefore
 
 @Composable
 fun DecodeListPanel(
@@ -53,6 +54,7 @@ fun DecodeListPanel(
     onCq73OnlyFilterChange: (Boolean) -> Unit,
     qsoDx: String?,
     qsoActive: Boolean,
+    decodeColors: DecodeColorScheme = DecodeColorScheme.DEFAULT,
     canAnswer: Boolean,
     canResume: Boolean,
     onClear: () -> Unit,
@@ -195,6 +197,7 @@ fun DecodeListPanel(
                             row = row,
                             qsoDx = qsoDx,
                             qsoActive = qsoActive,
+                            decodeColors = decodeColors,
                             onClick = when {
                                 canAnswer && row.isCq -> ({ onAnswerCq(row) })
                                 canResume && row.isToMe -> ({ onResume(row) })
@@ -258,36 +261,44 @@ private fun DecodeRowItem(
     row: DecodeRow,
     qsoDx: String?,
     qsoActive: Boolean,
+    decodeColors: DecodeColorScheme,
     onClick: (() -> Unit)?,
 ) {
     val isTx = row.source is DecodeRowSource.Tx
-    val isPartner = qsoDx != null && row.message.contains(qsoDx)
-    val dimmed = qsoActive && !row.isCq && !isPartner && !isTx
-    val textColor = when {
-        isTx -> MaterialTheme.colorScheme.onSurface
-        row.isCq -> Ft8Green
-        row.isToMe && !qsoActive -> Ft8Amber
-        isPartner -> MaterialTheme.colorScheme.primary
-        dimmed -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        row.workedBefore == WorkedBefore.ThisBand ->
-            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
-        row.workedBefore == WorkedBefore.OtherBand ->
-            MaterialTheme.colorScheme.tertiary
-        else -> MaterialTheme.colorScheme.onSurface
-    }
-    val prefix = if (isTx) "" else DecodePrefix.prefixFor(
-        message = row.message,
+    val category = DecodeCategoryResolver.resolve(
+        isTx = isTx,
         isCq = row.isCq,
         isToMe = row.isToMe,
+        workedBefore = row.workedBefore,
         qsoActive = qsoActive,
         qsoDx = qsoDx,
+        message = row.message,
     )
-    val rowBackground = if (isTx) Ft8Amber.copy(alpha = 0.14f) else Color.Transparent
+    // Fill categories carry the color as a row background; the rest as text color.
+    val filled = when (category) {
+        DecodeCategory.OWN_TX, DecodeCategory.PARTNER, DecodeCategory.MY_CALL -> true
+        else -> false
+    }
+    val categoryColor = decodeColors.colorFor(category)?.let { Color(it) }
+    val rowBackground = if (filled && categoryColor != null) {
+        categoryColor.copy(alpha = FILL_ALPHA)
+    } else {
+        Color.Transparent
+    }
+    val dimmed = category == DecodeCategory.OTHER && qsoActive
+    val textColor = when {
+        filled -> MaterialTheme.colorScheme.onSurface
+        categoryColor != null -> categoryColor
+        dimmed -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val prefix = DecodePrefix.glyphFor(category)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 40.dp)
             .background(rowBackground)
+            .testTag("decodeRow_${category.name}")
             .then(if (onClick != null && !isTx) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 2.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -321,10 +332,13 @@ private fun DecodeRowItem(
             text = "$prefix${row.message}",
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,
-            fontWeight = if (isPartner || isTx) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = if (filled) FontWeight.Bold else FontWeight.Normal,
             color = textColor,
             maxLines = 1,
             modifier = Modifier.weight(1f),
         )
     }
 }
+
+/** Fixed background alpha for filled categories (OWN_TX / PARTNER / MY_CALL). */
+private const val FILL_ALPHA = 0.16f
