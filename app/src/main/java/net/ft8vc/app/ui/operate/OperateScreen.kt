@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.ft8vc.app.OperateViewModel
+import net.ft8vc.app.SnackbarEvent
+import net.ft8vc.app.SnackbarThrottle
 import net.ft8vc.app.ui.DialFrequencyBottomSheet
 import net.ft8vc.core.StationProfileValidator
 
@@ -89,9 +91,18 @@ fun OperateScreen(
         onDispose { activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
 
+    val snackbarThrottle = remember { SnackbarThrottle() }
     LaunchedEffect(Unit) {
         vm.events.collect { event ->
-            snackbarHostState.showSnackbar(message = event.text, duration = event.tag.duration)
+            if (snackbarThrottle.shouldShow(event.text)) {
+                snackbarHostState.showSnackbar(
+                    message = event.text,
+                    duration = event.tag.duration,
+                    // Errors linger 10 s each while the queue drains — let the
+                    // operator flick them away (2026-07-03 field report).
+                    withDismissAction = event.tag == SnackbarEvent.Tag.ERROR,
+                )
+            }
         }
     }
 
