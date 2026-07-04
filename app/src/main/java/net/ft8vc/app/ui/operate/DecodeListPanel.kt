@@ -185,6 +185,10 @@ fun DecodeListPanel(
                         .fillMaxWidth()
                         .weight(1f)
                         .padding(horizontal = 6.dp),
+                    // Newest-first slice + reverseLayout = newest at the BOTTOM, list
+                    // pinned there while the operator is at the bottom, position held
+                    // when scrolled up into history (field request 2026-07-03).
+                    reverseLayout = true,
                 ) {
                     items(visibleDecodes, key = { it.id }) { row ->
                         DecodeRowItem(
