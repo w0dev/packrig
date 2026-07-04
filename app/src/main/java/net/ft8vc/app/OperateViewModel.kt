@@ -1,6 +1,7 @@
 package net.ft8vc.app
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import net.ft8vc.app.controllers.AppRfState
@@ -30,6 +31,8 @@ import net.ft8vc.core.QsoTxStep
 import net.ft8vc.core.TxSlotParity
 import net.ft8vc.data.Logbook
 import net.ft8vc.data.RoomLogbook
+import net.ft8vc.data.adif.AdifImportException
+import net.ft8vc.data.adif.AdifReader
 import net.ft8vc.data.db.Ft8vcDatabase
 import net.ft8vc.data.model.QsoContact
 import net.ft8vc.app.ui.bandLabelForLogging
@@ -45,6 +48,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -774,6 +778,42 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
             notify(
                 if (result != null) "ADIF backup written" else "ADIF backup failed",
                 if (result != null) SnackbarEvent.Tag.TRANSIENT else SnackbarEvent.Tag.ERROR,
+            )
+        }
+    }
+
+    /** Import an ADIF file picked in Settings → Logbook; merge with duplicate-skip. */
+    fun importAdif(uri: Uri) {
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    val text = getApplication<Application>().contentResolver
+                        .openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                        ?: throw AdifImportException("Could not read the selected file")
+                    val profile = settingsRepo.settings.first()
+                    val read = AdifReader.read(
+                        text,
+                        fallbackMyCall = profile.myCall,
+                        fallbackMyGrid = profile.myGrid,
+                    )
+                    val merged = logbook.importContacts(read.contacts)
+                    read.contacts.map { it.dxCall }.toSet()
+                        .forEach { workedBeforeCache.invalidate(it) }
+                    Triple(merged.imported, merged.duplicates, read.skipped)
+                }
+            }
+            outcome.fold(
+                onSuccess = { (imported, duplicates, skipped) ->
+                    val unreadable = if (skipped > 0) ", $skipped unreadable" else ""
+                    notify("Imported $imported QSOs ($duplicates duplicates skipped$unreadable)")
+                    if (imported > 0) {
+                        // Refresh backup + Documents mirror to reflect the merged log.
+                        AdifAutoBackup.scheduleBackupAfterQso(getApplication(), logbook, settingsRepo)
+                    }
+                },
+                onFailure = { t ->
+                    notify(t.message ?: "ADIF import failed", SnackbarEvent.Tag.ERROR)
+                },
             )
         }
     }

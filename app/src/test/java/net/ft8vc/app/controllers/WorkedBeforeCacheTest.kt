@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
 import net.ft8vc.core.WorkedBefore
+import net.ft8vc.data.ImportResult
 import net.ft8vc.data.Logbook
 import net.ft8vc.data.adif.AdifExportContext
 import net.ft8vc.data.model.QsoContact
@@ -26,6 +27,8 @@ private class FakeLogbook(
         return bandsByCall[call] ?: emptySet()
     }
     override suspend fun setParkRefs(ids: List<Long>, potaParkRefs: String?) {}
+    override suspend fun importContacts(incoming: List<QsoContact>): ImportResult =
+        ImportResult(imported = 0, duplicates = 0)
     fun set(call: String, bands: Set<String>) { bandsByCall[call] = bands }
 }
 

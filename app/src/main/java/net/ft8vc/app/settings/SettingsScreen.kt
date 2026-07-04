@@ -1,5 +1,7 @@
 package net.ft8vc.app.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +16,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -265,6 +268,9 @@ fun SettingsScreen(vm: OperateViewModel) {
             }
 
             SettingsSection("Logbook") {
+                val importLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenDocument(),
+                ) { uri -> uri?.let(vm::importAdif) }
                 val lastBackupLabel = state.lastAdifBackupAtMs?.let { ms ->
                     val ageMs = System.currentTimeMillis() - ms
                     when {
@@ -281,8 +287,16 @@ fun SettingsScreen(vm: OperateViewModel) {
                 ) {
                     Text("Backup now")
                 }
+                OutlinedButton(
+                    // .adi files have no registered MIME type; filter in the reader instead.
+                    onClick = { importLauncher.launch(arrayOf("*/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Import ADIF…")
+                }
                 Text(
-                    "ADIF auto-exports after every QSO to app-private external storage.",
+                    "ADIF auto-exports after every QSO to app-private storage " +
+                        "and Documents/ft8vc (survives uninstall).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
