@@ -89,7 +89,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val pttReady: Boolean = false,
         val catReady: Boolean = false,
         val txMessage: String = "",
-        /** USB-probe / halt status; takes precedence over TxSlice.txStatus when non-null. */
+        /** USB-probe / halt status; fallback when TxSlice.txStatus is null (see [mergedTxStatus]). */
         val txStatus: String? = null,
         val operateStatus: String? = null,
         val contactCount: Int = 0,
@@ -199,7 +199,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 txMessage = view.txMessage,
                 txFreqHz = settings.txToneHz,
                 nextTxMessage = qso.nextTxMessage,
-                txStatus = view.txStatus ?: tx.txStatus,
+                txStatus = mergedTxStatus(tx.txStatus, view.txStatus),
                 isTransmitting = tx.isTransmitting,
                 pttReady = view.pttReady,
                 operateTxText = qso.operateTxText,

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -24,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -180,14 +182,25 @@ fun DecodeListPanel(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 )
             } else {
+                val listState = rememberLazyListState()
+                val newestId = visibleDecodes.first().id
+                // Keyed items anchor the viewport by key on prepend — that holds
+                // position while the operator reads history, but it also un-pins
+                // the bottom. Runs at composition time, before the new rows are
+                // measured, so canScrollBackward still answers "was the operator
+                // at the bottom?"; requestScrollToItem re-pins on the next layout.
+                remember(newestId) {
+                    if (!listState.canScrollBackward) listState.requestScrollToItem(0)
+                    newestId
+                }
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
                         .padding(horizontal = 6.dp),
-                    // Newest-first slice + reverseLayout = newest at the BOTTOM, list
-                    // pinned there while the operator is at the bottom, position held
-                    // when scrolled up into history (field request 2026-07-03).
+                    // Newest-first slice + reverseLayout = newest at the BOTTOM
+                    // (field request 2026-07-03).
                     reverseLayout = true,
                 ) {
                     items(visibleDecodes, key = { it.id }) { row ->

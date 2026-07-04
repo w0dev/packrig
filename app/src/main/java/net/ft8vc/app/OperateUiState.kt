@@ -168,3 +168,14 @@ data class OperateUiState(
         const val QSO_TX_GRACE_MS = 300L
     }
 }
+
+/**
+ * Merge rule for [OperateUiState.txStatus]: the TxOrchestrator slice status
+ * and the VM-residual status (USB-probe strings, halt notice) both feed the
+ * one displayed line. The status bar renders it only while transmitting, and
+ * the slice always carries the live message ("TX: …", "Sent: …") during a
+ * transmit — the VM residual is a fallback, never an override, or a stale
+ * "TX halted" would mask every later TX (v1.0 parity: slice wins).
+ */
+fun mergedTxStatus(sliceTxStatus: String?, viewTxStatus: String?): String? =
+    sliceTxStatus ?: viewTxStatus
