@@ -272,26 +272,29 @@ class QsoMachine(
         if (manualControl) return false
         val advanced = when (state) {
             QsoState.CallingCq -> handleCqReplies(decodes, answerPolicy, excludedDx)
-            QsoState.Answering -> advanceIf(decodes) { rx ->
+            QsoState.Answering -> advanceIf(decodes) { rx, d ->
                 (rx as? QsoRx.Report)?.takeIf { fromDx(it.target, it.sender) }?.let {
                     reportRcvd = it.snr
+                    // Refresh the report we send from this decode's measured SNR —
+                    // fresher than the CQ-time SNR captured at answerCq (WSJT-X behavior).
+                    reportSent = d.snr
                     QsoState.SendingRReport
                 }
             }
-            QsoState.SendingReport -> advanceIf(decodes) { rx ->
+            QsoState.SendingReport -> advanceIf(decodes) { rx, _ ->
                 (rx as? QsoRx.RReport)?.takeIf { fromDx(it.target, it.sender) }?.let {
                     reportRcvd = it.snr
                     QsoState.SendingRoger
                 }
             }
-            QsoState.SendingRReport -> advanceIf(decodes) { rx ->
+            QsoState.SendingRReport -> advanceIf(decodes) { rx, _ ->
                 when {
                     rx is QsoRx.Roger && fromDx(rx.target, rx.sender) -> QsoState.SendingSeventyThree
                     rx is QsoRx.RogerBye && fromDx(rx.target, rx.sender) -> QsoState.SendingSeventyThree
                     else -> null
                 }
             }
-            QsoState.SendingRoger -> advanceIf(decodes) { rx ->
+            QsoState.SendingRoger -> advanceIf(decodes) { rx, _ ->
                 when {
                     rx is QsoRx.Bye && fromDx(rx.target, rx.sender) -> QsoState.Complete
                     rx is QsoRx.RogerBye && fromDx(rx.target, rx.sender) -> QsoState.Complete
@@ -328,10 +331,10 @@ class QsoMachine(
 
     private inline fun advanceIf(
         decodes: List<QsoDecode>,
-        next: (QsoRx) -> QsoState?,
+        next: (QsoRx, QsoDecode) -> QsoState?,
     ): Boolean {
         for (d in decodes) {
-            val newState = next(QsoMessages.parse(d.message))
+            val newState = next(QsoMessages.parse(d.message), d)
             if (newState != null) {
                 state = newState
                 return true

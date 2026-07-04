@@ -51,8 +51,9 @@ class QsoMachineTest {
         assertEquals("W0DEV K1ABC FN42", m.txMessage())
         assertEquals(-8, m.reportSent)
 
-        // They send us a report; we reply R+report.
-        assertTrue(m.onDecodes(decode("K1ABC W0DEV -03")))
+        // They send us a report (their transmission measured at -8 on our side);
+        // we reply R+report carrying that measurement.
+        assertTrue(m.onDecodes(decode("K1ABC W0DEV -03", snr = -8)))
         assertEquals(QsoState.SendingRReport, m.state)
         assertEquals(-3, m.reportRcvd)
         assertEquals("W0DEV K1ABC R-08", m.txMessage())
@@ -66,6 +67,22 @@ class QsoMachineTest {
         m.markTransmitted()
         assertEquals(QsoState.Complete, m.state)
         assertNull(m.txMessage())
+    }
+
+    @Test
+    fun answererRefreshesReportSentFromReportDecodeSnr() {
+        val m = QsoMachine("K1ABC", "FN42")
+        // Their CQ decoded at +16; conditions changed by the time they reply.
+        m.answerCq("W0DEV", "EM26", snr = 16)
+        assertEquals(16, m.reportSent)
+
+        // Their report arrives; we measure that transmission at +8. The R-report
+        // must carry the fresh measurement, not the stale CQ-time SNR (WSJT-X behavior).
+        assertTrue(m.onDecodes(listOf(QsoDecode("K1ABC W0DEV +16", snr = 8))))
+        assertEquals(QsoState.SendingRReport, m.state)
+        assertEquals(16, m.reportRcvd)
+        assertEquals(8, m.reportSent)
+        assertEquals("W0DEV K1ABC R+08", m.txMessage())
     }
 
     @Test
