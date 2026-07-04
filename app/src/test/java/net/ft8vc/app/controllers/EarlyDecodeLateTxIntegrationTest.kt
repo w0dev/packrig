@@ -410,12 +410,13 @@ class EarlyDecodeLateTxIntegrationTest {
         assertEquals("UI slice must contain 2 unique decode rows", 2, slice.decodes.size)
 
         val dxRow = slice.decodes.firstOrNull { it.message == DX_CQ_MESSAGE }
-        // SNR is recomputed from the FULL-pass samples at the full result's freq,
-        // confirming the later pass refreshed the row in place.
-        val expectedFullSnr = SnrEstimator.estimate(fullSamples, 12_000, 1500.3f)
+        // The row keeps the EARLY-pass SNR: that's the value the QSO machine
+        // consumed (and may have locked into an outgoing report), so the UI must
+        // keep showing it rather than the FULL-pass revision.
+        val expectedEarlySnr = SnrEstimator.estimate(earlySamples, 12_000, 1500.0f)
         assertEquals(
-            "K1ABC's row SNR must be updated to the FULL-pass recomputed value",
-            expectedFullSnr,
+            "K1ABC's row SNR must stay the EARLY-pass value the machine consumed",
+            expectedEarlySnr,
             dxRow?.snr,
         )
 

@@ -80,14 +80,56 @@ class DecodeControllerEarlyDedupTest {
         assertEquals(2, allMessages.distinct().size)
         assertEquals(allMessages.size, allMessages.distinct().size)
 
-        // Full pass updated the early row in place: its SNR is recomputed from the
-        // FULL-pass samples at the full result's freq, and differs from the early one
-        // (full pass is the stronger/cleaner signal).
+        // Full pass updated the early row's dt/freq in place, but the SNR stays
+        // the early estimate — that's what the QSO machine consumed, and the row
+        // must keep matching it (machine/UI consistency).
         val updated = controller.slice.value.decodes.first { it.message == "CQ K1ABC FN42" }
         val expectedFull = SnrEstimator.estimate(fullSamples, 12_000, 1500.4f)
         val expectedEarly = SnrEstimator.estimate(earlySamples, 12_000, 1500.0f)
-        assertEquals(expectedFull, updated.snr)
-        assertNotEquals("full-pass update must change the row's SNR", expectedEarly, expectedFull)
+        assertEquals(expectedEarly, updated.snr)
+        assertNotEquals("passes must disagree for this test to be meaningful", expectedEarly, expectedFull)
+
+        collectJob.cancel()
+        controller.close()
+    }
+
+    @Test
+    fun `full pass keeps machine-consumed early SNR but refreshes dt and freq`() = runTest {
+        // Field bug 2026-07-04: the QSO machine consumed the EARLY-pass SNR (sent
+        // R+17) while the FULL pass silently revised the row to +5 — the operator
+        // saw a column value that never matched the transmitted report. Contract:
+        // the row's SNR must stay whatever was emitted to the machine; dt/freq
+        // (not consumed by the machine) still refresh from the fresher pass.
+        val earlyResults = listOf(result("CQ K1ABC FN42", 1500.0, snr = -10, dt = 0.3f))
+        val fullResults = listOf(result("CQ K1ABC FN42", 1500.4, snr = -8, dt = 0.1f))
+        val fake = QueuedFake(ArrayDeque(listOf(earlyResults, fullResults)))
+        val scope = TestScope(StandardTestDispatcher())
+        val controller = DecodeController(decoder = fake, scope = scope)
+
+        val emitted = mutableListOf<DecodeBatch>()
+        val collectJob = scope.launch(UnconfinedTestDispatcher(scope.testScheduler)) {
+            controller.decodesOut.toList(emitted)
+        }
+
+        // Strong tone early, noise-only full — the two recomputed estimates differ,
+        // mirroring the truncated-buffer bias seen in the field.
+        val earlySamples = tone(1500.0, amp = 0.8, noise = 0.01, length = 115_200)
+        val fullSamples = tone(1500.4, amp = 0.0, noise = 0.1, length = 180_000)
+        controller.decodeSlot(earlySamples, slotStart, source = DecodePassSource.Early)
+        controller.decodeSlot(fullSamples, slotStart, source = DecodePassSource.Full)
+        scope.advanceUntilIdle()
+
+        val machineSnr = emitted.flatMap { it.decodes }.single { it.message == "CQ K1ABC FN42" }.snr
+        val expectedEarly = SnrEstimator.estimate(earlySamples, 12_000, 1500.0f)
+        val expectedFull = SnrEstimator.estimate(fullSamples, 12_000, 1500.4f)
+        assertNotEquals("passes must disagree for this test to be meaningful", expectedEarly, expectedFull)
+
+        val row = controller.slice.value.decodes.single()
+        assertEquals("machine consumed the early estimate", expectedEarly, machineSnr)
+        assertEquals("row SNR must equal what the machine consumed", machineSnr, row.snr)
+        // dt/freq still refresh from the full pass
+        assertEquals(0.1f, row.dtSeconds)
+        assertEquals(1500, row.freqHz)
 
         collectJob.cancel()
         controller.close()
@@ -120,10 +162,11 @@ class DecodeControllerEarlyDedupTest {
         val allMessages = emitted.flatMap { it.decodes.map { d -> d.message } }
         assertEquals(listOf("CQ K1ABC FN42"), allMessages)
 
-        // The full pass still refreshed the early row in place
+        // The full pass matched the early row (no split) and kept its SNR — the
+        // machine consumed the early estimate.
         val updated = controller.slice.value.decodes.single()
-        val expectedFull = SnrEstimator.estimate(fullSamples, 12_000, 1503.2f)
-        assertEquals(expectedFull, updated.snr)
+        val expectedEarly = SnrEstimator.estimate(earlySamples, 12_000, 1503.1f)
+        assertEquals(expectedEarly, updated.snr)
 
         collectJob.cancel()
         controller.close()

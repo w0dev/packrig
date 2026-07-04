@@ -333,8 +333,11 @@ class DecodeController(
         _slice.update { s ->
             val withUpdates: List<DecodeRow> = if (updates.isEmpty()) s.decodes else s.decodes.map { row ->
                 val r = updates[row.id]
+                // SNR deliberately NOT refreshed: the QSO machine consumed the
+                // early-pass estimate (it may already be locked into an outgoing
+                // report), so the row must keep showing that value. dt/freq are
+                // display-only and take the fresher full-pass measurement.
                 if (r == null) row else row.copy(
-                    snr = r.snr,
                     dtSeconds = r.dtSeconds,
                     freqHz = Math.round(r.freqHz),
                 )
