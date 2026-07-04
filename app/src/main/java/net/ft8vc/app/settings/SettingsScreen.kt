@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -28,14 +27,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.ft8vc.app.OperateUiState
 import net.ft8vc.app.OperateViewModel
-import net.ft8vc.app.ui.DialFrequencyDropdownField
-import net.ft8vc.app.ui.theme.Ft8Green
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.AppInfo
@@ -138,44 +134,15 @@ fun SettingsScreen(vm: OperateViewModel) {
             }
 
             SettingsSection("Rig (FT-891 CAT)") {
-                if (state.catReady) {
-                    DialFrequencyDropdownField(
-                        rigFreqHz = state.rigFreqHz,
-                        enabled = !state.catBusy,
-                        onSelect = vm::setRigFrequency,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("Mode: ${state.rigMode ?: "?"}", fontFamily = FontFamily.Monospace)
-                        TextButton(onClick = vm::readRig, enabled = !state.catBusy) {
-                            Text("Read rig")
-                        }
-                    }
-                    Button(
-                        onClick = vm::setRigDataUsb,
-                        enabled = !state.catBusy && state.rigMode != "DATA-U",
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Ft8Green, contentColor = androidx.compose.ui.graphics.Color.Black),
-                    ) {
-                        Text("Set DATA-U (FT8 mode)")
-                    }
-                    state.catStatus?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                    }
-                } else {
-                    Text(
-                        "CAT unavailable — connect Digirig serial and grant USB permission.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                PttPreferencePicker(
-                    preference = state.pttPreference,
-                    onSelect = vm::setPttPreference,
+                RadioSettingsSection(
+                    state = state,
+                    usbDiagnostics = vm.usbDiagnostics(),
+                    onSelectDialFrequency = vm::setRigFrequency,
+                    onReadRig = vm::readRig,
+                    onSetRigDataUsb = vm::setRigDataUsb,
+                    onSetCatBaud = vm::setCatBaud,
+                    onSetPttPreference = vm::setPttPreference,
                 )
-                UsbDiagnosticsExpandable(diagnostics = vm.usbDiagnostics())
             }
 
             SettingsSection("TX") {
@@ -514,71 +481,3 @@ private fun MaxUnansweredTxPicker(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PttPreferencePicker(
-    preference: PttPreference,
-    onSelect: (PttPreference) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = preference.displayName,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("PTT preference") },
-            supportingText = { Text(preference.description) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            PttPreference.entries.forEach { pref ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(pref.displayName, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                pref.description,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
-                    onClick = {
-                        expanded = false
-                        onSelect(pref)
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun UsbDiagnosticsExpandable(diagnostics: String) {
-    var expanded by remember { mutableStateOf(false) }
-    Column {
-        TextButton(
-            onClick = { expanded = !expanded },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = if (expanded) "Hide USB diagnostics" else "Show USB diagnostics",
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.labelMedium,
-            )
-            Text(text = if (expanded) "▴" else "▾", style = MaterialTheme.typography.labelMedium)
-        }
-        if (expanded) {
-            Text(
-                text = diagnostics,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.labelSmall,
-                fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
