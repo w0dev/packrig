@@ -37,6 +37,14 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     private var digirig: DigirigRigBackend? = null
     private val fallback = NoOpRigBackend()
 
+    /**
+     * CAT baud for the next bind/rebind — must match FT-891 menu 05-06 (CAT RATE).
+     * Owner (OperateViewModel) mirrors the persisted setting here; changing it does
+     * NOT reconfigure a live connection — call [rebind] to apply.
+     */
+    @Volatile
+    var catBaud: Int = DigirigRigBackend.DEFAULT_CAT_BAUD
+
     /** True once a real Digirig PTT backend is open. */
     val isDigirigReady: Boolean get() = digirig != null
 
@@ -72,7 +80,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
         if (digirig != null) return true
         val device = findDevice() ?: return false
         if (!usbManager.hasPermission(device)) return false
-        val backend = DigirigRigBackend(usbManager, device)
+        val backend = DigirigRigBackend(usbManager, device, catBaud)
         return if (backend.open()) {
             digirig = backend
             Log.i(TAG, "Digirig bound for PTT/CAT")
