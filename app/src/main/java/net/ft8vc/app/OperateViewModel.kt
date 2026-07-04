@@ -39,6 +39,7 @@ import net.ft8vc.app.ui.bandLabelForLogging
 import net.ft8vc.ft8native.Ft8Native
 import net.ft8vc.rig.Ft891Cat
 import net.ft8vc.rig.RigController
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -785,8 +786,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     /** Import an ADIF file picked in Settings → Logbook; merge with duplicate-skip. */
     fun importAdif(uri: Uri) {
         viewModelScope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                runCatching {
+            val outcome = try {
+                withContext(Dispatchers.IO) {
                     val text = getApplication<Application>().contentResolver
                         .openInputStream(uri)?.bufferedReader()?.use { it.readText() }
                         ?: throw AdifImportException("Could not read the selected file")
@@ -801,20 +802,19 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         .forEach { workedBeforeCache.invalidate(it) }
                     Triple(merged.imported, merged.duplicates, read.skipped)
                 }
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (t: Throwable) {
+                notify(t.message ?: "ADIF import failed", SnackbarEvent.Tag.ERROR)
+                return@launch
             }
-            outcome.fold(
-                onSuccess = { (imported, duplicates, skipped) ->
-                    val unreadable = if (skipped > 0) ", $skipped unreadable" else ""
-                    notify("Imported $imported QSOs ($duplicates duplicates skipped$unreadable)")
-                    if (imported > 0) {
-                        // Refresh backup + Documents mirror to reflect the merged log.
-                        AdifAutoBackup.scheduleBackupAfterQso(getApplication(), logbook, settingsRepo)
-                    }
-                },
-                onFailure = { t ->
-                    notify(t.message ?: "ADIF import failed", SnackbarEvent.Tag.ERROR)
-                },
-            )
+            val (imported, duplicates, skipped) = outcome
+            val unreadable = if (skipped > 0) ", $skipped unreadable" else ""
+            notify("Imported $imported QSOs ($duplicates duplicates skipped$unreadable)")
+            if (imported > 0) {
+                // Refresh backup + Documents mirror to reflect the merged log.
+                AdifAutoBackup.scheduleBackupAfterQso(getApplication(), logbook, settingsRepo)
+            }
         }
     }
 
