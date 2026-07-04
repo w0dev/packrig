@@ -411,6 +411,80 @@ class QsoSessionControllerTest {
         assertEquals("Calling CQ…", controller.slice.value.qsoState)
     }
 
+    // ── WSJT-X log timing: answerer logs at RR73/RRR receipt ───────────
+
+    @Test
+    fun answererLogsAtRr73Receipt_beforeSending73() = runTest {
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        // Their report arrives; we move to SendingRReport. Nothing logged yet.
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC -03", -8)), TxSlotParity.EVEN)
+        assertTrue(completedSnapshots.isEmpty())
+
+        // Their RR73 arrives: log NOW, while the courtesy 73 is still pending.
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC RR73", -8)), TxSlotParity.EVEN)
+        assertEquals(1, completedSnapshots.size)
+        assertEquals("K1ABC", completedSnapshots[0].dxCall)
+        assertEquals(-8, completedSnapshots[0].reportSent)
+        assertEquals(-3, completedSnapshots[0].reportRcvd)
+        assertTrue(notifications.any { it.first.contains("QSO complete with K1ABC") })
+
+        // The loop is still alive and the next TX is our courtesy 73.
+        assertTrue(controller.slice.value.qsoActive)
+        assertEquals("K1ABC W0DEV 73", controller.slice.value.nextTxMessage)
+    }
+
+    @Test
+    fun answererLogsAtRrrReceipt_too() = runTest {
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC -03", -8)), TxSlotParity.EVEN)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC RRR", -8)), TxSlotParity.EVEN)
+        assertEquals(1, completedSnapshots.size)
+        assertTrue(controller.slice.value.qsoActive)
+    }
+
+    @Test
+    fun earlyLoggedQso_survivesStopBefore73Tx() = runTest {
+        // The point of the change: interruption after their RR73 must not lose the QSO.
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC -03", -8)), TxSlotParity.EVEN)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC RR73", -8)), TxSlotParity.EVEN)
+        assertEquals(1, completedSnapshots.size)
+
+        controller.stopQso()
+        assertEquals(1, completedSnapshots.size)
+        assertFalse(controller.slice.value.qsoActive)
+        // Normal flow must never surface the dupe-guard's snackbar.
+        assertFalse(notifications.any { it.first.contains("already logged") })
+    }
+
+    @Test
+    fun repeatedRr73AfterEarlyLog_doesNotLogAgain() = runTest {
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC -03", -8)), TxSlotParity.EVEN)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC RR73", -8)), TxSlotParity.EVEN)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC RR73", -8)), TxSlotParity.EVEN)
+        assertEquals(1, completedSnapshots.size)
+        assertFalse(notifications.any { it.first.contains("already logged") })
+    }
+
+    @Test
+    fun nextQsoAfterEarlyLog_logsNormally() = runTest {
+        // qsoLogged must reset between QSOs.
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC -03", -8)), TxSlotParity.EVEN)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC RR73", -8)), TxSlotParity.EVEN)
+        controller.stopQso()
+        assertEquals(1, completedSnapshots.size)
+
+        // A different station: full initiator flow completes via their 73.
+        controller.startCq()
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV N0XYZ EM12", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV N0XYZ R-15", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV N0XYZ 73", -8)), TxSlotParity.ODD)
+        assertEquals(2, completedSnapshots.size)
+        assertEquals("N0XYZ", completedSnapshots[1].dxCall)
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private fun decodeRowCq(call: String, grid: String): net.ft8vc.app.DecodeRow =

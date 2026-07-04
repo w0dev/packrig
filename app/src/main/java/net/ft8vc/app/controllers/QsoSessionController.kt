@@ -130,6 +130,8 @@ class QsoSessionController(
     private var operateTxUserEdited: Boolean = false
     /** Set when a completed/abandoned QSO should auto-restart CQ; cleared by manual stop. */
     private var pendingAutoCqResume: Boolean = false
+    /** Set when the current QSO has been logged (possibly before the courtesy 73 TX). */
+    private var qsoLogged: Boolean = false
 
     // Mutable settings/profile state — written from VM, read from dispatcher coroutines.
     // No lock needed: writes happen at known points, reads happen inside qsoDispatcher;
@@ -301,8 +303,11 @@ class QsoSessionController(
                 if (advanced) {
                     operateTxUserEdited = false
                     publishQsoState()
+                    // WSJT-X log timing: the partner's RRR/RR73 makes the QSO
+                    // loggable before our courtesy 73 transmits; Complete-by-decode
+                    // (initiator receiving 73) logs here too.
+                    maybeLogQso()
                     if (qso?.state == QsoState.Complete) {
-                        handleQsoComplete()
                         // Capture before nulling so maybeAutoResumeCq can join the
                         // cancelled loop (symmetric with the TX path in afterTransmit).
                         val finished = qsoLoopJob
@@ -408,7 +413,7 @@ class QsoSessionController(
             return true
         }
         if (qso?.state == QsoState.Complete) {
-            handleQsoComplete()
+            maybeLogQso()
             maybeAutoResumeCq("QSO logged — resuming CQ")
             return true
         }
@@ -417,6 +422,7 @@ class QsoSessionController(
 
     private suspend fun stopQsoInternal() {
         pendingAutoCqResume = false
+        qsoLogged = false
         qsoLoopJob?.cancel()
         qsoLoopJob = null
         qsoTxParity = null
@@ -480,9 +486,18 @@ class QsoSessionController(
         }
     }
 
-    private suspend fun handleQsoComplete() {
+    /**
+     * Log the current QSO exactly once. Loggable at Complete, or already when
+     * the partner's RRR/RR73 arrives (snapshot() is non-null from that moment) —
+     * WSJT-X logs at confirmation, concurrent with queuing the courtesy 73.
+     * [qsoLogged] (not DupeLogGuard) suppresses the second call at Complete so
+     * the normal flow never shows the "Re-confirmed" snackbar.
+     */
+    private suspend fun maybeLogQso() {
+        if (qsoLogged) return
         val nowMs = clock()
         val snapshot = qso?.snapshot(nowMs) ?: return
+        qsoLogged = true
         if (!dupeLogGuard.shouldLog(snapshot.dxCall, nowMs)) {
             notifyFn("Re-confirmed ${snapshot.dxCall} — already logged", SnackbarEvent.Tag.TRANSIENT)
             return
