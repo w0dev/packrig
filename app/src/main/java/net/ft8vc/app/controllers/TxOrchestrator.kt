@@ -74,10 +74,16 @@ import java.util.concurrent.Executors
  *    after the user explicitly re-acknowledges the license.
  *  - `RX_ONLY` → `READY`         via [notifyUsbReady] after the
  *    USB device returns and the license re-check passes.
+ *  - `RX_ONLY` → `READY`         via [notifyRigReady] when the rig probe
+ *    finds the Digirig again and the license acknowledgment is already
+ *    on record — cold-init parity: a fresh app start with the license
+ *    acknowledged also boots READY (2026-07-03 field report: without
+ *    this, a mid-session replug had no reachable path out of RX_ONLY).
  *
- * The state intentionally does not auto-recover. Reconnect after a
- * detach routes through the same cold-init path as fresh start
- * (license re-acknowledgment required, no auto-resume of TX).
+ * Reconnect never auto-resumes TX — the QSO was stopped on detach and
+ * every TX start remains behind an explicit operator tap (and the
+ * license dialog when the acknowledgment is not on record).
+ * EMERGENCY_HALT still only clears via [acknowledgeAndResetEmergency].
  */
 class TxOrchestrator(
     private val decoder: Ft8DecoderApi,
@@ -242,6 +248,17 @@ class TxOrchestrator(
                 it
             }
         }
+    }
+
+    /**
+     * Called when the rig probe finds the Digirig present and usable again
+     * (USB reattach). Restores READY from RX_ONLY only when the operator's
+     * license acknowledgment is already on record; otherwise the license
+     * dialog on the next TX tap stays the explicit gate. Never clears
+     * EMERGENCY_HALT.
+     */
+    fun notifyRigReady(licenseAcknowledged: Boolean) {
+        if (licenseAcknowledged) notifyUsbReady()
     }
 
     /** Clear the EMERGENCY_HALT latch. Requires a fresh license acknowledgment. */

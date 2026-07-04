@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
-            operateVm.refreshDevices()
+            operateVm.onUsbAttached()
         }
     }
 }

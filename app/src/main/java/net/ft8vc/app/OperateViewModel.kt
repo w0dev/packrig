@@ -375,6 +375,23 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
 
+    /**
+     * USB_DEVICE_ATTACHED (MainActivity.onNewIntent). The attach re-enumerated
+     * the bus, so any held Digirig backend points at dead descriptors — rebind
+     * before re-probing, then let [prepareRig] restore PTT/CAT/TX state.
+     */
+    fun onUsbAttached() {
+        // Serial close/open on the CAT thread (serializes with in-flight CAT
+        // ops and keeps blocking USB I/O off main), then re-probe on main.
+        viewModelScope.launch(rigSession.catDispatcher) {
+            rig.rebind()
+            withContext(Dispatchers.Main) {
+                rigSession.refreshDigirigPresence()
+                refreshDevices()
+            }
+        }
+    }
+
     fun refreshDevices() {
         val devices = AudioInputs.list(getApplication())
         _viewState.update { v ->
@@ -563,6 +580,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
             RigController.State.Ready -> {
                 _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready") }
                 rigSession.refreshDigirigPresence()
+                onRigReattached()
                 viewModelScope.launch(rigSession.catDispatcher) {
                     val method = rig.configurePttFromCatProbe()
                     _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
@@ -580,6 +598,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready") }
                     rigSession.refreshDigirigPresence()
+                    onRigReattached()
                     viewModelScope.launch(rigSession.catDispatcher) {
                         val method = rig.configurePttFromCatProbe()
                         _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
@@ -594,6 +613,17 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         if (!rig.isCatReady) return
         _viewState.update { it.copy(catReady = true) }
         readRig()
+    }
+
+    /**
+     * Rig probe found the Digirig usable (fresh start or USB reattach). Clears
+     * the SAFETY-02 RX_ONLY latch when the license acknowledgment is already
+     * on record — 2026-07-03 field report: with the acknowledgment persisted
+     * true, the license dialog (the only other notifyUsbReady caller) can
+     * never re-show, so a mid-session replug left TX dead-ended in RX_ONLY.
+     */
+    private fun onRigReattached() {
+        txOrchestrator.notifyRigReady(settingsBridge.slice.value.licenseAcknowledged)
     }
 
     fun readRig() {

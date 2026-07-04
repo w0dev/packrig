@@ -84,6 +84,20 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     }
 
     /**
+     * Drop any backend left over from a previous USB enumeration and bind the
+     * currently attached device. A detach/reattach cycle re-enumerates the
+     * Digirig, so a held [DigirigRigBackend] points at dead file descriptors
+     * while [state] still reports Ready — call this on USB_DEVICE_ATTACHED
+     * before re-probing. Returns true if PTT is wired to the fresh device.
+     */
+    @Synchronized
+    fun rebind(): Boolean {
+        digirig?.close()
+        digirig = null
+        return bindIfPermitted()
+    }
+
+    /**
      * Ensure PTT is wired. If a device is present but unpermitted, prompts the
      * user for USB permission and binds on grant. [onResult] reports readiness.
      */

@@ -249,6 +249,34 @@ class TxOrchestratorTest {
         assertEquals(AppRfState.EMERGENCY_HALT, orchestrator.slice.value.appRfState)
     }
 
+    // ── USB reattach recovery (2026-07-03 field report: RX_ONLY dead-end) ──
+
+    @Test
+    fun notifyRigReady_restoresReady_whenLicenseAlreadyAcknowledged() = runBlocking {
+        orchestrator.notifyUsbDetached()
+        waitUntil { orchestrator.slice.value.appRfState == AppRfState.RX_ONLY }
+        orchestrator.notifyRigReady(licenseAcknowledged = true)
+        assertEquals(AppRfState.READY, orchestrator.slice.value.appRfState)
+        assertFalse(orchestrator.slice.value.digirigDisconnected)
+    }
+
+    @Test
+    fun notifyRigReady_staysRxOnly_untilLicenseAcknowledged() = runBlocking {
+        orchestrator.notifyUsbDetached()
+        waitUntil { orchestrator.slice.value.appRfState == AppRfState.RX_ONLY }
+        orchestrator.notifyRigReady(licenseAcknowledged = false)
+        assertEquals(AppRfState.RX_ONLY, orchestrator.slice.value.appRfState)
+        assertTrue(orchestrator.slice.value.digirigDisconnected)
+    }
+
+    @Test
+    fun notifyRigReady_neverClearsEmergencyHalt() = runBlocking {
+        orchestrator.emergencyHalt("test")
+        waitUntil { orchestrator.slice.value.appRfState == AppRfState.EMERGENCY_HALT }
+        orchestrator.notifyRigReady(licenseAcknowledged = true)
+        assertEquals(AppRfState.EMERGENCY_HALT, orchestrator.slice.value.appRfState)
+    }
+
     @Test
     fun txRejected_whenDecoderNotAvailable() = runBlocking {
         decoder.available = false
