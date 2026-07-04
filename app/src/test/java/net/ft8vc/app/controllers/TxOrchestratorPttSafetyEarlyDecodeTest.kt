@@ -92,7 +92,7 @@ class TxOrchestratorPttSafetyEarlyDecodeTest {
             notifyFn = { text, tag -> notifications += text to tag },
             outputDeviceIdProvider = { null },
             captureControl = object : TxOrchestrator.CaptureControl {
-                override fun pauseForTx() {}
+                override suspend fun pauseForTx() {}
                 override fun resumeAfterTx() {}
             },
             executor = txExec,

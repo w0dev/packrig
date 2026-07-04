@@ -52,6 +52,12 @@ for device swap, capture restart, and TX pause/resume. `stop(onStopped)` runs
 its callback after the engine has actually stopped; a failing `start` reports
 via callback only while it is still the newest op.
 
+The TX handoff is the one caller that must not fire-and-forget:
+`TxCaptureControl.pauseForTx` (app module) suspends on the `stop(onStopped)`
+callback — bounded at 1.5 s — so PTT never keys while the capture engine still
+holds the USB codec. An async stop racing TX playback produced intermittent
+zero-RF transmissions in the field (2026-07-03).
+
 ### `UsbAudioPlayback`
 
 - Opens `AudioTrack` at 48/24/12 kHz

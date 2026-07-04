@@ -98,7 +98,11 @@ class TxOrchestrator(
 ) : AutoCloseable {
 
     interface CaptureControl {
-        fun pauseForTx()
+        /**
+         * Must not return until the capture engine has actually released the
+         * audio device (bounded internally): PTT keys immediately after this.
+         */
+        suspend fun pauseForTx()
         fun resumeAfterTx()
     }
 

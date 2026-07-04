@@ -8,6 +8,7 @@ import net.ft8vc.app.controllers.DecodeController
 import net.ft8vc.app.controllers.QsoSessionController
 import net.ft8vc.app.controllers.RigSession
 import net.ft8vc.app.controllers.SettingsBridge
+import net.ft8vc.app.controllers.TxCaptureControl
 import net.ft8vc.app.controllers.TxOrchestrator
 import net.ft8vc.app.controllers.WorkedBeforeCache
 import net.ft8vc.app.ui.Waterfall
@@ -153,14 +154,12 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         scope = viewModelScope,
         notifyFn = ::notify,
         outputDeviceIdProvider = { AudioOutputs.firstUsb(getApplication())?.id },
-        captureControl = object : TxOrchestrator.CaptureControl {
-            override fun pauseForTx() {
-                if (state.value.isCapturing) stopCapture()
-            }
-            override fun resumeAfterTx() {
-                if (state.value.isOperating && !state.value.isCapturing) beginCapture()
-            }
-        },
+        captureControl = TxCaptureControl(
+            isCapturing = { state.value.isCapturing },
+            isOperating = { state.value.isOperating },
+            stopCapture = ::stopCapture,
+            beginCapture = ::beginCapture,
+        ),
         lateStartTxEnabledProvider = { settingsBridge.slice.value.lateStartTxEnabled },
     )
 
@@ -748,7 +747,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         beginCapture()
     }
 
-    private fun stopCapture() {
+    private fun stopCapture(onStopped: () -> Unit = {}) {
         _viewState.update { it.copy(isCapturing = false) }
         captureLifecycle.stop {
             // Runs after the engine actually stopped, so the reset can't race
@@ -758,6 +757,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 notify("Audio thread didn't stop cleanly — recovering", SnackbarEvent.Tag.ERROR)
             }
             decodeController.reset()
+            onStopped()
         }
     }
 

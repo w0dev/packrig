@@ -258,6 +258,29 @@ class TxOrchestratorTest {
     }
 
     @Test
+    fun pttNotKeyed_whilePauseForTxIsStillPending() = runBlocking {
+        // 2026-07-03 field report: TX audio raced capture teardown once the stop
+        // went async — the orchestrator must not key PTT until pauseForTx returns.
+        capture.pauseGate = kotlinx.coroutines.CompletableDeferred()
+        val txJob = scope.launch { orchestrator.transmit("CQ W0DEV EM26", 1000) }
+
+        waitUntil { capture.wasPaused }
+        assertTrue(capture.wasPaused)
+        // Give an erroneous early keying a chance to surface before asserting absence.
+        Thread.sleep(100)
+        assertEquals(
+            "PTT keyed before capture pause completed",
+            0,
+            rig.pttEdgesSnapshot().count { it.kind == PttEdgeKind.KEY },
+        )
+
+        capture.pauseGate?.complete(Unit)
+        waitUntil { rig.pttEdgesSnapshot().any { it.kind == PttEdgeKind.KEY } }
+        assertEquals(1, rig.pttEdgesSnapshot().count { it.kind == PttEdgeKind.KEY })
+        txJob.join()
+    }
+
+    @Test
     fun cleanTx_releasesPtt_andResumesCapture() = runBlocking {
         val ok = orchestrator.transmit("CQ W0DEV EM26", 1000)
         assertTrue(ok)
@@ -395,7 +418,15 @@ class TxOrchestratorTest {
     private class TestCaptureControl : TxOrchestrator.CaptureControl {
         @Volatile var wasPaused: Boolean = false
         @Volatile var wasResumed: Boolean = false
-        override fun pauseForTx() { wasPaused = true }
+
+        /** When set, pauseForTx suspends until the deferred is completed. */
+        @Volatile var pauseGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
+        override suspend fun pauseForTx() {
+            wasPaused = true
+            pauseGate?.await()
+        }
+
         override fun resumeAfterTx() { wasResumed = true }
     }
 }

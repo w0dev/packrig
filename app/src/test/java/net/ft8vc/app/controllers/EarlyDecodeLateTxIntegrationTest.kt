@@ -154,7 +154,7 @@ class EarlyDecodeLateTxIntegrationTest {
             notifyFn = { _, _ -> },
             outputDeviceIdProvider = { null },
             captureControl = object : TxOrchestrator.CaptureControl {
-                override fun pauseForTx() {}
+                override suspend fun pauseForTx() {}
                 override fun resumeAfterTx() {}
             },
             executor = txExec,
