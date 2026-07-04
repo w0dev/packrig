@@ -38,7 +38,9 @@ object DocumentsAdifMirror {
                 collection,
                 ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, DISPLAY_NAME)
-                    put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+                    // text/plain would make MediaStore rename the file to .adi.txt,
+                    // which also breaks findOwnedEntry's exact-name re-find.
+                    put(MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
                     put(MediaStore.MediaColumns.RELATIVE_PATH, RELATIVE_PATH)
                 },
             ) ?: return false
