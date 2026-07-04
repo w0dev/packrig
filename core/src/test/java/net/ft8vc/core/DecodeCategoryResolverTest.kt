@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Fixed-priority classification: OWN_TX > PARTNER > MY_CALL > CQ variants > OTHER.
+ * Fixed-priority classification: OWN_TX > PARTNER > CQ variants > MY_CALL > OTHER.
  * See docs/superpowers/specs/2026-07-04-decode-colorscheme-design.md.
  */
 class DecodeCategoryResolverTest {

@@ -6,8 +6,11 @@ package net.ft8vc.core
  *
  * OWN_TX must be checked first: a transmitted row's message text contains
  * both the partner call and my call, so it would otherwise match PARTNER.
- * PARTNER outranks CQ because partner replies also contain my call and
- * CQ classification. CQ outranks MY_CALL for glyph/color visibility.
+ * PARTNER outranks MY_CALL because partner replies also contain my call.
+ * CQ outranks MY_CALL as a defensive rule for inconsistently flagged rows
+ * (unreachable in the current pipeline — isDirectedToMe never matches CQs):
+ * a broadcast must never render as "calling you". Pinned by the v1.0 test
+ * DecodePrefixTest.cqPrefixWinsOverToMe.
  * Worked-before categories apply only to CQ rows — the decision they serve
  * is "should I answer this CQ?".
  */
