@@ -79,6 +79,31 @@ class WorkedBeforeCacheTest {
         assertEquals(2, log.calls.get())
     }
 
+    // Field bug 2026-07-04: ft8_lib shows nonstandard calls hashed (<PJ4/K1ABC>)
+    // in directed messages, but the QSO was logged from the full-call CQ form
+    // (PJ4/K1ABC). The exact-match lookup then classified the hashed form Never.
+
+    @Test fun classify_matches_hashed_form_against_logged_full_call() = runTest {
+        val log = FakeLogbook()
+        log.set("PJ4/K1ABC", setOf("20m"))
+        val cache = WorkedBeforeCache(log)
+
+        assertEquals(WorkedBefore.ThisBand, cache.classify("<PJ4/K1ABC>", "20m"))
+    }
+
+    @Test fun invalidate_with_logged_call_drops_entry_cached_under_hashed_form() = runTest {
+        val log = FakeLogbook()
+        val cache = WorkedBeforeCache(log)
+
+        assertEquals(WorkedBefore.Never, cache.classify("<PJ4/K1ABC>", "20m"))
+
+        // QSO completes and logs under the full call; the VM invalidates with it.
+        log.set("PJ4/K1ABC", setOf("20m"))
+        cache.invalidate("PJ4/K1ABC")
+
+        assertEquals(WorkedBefore.ThisBand, cache.classify("<PJ4/K1ABC>", "20m"))
+    }
+
     @Test fun invalidate_then_reclassify_picks_up_new_band() = runTest {
         val log = FakeLogbook()
         log.set("K1ABC", setOf("40m"))

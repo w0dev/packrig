@@ -55,3 +55,11 @@ fun bandLabelForFreqLoose(hz: Long?): String? {
     val best = Ft8DialPresets.minByOrNull { kotlin.math.abs(it.hz - hz) } ?: return null
     return if (kotlin.math.abs(best.hz - hz) <= 200_000L) best.label else null
 }
+
+/**
+ * Band label to store on a logged QSO. MUST share [bandLabelForFreqLoose]
+ * semantics: worked-before classification derives the current band loosely,
+ * and a contact logged under stricter (exact-preset) matching would store a
+ * NULL band and never count in `Logbook.workedBands()`.
+ */
+fun bandLabelForLogging(hz: Long?): String? = bandLabelForFreqLoose(hz)

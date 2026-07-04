@@ -18,6 +18,17 @@ class CallsignMatcherTest {
     }
 
     @Test
+    fun canonicalStripsBracketsAndUppercases() {
+        // Identity key for worked-before lookups: the hashed transport form
+        // (<PJ4/K1ABC>) and the full logged form (PJ4/K1ABC) must collide,
+        // while distinct compound identities (K1ABC vs PJ4/K1ABC) must not.
+        assertEquals("PJ4/K1ABC", CallsignMatcher.canonical("<PJ4/K1ABC>"))
+        assertEquals("PJ4/K1ABC", CallsignMatcher.canonical("pj4/k1abc"))
+        assertEquals("K1ABC", CallsignMatcher.canonical(" K1ABC "))
+        assertFalse(CallsignMatcher.canonical("K1ABC") == CallsignMatcher.canonical("PJ4/K1ABC"))
+    }
+
+    @Test
     fun matchesExactIgnoringCaseAndBrackets() {
         assertTrue(CallsignMatcher.matches("k1abc", "K1ABC"))
         assertTrue(CallsignMatcher.matches("<K1ABC>", "K1ABC"))

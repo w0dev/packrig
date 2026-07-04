@@ -17,10 +17,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.ft8vc.app.DecodeRow
 import net.ft8vc.app.OperateUiState
 import net.ft8vc.audio.dsp.SpectrumProcessor
 import net.ft8vc.core.AppInfo
+import net.ft8vc.core.CallsignMatcher
 import net.ft8vc.core.ClockOffsetEstimator
 import net.ft8vc.core.DecodeDistance
 import net.ft8vc.core.DecodePassSource
@@ -366,6 +368,30 @@ class DecodeController(
         _slice.update { s ->
             val combined = (listOf(row) + s.decodes).take(OperateUiState.MAX_DECODE_ROWS)
             s.copy(decodes = combined.toPersistentList())
+        }
+    }
+
+    /**
+     * Re-runs [workedBeforeLookup] for every visible row whose sender is [call]
+     * and updates the rows in place. Called after a QSO with [call] is logged
+     * (and the worked-before cache invalidated) so rows already on screen pick
+     * up the new status instead of keeping the value stamped at decode time.
+     */
+    suspend fun reclassifyWorkedBefore(call: String) = withContext(decodeDispatcher) {
+        val worked = workedBeforeLookup(call)
+        val key = CallsignMatcher.canonical(call)
+        _slice.update { s ->
+            var changed = false
+            val updated = s.decodes.map { row ->
+                val sender = senderCallFromMessage(row.message)
+                if (row.workedBefore != worked && sender != null &&
+                    CallsignMatcher.canonical(sender) == key
+                ) {
+                    changed = true
+                    row.copy(workedBefore = worked)
+                } else row
+            }
+            if (changed) s.copy(decodes = updated.toPersistentList()) else s
         }
     }
 

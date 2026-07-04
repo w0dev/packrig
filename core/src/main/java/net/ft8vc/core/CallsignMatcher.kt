@@ -27,6 +27,14 @@ object CallsignMatcher {
         return candidate.substringBefore('-').uppercase()
     }
 
+    /**
+     * Canonical identity key for logbook lookups: bracket-stripped, trimmed,
+     * uppercased. Collapses ft8_lib's hashed transport form (`<PJ4/K1ABC>`)
+     * onto the logged full call (`PJ4/K1ABC`) while keeping distinct compound
+     * identities (`K1ABC` vs `PJ4/K1ABC`) apart.
+     */
+    fun canonical(call: String): String = stripBrackets(call).uppercase()
+
     fun matches(token: String, call: String): Boolean {
         val t = stripBrackets(token)
         val c = stripBrackets(call)

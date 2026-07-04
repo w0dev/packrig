@@ -31,7 +31,7 @@ import net.ft8vc.data.Logbook
 import net.ft8vc.data.RoomLogbook
 import net.ft8vc.data.db.Ft8vcDatabase
 import net.ft8vc.data.model.QsoContact
-import net.ft8vc.app.ui.bandLabelForFreq
+import net.ft8vc.app.ui.bandLabelForLogging
 import net.ft8vc.ft8native.Ft8Native
 import net.ft8vc.rig.Ft891Cat
 import net.ft8vc.rig.RigController
@@ -726,7 +726,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun onQsoComplete(snapshot: QsoSnapshot) {
         val freq = state.value.rigFreqHz
-        val band = bandLabelForFreq(freq)
+        val band = bandLabelForLogging(freq)
         val parks = ActivationProfile.parkRefsForLogging(
             state.value.potaModeEnabled,
             state.value.potaParkRef,
@@ -734,6 +734,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val contact = QsoContact.fromSnapshot(snapshot, freq, band, parks)
         withContext(Dispatchers.IO) { logbook.log(contact) }
         workedBeforeCache.invalidate(contact.dxCall)
+        decodeController.reclassifyWorkedBefore(contact.dxCall)
         // Phase 7 (HYG-04): atomic ADIF auto-export on ApplicationScope so the
         // backup outlives this ViewModel if the user pauses the app mid-write.
         AdifAutoBackup.scheduleBackupAfterQso(getApplication(), logbook, settingsRepo)
