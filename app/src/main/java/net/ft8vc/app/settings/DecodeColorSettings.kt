@@ -134,7 +134,8 @@ fun DecodeColorsSection(
                     }
                 }
             },
-            confirmButton = {
+            confirmButton = {},
+            dismissButton = {
                 TextButton(onClick = { editing = null }) { Text("Cancel") }
             },
         )

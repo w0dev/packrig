@@ -46,12 +46,12 @@ New enum + resolver in `core/src/main/java/net/ft8vc/core/`, alongside
 
 ```kotlin
 enum class DecodeCategory {
-    MY_CALL,               // message directed to my callsign (in or out of QSO)
-    PARTNER,               // current qsoDx during an active QSO
     OWN_TX,                // my transmitted rows (DecodeRowSource.Tx)
+    PARTNER,               // current qsoDx during an active QSO
     CQ_NEW,                // CQ from a never-worked call
     CQ_WORKED_OTHER_BAND,  // CQ from a call worked, but not on this band
     CQ_WORKED_THIS_BAND,   // CQ from a call already worked on this band
+    MY_CALL,               // message directed to my callsign (in or out of QSO)
     OTHER,                 // everything else
 }
 

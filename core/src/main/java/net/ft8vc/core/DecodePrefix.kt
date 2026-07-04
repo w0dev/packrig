@@ -28,6 +28,11 @@ object DecodePrefix {
         DecodeCategory.OWN_TX, DecodeCategory.OTHER -> ""
     }
 
+    /**
+     * Kept for compatibility and as the pin for the legacy DecodePrefixTest
+     * expectations (including cqPrefixWinsOverToMe); production rendering calls
+     * [glyphFor] directly.
+     */
     fun prefixFor(
         message: String,
         isCq: Boolean,

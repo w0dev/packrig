@@ -12,9 +12,6 @@ enum class DecodeCategory {
     /** Mentions the current QSO partner during an active QSO. */
     PARTNER,
 
-    /** Directed to my callsign — in or out of a QSO (tail-enders included). */
-    MY_CALL,
-
     /** CQ from a station never worked. */
     CQ_NEW,
 
@@ -23,6 +20,9 @@ enum class DecodeCategory {
 
     /** CQ from a station already worked on the current band. */
     CQ_WORKED_THIS_BAND,
+
+    /** Directed to my callsign — in or out of a QSO (tail-enders included). */
+    MY_CALL,
 
     /** Everything else (band chatter). */
     OTHER,
