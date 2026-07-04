@@ -60,17 +60,21 @@ dedicated Radio section of the Settings tab.
 
 ### ViewModel (`app/.../OperateViewModel.kt`)
 
-- `OperateUiState.catBaud: Int = 38_400`, mapped from settings in the state combine.
-- Settings collector seeds `rig.catBaud` from the persisted value so the *first* bind
-  uses it (a `map { it.catBaud }.distinctUntilChanged()` collector in `init`).
-- `fun setCatBaud(baud: Int)`:
-  1. Persist via `settingsRepo.setCatBaud(baud)` and set `rig.catBaud = baud`.
-  2. If `rig.isDigirigReady && !state.value.isTransmitting`: launch on
-     `rigSession.catDispatcher` → `rig.rebind()` → on success, re-run the CAT probe and
-     status refresh exactly as `prepareRig()`'s `Ready` branch does
-     (`configurePttFromCatProbe()` → `onRigReady()`), so the operator sees the result
-     immediately.
-  3. If transmitting or no Digirig bound: persist only. No rebind mid-TX.
+- `OperateUiState.catBaud: Int = 38_400`, mapped from settings in the state combine
+  (the value flows `StationSettings` → `SettingsSlice` → `OperateUiState`).
+- `fun setCatBaud(baud: Int)` only persists via `settingsRepo.setCatBaud(baud)`.
+- The existing settings→controller mirror (`settingsBridge.slice.collect` in `init`)
+  owns the apply path — a single code path for both user changes and startup:
+  when `rig.catBaud != slice.catBaud`, set `rig.catBaud`, and if
+  `rig.isDigirigReady && !state.value.isTransmitting`, launch on
+  `rigSession.catDispatcher` → `rig.rebind()` → `prepareRig()` on Main, whose `Ready`
+  branch re-probes CAT (`configurePttFromCatProbe()` → `onRigReady()`) and refreshes
+  status so the operator sees the result immediately.
+- This also heals the startup race: if the Digirig binds at the default 38400 before
+  DataStore emits a persisted non-default baud, the first slice emission detects the
+  mismatch and rebinds. If transmitting, the mirror updates `rig.catBaud` only; the
+  next natural rebind (USB reattach) applies it. (The picker is disabled during TX
+  anyway.)
 
 ### UI (`app/.../settings/RadioSettingsSection.kt`, new file)
 
