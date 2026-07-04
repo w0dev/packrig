@@ -81,6 +81,72 @@ class DecodeCategoryResolverTest {
     }
 
     @Test
+    fun partnerRuleRequiresWholeTokenMatch_prefixCollision() {
+        // qsoDx "K1AB" must not match a message mentioning "K1ABC" — whole-token
+        // match, not substring (v1.0 contains() bug).
+        val category = resolve(
+            qsoActive = true,
+            qsoDx = "K1AB",
+            message = "W0DEV K1ABC -05",
+        )
+        assertEquals(DecodeCategory.OTHER, category)
+    }
+
+    @Test
+    fun prefixCollisionToMeFallsThroughToMyCall() {
+        val category = resolve(
+            isToMe = true,
+            qsoActive = true,
+            qsoDx = "K1AB",
+            message = "W0DEV K1ABC -05",
+        )
+        assertEquals(DecodeCategory.MY_CALL, category)
+    }
+
+    @Test
+    fun partnerRuleRequiresWholeTokenMatch_suffixCollision() {
+        val category = resolve(
+            qsoActive = true,
+            qsoDx = "1ABC",
+            message = "W0DEV K1ABC -05",
+        )
+        assertEquals(DecodeCategory.OTHER, category)
+    }
+
+    @Test
+    fun compoundPartnerCallIsPartner() {
+        // Partner switches to a compound form mid-QSO; base-call match keeps
+        // the row PARTNER (contains() got this right by accident — pin it).
+        val category = resolve(
+            qsoActive = true,
+            qsoDx = "K1ABC",
+            message = "W0DEV K1ABC/P -05",
+        )
+        assertEquals(DecodeCategory.PARTNER, category)
+    }
+
+    @Test
+    fun hashedPartnerCallInAngleBracketsIsPartner() {
+        // Nonstandard calls decode as hashed tokens like <K1ABC>.
+        val category = resolve(
+            qsoActive = true,
+            qsoDx = "K1ABC",
+            message = "W0DEV <K1ABC> -05",
+        )
+        assertEquals(DecodeCategory.PARTNER, category)
+    }
+
+    @Test
+    fun hashedCallPrefixCollisionIsNotPartner() {
+        val category = resolve(
+            qsoActive = true,
+            qsoDx = "K1AB",
+            message = "W0DEV <K1ABC> -05",
+        )
+        assertEquals(DecodeCategory.OTHER, category)
+    }
+
+    @Test
     fun partnerRuleRequiresActiveQso() {
         // qsoDx set but QSO not active (e.g. stale form) — falls through.
         val category = resolve(

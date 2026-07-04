@@ -26,11 +26,23 @@ object DecodeCategoryResolver {
         message: String,
     ): DecodeCategory = when {
         isTx -> DecodeCategory.OWN_TX
-        qsoActive && qsoDx != null && message.contains(qsoDx) -> DecodeCategory.PARTNER
+        qsoActive && qsoDx != null && mentionsCall(message, qsoDx) -> DecodeCategory.PARTNER
         isCq && workedBefore == WorkedBefore.ThisBand -> DecodeCategory.CQ_WORKED_THIS_BAND
         isCq && workedBefore == WorkedBefore.OtherBand -> DecodeCategory.CQ_WORKED_OTHER_BAND
         isCq -> DecodeCategory.CQ_NEW
         isToMe -> DecodeCategory.MY_CALL
         else -> DecodeCategory.OTHER
     }
+
+    private val WHITESPACE = Regex("\\s+")
+
+    /**
+     * Whole-token match via [CallsignMatcher]: a substring check would misfire
+     * when [call] is a prefix of another callsign in the message ("K1AB" vs
+     * "K1ABC"). The shared matcher also handles hashed forms (`<K1ABC>`) and
+     * compound forms (`K1ABC/P`), keeping PARTNER aligned with the QSO
+     * machine's idea of who the partner is.
+     */
+    private fun mentionsCall(message: String, call: String): Boolean =
+        message.trim().split(WHITESPACE).any { CallsignMatcher.matches(it, call) }
 }

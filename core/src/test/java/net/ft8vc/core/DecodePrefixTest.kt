@@ -68,6 +68,20 @@ class DecodePrefixTest {
     }
 
     @Test
+    fun partnerGlyphRequiresWholeTokenMatch_prefixCollision() {
+        // qsoDx "K1AB" must not claim a row mentioning "K1ABC"; the to-me row
+        // keeps the → glyph instead of the partner ▸.
+        val prefix = DecodePrefix.prefixFor(
+            message = "W0DEV K1ABC -05",
+            isCq = false,
+            isToMe = true,
+            qsoActive = true,
+            qsoDx = "K1AB",
+        )
+        assertEquals(DecodePrefix.TO_ME, prefix)
+    }
+
+    @Test
     fun glyphForMapsEveryCategory() {
         assertEquals(DecodePrefix.PARTNER, DecodePrefix.glyphFor(DecodeCategory.PARTNER))
         assertEquals(DecodePrefix.TO_ME, DecodePrefix.glyphFor(DecodeCategory.MY_CALL))
