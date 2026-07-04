@@ -2,6 +2,7 @@ package net.ft8vc.core
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -447,5 +448,103 @@ class QsoMachineTest {
         )
         assertEquals(QsoState.SendingReport, m.state)
         assertEquals("K1ABC", m.dxCall)
+    }
+
+    // ── WSJT-X log timing: answerer is loggable at RRR/RR73 receipt ────
+
+    @Test
+    fun answererLoggableAtRogerReceipt() {
+        val m = QsoMachine("K1ABC", "FN42")
+        m.answerCq("W0DEV", "EM26", snr = -8)
+        m.onDecodes(decode("K1ABC W0DEV -03", snr = -8))
+        assertEquals(QsoState.SendingRReport, m.state)
+        // Not confirmed yet — nothing to log before their roger arrives.
+        assertFalse(m.confirmedByPartner)
+        assertNull(m.snapshot(1000L))
+
+        assertTrue(m.onDecodes(decode("K1ABC W0DEV RRR")))
+        assertEquals(QsoState.SendingSeventyThree, m.state)
+        assertTrue(m.confirmedByPartner)
+        val snap = m.snapshot(1000L)
+        assertNotNull(snap)
+        assertEquals("W0DEV", snap!!.dxCall)
+        assertEquals(-8, snap.reportSent)
+        assertEquals(-3, snap.reportRcvd)
+        assertEquals(QsoRole.Answerer, snap.role)
+        assertEquals(1000L, snap.completedAtEpochMs)
+    }
+
+    @Test
+    fun answererLoggableAtRr73Receipt() {
+        val m = QsoMachine("K1ABC", "FN42")
+        m.answerCq("W0DEV", "EM26", snr = -8)
+        m.onDecodes(decode("K1ABC W0DEV -03", snr = -8))
+
+        assertTrue(m.onDecodes(decode("K1ABC W0DEV RR73")))
+        assertEquals(QsoState.SendingSeventyThree, m.state)
+        assertTrue(m.confirmedByPartner)
+        assertNotNull(m.snapshot(1000L))
+        // The courtesy 73 is still the next TX.
+        assertEquals("W0DEV K1ABC 73", m.txMessage())
+    }
+
+    @Test
+    fun confirmedSnapshotSurvivesMarkTransmitted() {
+        val m = QsoMachine("K1ABC", "FN42")
+        m.answerCq("W0DEV", "EM26", snr = -8)
+        m.onDecodes(decode("K1ABC W0DEV -03", snr = -8))
+        m.onDecodes(decode("K1ABC W0DEV RR73"))
+        m.markTransmitted()
+        assertEquals(QsoState.Complete, m.state)
+        assertNotNull(m.snapshot(1000L))
+    }
+
+    @Test
+    fun resumeAnswererAfterRoger_isNotConfirmed_logsOnlyAtComplete() {
+        // Tapping a stray RRR/RR73 decode to resume: the machine has no report
+        // data, so it must keep the v1.0 behavior — loggable only at Complete.
+        val m = QsoMachine("K1ABC", "FN42")
+        m.resumeAnswererAfterRoger("W0DEV")
+        assertEquals(QsoState.SendingSeventyThree, m.state)
+        assertFalse(m.confirmedByPartner)
+        assertNull(m.snapshot(1000L))
+        m.markTransmitted()
+        assertNotNull(m.snapshot(1000L))
+    }
+
+    @Test
+    fun initiatorNotLoggableBeforeComplete() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        m.onDecodes(decode("W0DEV K1ABC FN42"))
+        m.onDecodes(decode("W0DEV K1ABC R-15"))
+        assertEquals(QsoState.SendingRoger, m.state)
+        assertFalse(m.confirmedByPartner)
+        assertNull(m.snapshot(1000L))
+    }
+
+    @Test
+    fun manualControl_neverConfirms_logsOnlyAtComplete() {
+        // Under manual control onDecodes must not advance, so the partner's
+        // RR73 cannot early-confirm — the user owns the flow; log at Complete.
+        val m = QsoMachine("K1ABC", "FN42")
+        m.answerCq("W0DEV", "EM26", snr = -8)
+        m.onDecodes(decode("K1ABC W0DEV -03", snr = -8))
+        m.setManualControl(true)
+        assertFalse(m.onDecodes(decode("K1ABC W0DEV RR73")))
+        assertFalse(m.confirmedByPartner)
+        assertNull(m.snapshot(1000L))
+    }
+
+    @Test
+    fun resetClearsConfirmedByPartner() {
+        val m = QsoMachine("K1ABC", "FN42")
+        m.answerCq("W0DEV", "EM26", snr = -8)
+        m.onDecodes(decode("K1ABC W0DEV -03", snr = -8))
+        m.onDecodes(decode("K1ABC W0DEV RR73"))
+        assertTrue(m.confirmedByPartner)
+        m.reset()
+        assertFalse(m.confirmedByPartner)
+        assertNull(m.snapshot(1000L))
     }
 }

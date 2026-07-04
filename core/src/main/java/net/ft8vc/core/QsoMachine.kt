@@ -66,6 +66,14 @@ class QsoMachine(
     var unansweredTxCycles: Int = 0
         private set
 
+    /**
+     * True once the partner confirmed our R-report (their RRR/RR73 arrived).
+     * From that moment the QSO is loggable even though our courtesy 73 has
+     * not been transmitted yet (WSJT-X logs at confirmation, not after 73).
+     */
+    var confirmedByPartner: Boolean = false
+        private set
+
     /** When true, [onDecodes] does not advance state (user owns the form). */
     var manualControl: Boolean = false
         private set
@@ -200,6 +208,7 @@ class QsoMachine(
         reportSent = null
         reportRcvd = null
         unansweredTxCycles = 0
+        confirmedByPartner = false
         manualControl = false
         customTxMessage = null
     }
@@ -243,9 +252,16 @@ class QsoMachine(
     fun noReplyLimitExceeded(maxCycles: Int): Boolean =
         maxCycles > 0 && unansweredTxCycles >= maxCycles
 
-    /** Snapshot for logging when [state] is [QsoState.Complete]. */
+    /**
+     * Snapshot for logging. Non-null at [QsoState.Complete], or already at
+     * [QsoState.SendingSeventyThree] once [confirmedByPartner] — the partner's
+     * RRR/RR73 completes the exchange from their side, so the QSO is loggable
+     * before our courtesy 73 transmits (WSJT-X behavior).
+     */
     fun snapshot(completedAtEpochMs: Long = System.currentTimeMillis()): QsoSnapshot? {
-        if (state != QsoState.Complete) return null
+        val loggable = state == QsoState.Complete ||
+            (state == QsoState.SendingSeventyThree && confirmedByPartner)
+        if (!loggable) return null
         val dx = dxCall ?: return null
         return QsoSnapshot(
             myCall = myCall,
@@ -289,8 +305,14 @@ class QsoMachine(
             }
             QsoState.SendingRReport -> advanceIf(decodes) { rx, _ ->
                 when {
-                    rx is QsoRx.Roger && fromDx(rx.target, rx.sender) -> QsoState.SendingSeventyThree
-                    rx is QsoRx.RogerBye && fromDx(rx.target, rx.sender) -> QsoState.SendingSeventyThree
+                    rx is QsoRx.Roger && fromDx(rx.target, rx.sender) -> {
+                        confirmedByPartner = true
+                        QsoState.SendingSeventyThree
+                    }
+                    rx is QsoRx.RogerBye && fromDx(rx.target, rx.sender) -> {
+                        confirmedByPartner = true
+                        QsoState.SendingSeventyThree
+                    }
                     else -> null
                 }
             }
