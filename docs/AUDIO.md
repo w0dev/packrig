@@ -42,6 +42,16 @@ WAV.
 - Runs capture on a dedicated thread; delivers decimated frames via callback
 - Requires `RECORD_AUDIO` permission (checked by caller before `start()`)
 
+### `CaptureLifecycle`
+
+Serializes `AudioEngine.start()`/`stop()` onto a dedicated single thread so the
+`AudioRecord` framework calls — which can block for seconds on a wedged or
+detaching USB device — never run on the main thread (field ANR, 2026-07-03).
+Ops execute strictly in submission order, preserving stop-then-start semantics
+for device swap, capture restart, and TX pause/resume. `stop(onStopped)` runs
+its callback after the engine has actually stopped; a failing `start` reports
+via callback only while it is still the newest op.
+
 ### `UsbAudioPlayback`
 
 - Opens `AudioTrack` at 48/24/12 kHz

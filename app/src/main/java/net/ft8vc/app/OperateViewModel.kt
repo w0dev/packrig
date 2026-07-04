@@ -16,6 +16,7 @@ import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.app.settings.SettingsRepository
 import net.ft8vc.audio.AudioInputs
 import net.ft8vc.audio.AudioOutputs
+import net.ft8vc.audio.CaptureLifecycle
 import net.ft8vc.audio.UsbAudioCapture
 import net.ft8vc.audio.UsbAudioPlayback
 import net.ft8vc.core.ActivationProfile
@@ -108,6 +109,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private val capture = UsbAudioCapture(app)
+    private val captureLifecycle = CaptureLifecycle(capture)
     private val playback = UsbAudioPlayback(app)
     private val rig = RigController(app)
     private val rigSession = RigSession(
@@ -725,11 +727,17 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // Capture start/stop run AudioRecord framework calls that can block for
+    // seconds on a wedged USB device (field ANR, 2026-07-03), so both are queued
+    // onto the CaptureLifecycle serial thread. isCapturing is updated
+    // synchronously (optimistically for start) so callers that read it right
+    // after — selectDevice, pauseForTx/resumeAfterTx, the RELY-02/03 restart
+    // paths — see the same values as with the old blocking calls; a failed
+    // start corrects the flags when its callback lands.
+
     private fun beginCapture() {
-        try {
-            capture.start(state.value.selectedDeviceId, decodeController::onFrames)
-            _viewState.update { it.copy(isCapturing = true) }
-        } catch (t: Throwable) {
+        _viewState.update { it.copy(isCapturing = true) }
+        captureLifecycle.start(state.value.selectedDeviceId, decodeController::onFrames) { t ->
             _viewState.update { it.copy(isCapturing = false, isOperating = false) }
             notify(t.message ?: "Capture failed", SnackbarEvent.Tag.ERROR)
         }
@@ -741,13 +749,16 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun stopCapture() {
-        capture.stop()
-        val unclean = capture.consumeStopCleanFailureCount()
-        if (unclean > 0) {
-            notify("Audio thread didn't stop cleanly — recovering", SnackbarEvent.Tag.ERROR)
-        }
-        decodeController.reset()
         _viewState.update { it.copy(isCapturing = false) }
+        captureLifecycle.stop {
+            // Runs after the engine actually stopped, so the reset can't race
+            // frames still draining from the capture thread.
+            val unclean = capture.consumeStopCleanFailureCount()
+            if (unclean > 0) {
+                notify("Audio thread didn't stop cleanly — recovering", SnackbarEvent.Tag.ERROR)
+            }
+            decodeController.reset()
+        }
     }
 
     /** Phase 6 (RELY-02/03): rebuild the capture chain after device removal or unclean stop. */
@@ -780,7 +791,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         // unconditional release in its close() too (belt-and-suspenders SAFETY-01d).
         rigSession.releasePttBlocking()
         stopOperating()
-        capture.stop()
+        captureLifecycle.close()
         rig.close()
         txOrchestrator.close()
         decodeController.close()
