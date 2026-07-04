@@ -18,10 +18,11 @@ class RigSessionTest {
 
     private lateinit var fake: FakeRigBackend
     private lateinit var session: RigSession
+    private lateinit var executor: java.util.concurrent.ExecutorService
 
     @Before fun setUp() {
         fake = FakeRigBackend()
-        val executor = Executors.newSingleThreadExecutor()
+        executor = Executors.newSingleThreadExecutor()
         session = RigSession(
             rig = fake,
             catControl = fake,
@@ -157,6 +158,36 @@ class RigSessionTest {
         assertFalse(session.slice.value.catBusy)
         session.setFrequency(14_074_000L)
         assertFalse(session.slice.value.catBusy)
+    }
+
+    @Test
+    fun releasePttAsync_returnsImmediately_whileCatDispatcherIsWedged() {
+        // Wedge the single CAT thread — simulates a USB serial call stuck in
+        // blocking I/O (the field ANR: runBlocking release from the main thread).
+        val wedge = java.util.concurrent.CountDownLatch(1)
+        executor.submit { wedge.await() }
+
+        val elapsedMs = kotlin.system.measureTimeMillis { session.releasePttAsync() }
+        assertTrue(
+            "releasePttAsync must not block the caller (took ${elapsedMs}ms)",
+            elapsedMs < 200,
+        )
+        assertEquals(
+            "release must not reach the rig while the dispatcher is wedged",
+            0,
+            fake.pttEdgesSnapshot().count { it.kind == PttEdgeKind.RELEASE },
+        )
+
+        // Once the dispatcher drains, the queued release reaches the backend.
+        wedge.countDown()
+        val deadline = System.currentTimeMillis() + 2_000L
+        while (System.currentTimeMillis() < deadline &&
+            fake.pttEdgesSnapshot().none { it.kind == PttEdgeKind.RELEASE }
+        ) {
+            Thread.sleep(10)
+        }
+        assertEquals(1, fake.pttEdgesSnapshot().count { it.kind == PttEdgeKind.RELEASE })
+        assertFalse(session.slice.value.pttKeyed)
     }
 
     @Test

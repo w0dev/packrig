@@ -1,13 +1,18 @@
 package net.ft8vc.app.controllers
 
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -47,6 +52,9 @@ class RigSession @OptIn(ExperimentalCoroutinesApi::class) constructor(
         RigSlice(digirigPresent = digirigPresenceProvider()),
     )
     val slice: StateFlow<RigSlice> = _slice.asStateFlow()
+
+    /** Owns fire-and-forget work ([releasePttAsync]); cancelled in [close]. */
+    private val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /** Count of consecutive CAT operations that returned null (timeout). Phase 6 promotes this into the unreachable-state policy. */
     private val consecutiveFailures = AtomicInteger(0)
@@ -133,6 +141,19 @@ class RigSession @OptIn(ExperimentalCoroutinesApi::class) constructor(
         _slice.update { it.copy(pttKeyed = false) }
     }
 
+    /**
+     * Non-blocking PTT release for main-thread callers (Stop QSO / Halt TX taps).
+     * Enqueues the release on the CAT dispatcher and returns immediately — a USB
+     * serial call stuck in blocking I/O must never pin the caller (field ANR,
+     * 2026-07-03; coroutine timeouts cannot cancel blocking serial reads). The
+     * release still serializes behind any in-flight CAT operation and stays
+     * idempotent. Final-teardown paths (onCleared) keep the blocking variant so
+     * the process cannot die with PTT keyed.
+     */
+    fun releasePttAsync() {
+        sessionScope.launch { releasePtt() }
+    }
+
     /** Synchronous PTT key for non-coroutine callers (e.g. legacy TX thread, UI cleanup). */
     fun keyPttBlocking() = runBlocking { keyPtt() }
 
@@ -180,6 +201,7 @@ class RigSession @OptIn(ExperimentalCoroutinesApi::class) constructor(
     }
 
     override fun close() {
+        sessionScope.cancel()
         (catDispatcher as? ExecutorCoroutineDispatcher)?.close()
         executor.shutdown()
     }

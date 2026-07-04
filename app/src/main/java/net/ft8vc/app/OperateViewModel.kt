@@ -536,7 +536,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private fun haltTxInternal(announce: Boolean) {
         val wasTransmitting = state.value.isTransmitting
         playback.stop()
-        rigSession.releasePttBlocking()
+        // Async: a USB serial call wedged in blocking I/O must not pin the main
+        // thread (field ANR, 2026-07-03). The TX path's four-layer PTT defense
+        // still releases independently; onCleared keeps the blocking release.
+        rigSession.releasePttAsync()
         qsoSession.stopQso()
         if (wasTransmitting) {
             _viewState.update { it.copy(txStatus = "TX halted") }
@@ -643,13 +646,13 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun stopQso() {
         playback.stop()
-        rigSession.releasePttBlocking()
+        rigSession.releasePttAsync()
         qsoSession.stopQso()
     }
 
     fun abandonQso() {
         playback.stop()
-        rigSession.releasePttBlocking()
+        rigSession.releasePttAsync()
         qsoSession.abandonQso()
     }
 
