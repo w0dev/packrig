@@ -85,6 +85,14 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Delete the QSOs with [ids], then refresh the ADIF auto-backup to match. */
+    fun deleteContacts(ids: List<Long>) {
+        viewModelScope.launch {
+            logbook.delete(ids)
+            AdifAutoBackup.scheduleBackupAfterQso(getApplication(), logbook, settingsRepo)
+        }
+    }
+
     fun clearAll() {
         viewModelScope.launch { logbook.clearAll() }
     }

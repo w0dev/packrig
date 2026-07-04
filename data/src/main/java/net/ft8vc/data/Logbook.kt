@@ -14,6 +14,7 @@ interface Logbook {
     suspend fun exportAdif(context: AdifExportContext = AdifExportContext()): String
     fun contactCount(): Flow<Int>
     suspend fun clearAll()
+    suspend fun delete(ids: List<Long>)
     suspend fun workedBands(call: String): Set<String>
     suspend fun setParkRefs(ids: List<Long>, potaParkRefs: String?)
 }
@@ -33,6 +34,10 @@ class RoomLogbook(db: Ft8vcDatabase) : Logbook {
 
     override suspend fun clearAll() {
         dao.deleteAll()
+    }
+
+    override suspend fun delete(ids: List<Long>) {
+        dao.deleteByIds(ids)
     }
 
     override suspend fun workedBands(call: String): Set<String> =

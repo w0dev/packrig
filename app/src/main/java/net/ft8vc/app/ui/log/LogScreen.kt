@@ -68,6 +68,7 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var showClearConfirm by remember { mutableStateOf(false) }
+    var showDeleteSelectedConfirm by remember { mutableStateOf(false) }
     var showActivations by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
     var showSetParksDialog by remember { mutableStateOf(false) }
@@ -108,6 +109,9 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
                             showSetParksDialog = true
                         }) {
                             Icon(Icons.Filled.EditNote, contentDescription = "Set parks")
+                        }
+                        IconButton(onClick = { showDeleteSelectedConfirm = true }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Delete selected")
                         }
                         IconButton(onClick = { selectedIds = emptySet() }) {
                             Icon(Icons.Filled.Close, contentDescription = "Cancel selection")
@@ -187,6 +191,24 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
             },
             dismissButton = {
                 TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showDeleteSelectedConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteSelectedConfirm = false },
+            title = { Text("Delete ${selectedIds.size} QSO${if (selectedIds.size == 1) "" else "s"}?") },
+            text = { Text("Remove the selected QSOs from the device. This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.deleteContacts(selectedIds.toList())
+                    selectedIds = emptySet()
+                    showDeleteSelectedConfirm = false
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteSelectedConfirm = false }) { Text("Cancel") }
             },
         )
     }

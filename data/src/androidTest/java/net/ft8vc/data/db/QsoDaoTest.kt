@@ -36,6 +36,26 @@ class QsoDaoTest {
         }
     }
 
+    @Test
+    fun deleteByIdsRemovesOnlySelectedRows() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(
+            InstrumentationRegistry.getInstrumentation().targetContext,
+            Ft8vcDatabase::class.java,
+        ).build()
+        try {
+            val dao = db.qsoDao()
+            val id1 = dao.insert(entity("K1ABC", 1_000L))
+            val id2 = dao.insert(entity("K2DEF", 2_000L))
+            dao.insert(entity("K3GHI", 3_000L))
+
+            dao.deleteByIds(listOf(id1, id2))
+
+            assertEquals(listOf("K3GHI"), dao.getAll().map { it.dxCall })
+        } finally {
+            db.close()
+        }
+    }
+
     private fun entity(dxCall: String, utcMillis: Long) = QsoEntity(
         utcMillis = utcMillis,
         myCall = "W0DEV",

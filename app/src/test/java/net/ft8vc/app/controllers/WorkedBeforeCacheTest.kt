@@ -20,6 +20,7 @@ private class FakeLogbook(
     override suspend fun exportAdif(context: AdifExportContext): String = ""
     override fun contactCount(): Flow<Int> = emptyFlow()
     override suspend fun clearAll() {}
+    override suspend fun delete(ids: List<Long>) {}
     override suspend fun workedBands(call: String): Set<String> {
         calls.incrementAndGet()
         return bandsByCall[call] ?: emptySet()
