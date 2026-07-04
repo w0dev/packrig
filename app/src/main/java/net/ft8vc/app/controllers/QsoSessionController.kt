@@ -316,6 +316,14 @@ class QsoSessionController(
                         publishQsoState()
                         maybeAutoResumeCq("QSO logged — resuming CQ", finished)
                     }
+                } else if (qso?.dxAnsweredAnotherStation(decodes) == true) {
+                    // The station whose CQ we answered picked another caller —
+                    // stop calling so we don't transmit over their QSO. No
+                    // blocklist entry: they may CQ again once that QSO ends.
+                    val dx = qso?.dxCall
+                    stopQsoInternal()
+                    notifyFn("$dx answered another station — stopped calling", SnackbarEvent.Tag.TRANSIENT)
+                    maybeAutoResumeCq("Resuming CQ")
                 }
             } else if (!running && isOperating && txEnabled && myCall.isNotBlank()) {
                 if (answerWhenCalledEnabled) tryAnswerWhenCalled(decodes, slotParity)

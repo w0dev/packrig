@@ -352,6 +352,65 @@ class QsoSessionControllerTest {
         assertFalse(controller.slice.value.qsoActive)
     }
 
+    @Test
+    fun dxAnswersAnotherStation_stopsSession() = runTest {
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        assertTrue(controller.slice.value.qsoActive)
+
+        // K1ABC sends a report to N0XYZ — they picked another caller.
+        controller.onDecodeBatch(
+            listOf(QsoDecode("N0XYZ K1ABC +03", -5)),
+            slotParity = TxSlotParity.EVEN,
+        )
+        assertFalse(controller.slice.value.qsoActive)
+        assertNull(controller.slice.value.qsoDx)
+        assertTrue(notifications.any { it.first.contains("K1ABC") && it.first.contains("another station") })
+    }
+
+    @Test
+    fun dxAnswersAnotherStation_doesNotBlocklistDx() = runTest {
+        controller.setAutoAnswerCqEnabled(true)
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        controller.onDecodeBatch(
+            listOf(QsoDecode("N0XYZ K1ABC +03", -5)),
+            slotParity = TxSlotParity.EVEN,
+        )
+        assertFalse(controller.slice.value.qsoActive)
+
+        // K1ABC finishes that QSO and calls CQ again — we must still answer.
+        controller.onDecodeBatch(
+            listOf(QsoDecode("CQ K1ABC FN42", -10)),
+            slotParity = TxSlotParity.EVEN,
+        )
+        assertTrue(controller.slice.value.qsoActive)
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+    }
+
+    @Test
+    fun dxAnswersAnotherStation_keepsCallingOnTheirRr73ToOther() = runTest {
+        // RR73 to a third party is the tail of the DX's previous QSO, not a
+        // fresh pick — we must keep calling.
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        controller.onDecodeBatch(
+            listOf(QsoDecode("N0XYZ K1ABC RR73", -5)),
+            slotParity = TxSlotParity.EVEN,
+        )
+        assertTrue(controller.slice.value.qsoActive)
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+    }
+
+    @Test
+    fun dxAnswersAnotherStation_autoResumesCqWhenEnabled() = runTest {
+        controller.setAutoCqResumeEnabled(true)
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        controller.onDecodeBatch(
+            listOf(QsoDecode("N0XYZ K1ABC +03", -5)),
+            slotParity = TxSlotParity.EVEN,
+        )
+        assertTrue(controller.slice.value.qsoActive)
+        assertEquals("Calling CQ…", controller.slice.value.qsoState)
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private fun decodeRowCq(call: String, grid: String): net.ft8vc.app.DecodeRow =

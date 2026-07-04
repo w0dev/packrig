@@ -369,6 +369,69 @@ class QsoMachineTest {
     }
 
     @Test
+    fun dxAnsweredAnotherStation_trueWhenDxReportsToThirdParty() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.answerCq("K1ABC", "FN42", snr = -8)
+        assertTrue(m.dxAnsweredAnotherStation(decode("N0XYZ K1ABC +03")))
+        // The query must not mutate the machine.
+        assertEquals(QsoState.Answering, m.state)
+        assertEquals("K1ABC", m.dxCall)
+    }
+
+    @Test
+    fun dxAnsweredAnotherStation_falseWhenReportIsToUs() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.answerCq("K1ABC", "FN42", snr = -8)
+        assertFalse(m.dxAnsweredAnotherStation(decode("W0DEV K1ABC +03")))
+        // The normal advance path still applies.
+        assertTrue(m.onDecodes(decode("W0DEV K1ABC +03")))
+        assertEquals(QsoState.SendingRReport, m.state)
+    }
+
+    @Test
+    fun dxAnsweredAnotherStation_falseForOtherSenders() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.answerCq("K1ABC", "FN42", snr = -8)
+        // A report between two unrelated stations is not our DX moving on.
+        assertFalse(m.dxAnsweredAnotherStation(decode("N0XYZ K9AAA +03")))
+    }
+
+    @Test
+    fun dxAnsweredAnotherStation_falseForNonReportTraffic() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.answerCq("K1ABC", "FN42", snr = -8)
+        // RRR/RR73/73 to a third party is often the tail of the DX's PREVIOUS
+        // QSO (partner re-sent R-report); the DX is still available — keep calling.
+        assertFalse(m.dxAnsweredAnotherStation(decode("N0XYZ K1ABC RRR")))
+        assertFalse(m.dxAnsweredAnotherStation(decode("N0XYZ K1ABC RR73")))
+        assertFalse(m.dxAnsweredAnotherStation(decode("N0XYZ K1ABC 73")))
+        assertFalse(m.dxAnsweredAnotherStation(decode("N0XYZ K1ABC FN42")))
+    }
+
+    @Test
+    fun dxAnsweredAnotherStation_falseOutsideAnsweringState() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.startCq()
+        assertFalse(m.dxAnsweredAnotherStation(decode("N0XYZ K1ABC +03")))
+
+        // Once the DX has reported to US we are the chosen partner; ignore
+        // third-party traffic from them.
+        val m2 = QsoMachine("W0DEV", "EM26")
+        m2.answerCq("K1ABC", "FN42", snr = -8)
+        assertTrue(m2.onDecodes(decode("W0DEV K1ABC +03")))
+        assertEquals(QsoState.SendingRReport, m2.state)
+        assertFalse(m2.dxAnsweredAnotherStation(decode("N0XYZ K1ABC +03")))
+    }
+
+    @Test
+    fun dxAnsweredAnotherStation_falseUnderManualControl() {
+        val m = QsoMachine("W0DEV", "EM26")
+        m.answerCq("K1ABC", "FN42", snr = -8)
+        m.setManualControl(true)
+        assertFalse(m.dxAnsweredAnotherStation(decode("N0XYZ K1ABC +03")))
+    }
+
+    @Test
     fun cqPrefersActionableReplyOverStrayRoger() {
         val m = QsoMachine("W0DEV", "EM26")
         m.startCq()

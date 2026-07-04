@@ -307,6 +307,23 @@ class QsoMachine(
         return advanced
     }
 
+    /**
+     * True when we are [QsoState.Answering] a CQ and [decodes] show the DX
+     * sending a signal report to a station that is not us — they picked
+     * another caller, so the caller should stop transmitting rather than
+     * interfere with that QSO. Only a plain report counts: RRR/RR73/73 to a
+     * third party is often the re-confirmed tail of the DX's previous QSO,
+     * after which they are still available.
+     */
+    fun dxAnsweredAnotherStation(decodes: List<QsoDecode>): Boolean {
+        if (manualControl || state != QsoState.Answering) return false
+        val dx = dxCall ?: return false
+        return decodes.any { d ->
+            val rx = QsoMessages.parse(d.message) as? QsoRx.Report ?: return@any false
+            CallsignMatcher.matches(rx.sender, dx) && !CallsignMatcher.matches(rx.target, myCall)
+        }
+    }
+
     private fun handleCqReplies(
         decodes: List<QsoDecode>,
         answerPolicy: AnswerPolicy,
