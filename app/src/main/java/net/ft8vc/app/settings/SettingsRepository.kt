@@ -13,6 +13,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import net.ft8vc.core.AnswerPolicy
+import net.ft8vc.core.DecodeCategory
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.TxSlotParity
 
@@ -54,6 +55,16 @@ class SettingsRepository(context: Context) {
             txSlotParity = prefs[Keys.TX_SLOT_PARITY]?.let { TxSlotParity.valueOf(it) }
                 ?: TxSlotParity.EVEN,
             useDarkTheme = prefs[Keys.USE_DARK_THEME] ?: true,
+            decodeColors = DecodeColorScheme(
+                ownTx = prefs[Keys.DECODE_COLOR_OWN_TX] ?: DecodeColorScheme.DEFAULT_OWN_TX,
+                partner = prefs[Keys.DECODE_COLOR_PARTNER] ?: DecodeColorScheme.DEFAULT_PARTNER,
+                myCall = prefs[Keys.DECODE_COLOR_MY_CALL] ?: DecodeColorScheme.DEFAULT_MY_CALL,
+                cqNew = prefs[Keys.DECODE_COLOR_CQ_NEW] ?: DecodeColorScheme.DEFAULT_CQ_NEW,
+                cqWorkedOtherBand = prefs[Keys.DECODE_COLOR_CQ_WORKED_OTHER]
+                    ?: DecodeColorScheme.DEFAULT_CQ_WORKED_OTHER_BAND,
+                cqWorkedThisBand = prefs[Keys.DECODE_COLOR_CQ_WORKED_THIS]
+                    ?: DecodeColorScheme.DEFAULT_CQ_WORKED_THIS_BAND,
+            ),
             lastAdifBackupAtMs = prefs[Keys.LAST_ADIF_BACKUP_AT_MS],
         )
     }
@@ -167,6 +178,32 @@ class SettingsRepository(context: Context) {
         appContext.settingsDataStore.edit { it[Keys.LAST_ADIF_BACKUP_AT_MS] = value }
     }
 
+    /** Persist one decode-row category color. No-op for the non-configurable OTHER. */
+    suspend fun setDecodeColor(category: DecodeCategory, argb: Int) {
+        val key = decodeColorKey(category) ?: return
+        appContext.settingsDataStore.edit { it[key] = argb }
+    }
+
+    /** Remove all decode color overrides — the settings flow falls back to defaults. */
+    suspend fun resetDecodeColors() {
+        appContext.settingsDataStore.edit { prefs ->
+            DecodeCategory.entries.forEach { category ->
+                decodeColorKey(category)?.let { prefs.remove(it) }
+            }
+        }
+    }
+
+    private fun decodeColorKey(category: DecodeCategory): Preferences.Key<Int>? =
+        when (category) {
+            DecodeCategory.OWN_TX -> Keys.DECODE_COLOR_OWN_TX
+            DecodeCategory.PARTNER -> Keys.DECODE_COLOR_PARTNER
+            DecodeCategory.MY_CALL -> Keys.DECODE_COLOR_MY_CALL
+            DecodeCategory.CQ_NEW -> Keys.DECODE_COLOR_CQ_NEW
+            DecodeCategory.CQ_WORKED_OTHER_BAND -> Keys.DECODE_COLOR_CQ_WORKED_OTHER
+            DecodeCategory.CQ_WORKED_THIS_BAND -> Keys.DECODE_COLOR_CQ_WORKED_THIS
+            DecodeCategory.OTHER -> null
+        }
+
     private object Keys {
         val MY_CALL = stringPreferencesKey("my_call")
         val MY_GRID = stringPreferencesKey("my_grid")
@@ -192,6 +229,12 @@ class SettingsRepository(context: Context) {
         val DECODE_VIEW_MODE = stringPreferencesKey("decode_view_mode")
         val TX_SLOT_PARITY = stringPreferencesKey("tx_slot_parity")
         val USE_DARK_THEME = booleanPreferencesKey("use_dark_theme")
+        val DECODE_COLOR_OWN_TX = intPreferencesKey("decode_color_own_tx")
+        val DECODE_COLOR_PARTNER = intPreferencesKey("decode_color_partner")
+        val DECODE_COLOR_MY_CALL = intPreferencesKey("decode_color_my_call")
+        val DECODE_COLOR_CQ_NEW = intPreferencesKey("decode_color_cq_new")
+        val DECODE_COLOR_CQ_WORKED_OTHER = intPreferencesKey("decode_color_cq_worked_other")
+        val DECODE_COLOR_CQ_WORKED_THIS = intPreferencesKey("decode_color_cq_worked_this")
         val LAST_ADIF_BACKUP_AT_MS = longPreferencesKey("last_adif_backup_at_ms")
     }
 

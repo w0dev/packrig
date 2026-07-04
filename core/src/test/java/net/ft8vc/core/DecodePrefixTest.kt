@@ -54,7 +54,9 @@ class DecodePrefixTest {
     }
 
     @Test
-    fun toMeSuppressedDuringQso_unlessPartner() {
+    fun toMeKeepsArrowDuringQso_tailEnder() {
+        // Spec 2026-07-04: MY_CALL never turns off mid-QSO. A station other
+        // than the partner calling me during a QSO keeps the → glyph.
         val prefix = DecodePrefix.prefixFor(
             message = "W0DEV N5XYZ EM10",
             isCq = false,
@@ -62,7 +64,18 @@ class DecodePrefixTest {
             qsoActive = true,
             qsoDx = "K1ABC",
         )
-        assertEquals("", prefix)
+        assertEquals(DecodePrefix.TO_ME, prefix)
+    }
+
+    @Test
+    fun glyphForMapsEveryCategory() {
+        assertEquals(DecodePrefix.PARTNER, DecodePrefix.glyphFor(DecodeCategory.PARTNER))
+        assertEquals(DecodePrefix.TO_ME, DecodePrefix.glyphFor(DecodeCategory.MY_CALL))
+        assertEquals(DecodePrefix.CQ, DecodePrefix.glyphFor(DecodeCategory.CQ_NEW))
+        assertEquals(DecodePrefix.CQ, DecodePrefix.glyphFor(DecodeCategory.CQ_WORKED_OTHER_BAND))
+        assertEquals(DecodePrefix.CQ, DecodePrefix.glyphFor(DecodeCategory.CQ_WORKED_THIS_BAND))
+        assertEquals("", DecodePrefix.glyphFor(DecodeCategory.OWN_TX))
+        assertEquals("", DecodePrefix.glyphFor(DecodeCategory.OTHER))
     }
 
     @Test

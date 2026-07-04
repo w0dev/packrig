@@ -121,6 +121,11 @@ fun SettingsScreen(vm: OperateViewModel) {
                     onCheckedChange = vm::setUseDarkTheme,
                     enabled = true,
                 )
+                DecodeColorsSection(
+                    scheme = state.decodeColors,
+                    onPickColor = vm::setDecodeColor,
+                    onReset = vm::resetDecodeColors,
+                )
             }
 
             SettingsSection("Audio") {

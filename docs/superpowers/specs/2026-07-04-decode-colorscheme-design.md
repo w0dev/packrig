@@ -46,12 +46,12 @@ New enum + resolver in `core/src/main/java/net/ft8vc/core/`, alongside
 
 ```kotlin
 enum class DecodeCategory {
-    MY_CALL,               // message directed to my callsign (in or out of QSO)
-    PARTNER,               // current qsoDx during an active QSO
     OWN_TX,                // my transmitted rows (DecodeRowSource.Tx)
+    PARTNER,               // current qsoDx during an active QSO
     CQ_NEW,                // CQ from a never-worked call
     CQ_WORKED_OTHER_BAND,  // CQ from a call worked, but not on this band
     CQ_WORKED_THIS_BAND,   // CQ from a call already worked on this band
+    MY_CALL,               // message directed to my callsign (in or out of QSO)
     OTHER,                 // everything else
 }
 
@@ -68,8 +68,7 @@ object DecodeCategoryResolver {
 }
 ```
 
-Fixed priority, first match wins: `OWN_TX` > `PARTNER` > `MY_CALL` >
-`CQ_NEW` / `CQ_WORKED_OTHER_BAND` / `CQ_WORKED_THIS_BAND` > `OTHER`.
+Fixed priority, first match wins: `OWN_TX` > `PARTNER` > `CQ_NEW` / `CQ_WORKED_OTHER_BAND` / `CQ_WORKED_THIS_BAND` > `MY_CALL` > `OTHER`.
 
 - `OWN_TX` must be checked first: a transmitted row's message text contains
   both the partner call and my call, so it would otherwise match `PARTNER`.
@@ -81,7 +80,8 @@ Fixed priority, first match wins: `OWN_TX` > `PARTNER` > `MY_CALL` >
   caller), which is exactly when the operator needs to notice.
 - `MY_CALL` applies whenever `isToMe`, **including during an active QSO** —
   this is the direct fix for the reported problem. Mid-QSO it captures
-  stations other than the partner calling me (tail-enders).
+  stations other than the partner calling me (tail-enders). If a row is
+  ever inconsistently flagged both CQ and to-me (unreachable today — `isDirectedToMe` only matches directed message types), the CQ categories win: a broadcast must never render as "calling you" (pinned by the v1.0 test `cqPrefixWinsOverToMe`).
 - Worked-before categories apply **only to CQ rows**. Today's rendering dims
   any row from a worked call; that conflicts with QSO-chatter dimming and does
   not serve the actual decision ("should I answer this CQ?"). Non-CQ rows from
@@ -102,10 +102,10 @@ Treatment *style* is fixed per category; only the *color* is configurable.
 |---|---|---|---|
 | 1 | `OWN_TX` | `Ft8Amber` `0xFFFFB347` | background fill (0.16 alpha) + bold |
 | 2 | `PARTNER` | `Ft8Red` `0xFFE63946` | background fill (0.16 alpha) + bold |
-| 3 | `MY_CALL` | `Ft8Red` `0xFFE63946` | background fill (0.16 alpha) + bold |
-| 4 | `CQ_NEW` | `Ft8Green` `0xFF3DDC97` | text color |
-| 5 | `CQ_WORKED_OTHER_BAND` | Cyan `0xFF4CC9F0` | text color |
-| 6 | `CQ_WORKED_THIS_BAND` | Gray `0xFF9AA0A6` | text color |
+| 3 | `CQ_NEW` | `Ft8Green` `0xFF3DDC97` | text color |
+| 4 | `CQ_WORKED_OTHER_BAND` | Cyan `0xFF4CC9F0` | text color |
+| 5 | `CQ_WORKED_THIS_BAND` | Gray `0xFF9AA0A6` | text color |
+| 6 | `MY_CALL` | `Ft8Red` `0xFFE63946` | background fill (0.16 alpha) + bold |
 | 7 | `OTHER` | theme default | unchanged (QSO-active chatter dim stays) |
 
 Notes:

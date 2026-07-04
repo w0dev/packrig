@@ -1,5 +1,6 @@
 package net.ft8vc.app.controllers
 
+import net.ft8vc.app.settings.DecodeColorScheme
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.app.settings.SettingsRepository
 import net.ft8vc.app.settings.StationSettings
@@ -75,6 +76,7 @@ class SettingsBridge(
         decodeViewMode = decodeViewMode,
         txSlotParity = txSlotParity,
         useDarkTheme = useDarkTheme,
+        decodeColors = decodeColors,
     )
 }
 
@@ -104,5 +106,6 @@ data class SettingsSlice(
     val decodeViewMode: DecodeViewMode = DecodeViewMode.OPERATE,
     val txSlotParity: TxSlotParity = TxSlotParity.EVEN,
     val useDarkTheme: Boolean = true,
+    val decodeColors: DecodeColorScheme = DecodeColorScheme.DEFAULT,
     val lastAdifBackupAtMs: Long? = null,
 )

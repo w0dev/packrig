@@ -150,6 +150,7 @@ fun OperateScreen(
                 onCq73OnlyFilterChange = vm::setCq73OnlyFilter,
                 qsoDx = state.qsoDx,
                 qsoActive = state.qsoActive,
+                decodeColors = state.decodeColors,
                 canAnswer = state.txEnabled && !state.qsoActive,
                 canResume = state.txEnabled && !state.qsoActive,
                 onClear = vm::clearDecodes,

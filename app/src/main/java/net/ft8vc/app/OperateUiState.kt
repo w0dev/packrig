@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.ft8vc.app.controllers.AppRfState
+import net.ft8vc.app.settings.DecodeColorScheme
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.audio.AudioInputDevice
 import net.ft8vc.core.AnswerPolicy
@@ -64,6 +65,8 @@ data class OperateUiState(
     val decodeViewMode: DecodeViewMode = DecodeViewMode.OPERATE,
     /** Operate-screen only: decode list shows CQ / 73 / RR73 (plus QSO partner when active). */
     val cq73OnlyFilter: Boolean = false,
+    /** User-configurable decode row colors. */
+    val decodeColors: DecodeColorScheme = DecodeColorScheme.DEFAULT,
 
     // ── Rx (capture, decodes, level metering) ─────────────────────────────
     val devices: List<AudioInputDevice> = emptyList(),
