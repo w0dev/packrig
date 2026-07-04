@@ -56,8 +56,11 @@ class RoomLogbook(db: Ft8vcDatabase) : Logbook {
         val existing = dao.getAll().map { it.toContact() }
         val (toInsert, duplicates) = AdifImportMerge.partition(existing, incoming)
         // Single list @Insert = one Room transaction: all-or-nothing.
-        dao.insertAll(toInsert.map { it.copy(id = 0).toEntity() })
-        return ImportResult(imported = toInsert.size, duplicates = duplicates)
+        // IGNORE returns -1 for rows the (dxCall, utcMillis) unique index
+        // rejected — count those as duplicates, not imports.
+        val ids = dao.insertAll(toInsert.map { it.copy(id = 0).toEntity() })
+        val inserted = ids.count { it != -1L }
+        return ImportResult(imported = inserted, duplicates = duplicates + (ids.size - inserted))
     }
 
     private fun QsoContact.toEntity() = QsoEntity(
