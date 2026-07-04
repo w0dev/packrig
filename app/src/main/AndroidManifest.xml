@@ -19,10 +19,15 @@
         android:theme="@style/Theme.Ft8vc"
         tools:targetApi="34">
 
+        <!-- singleTask: the USB_DEVICE_ATTACHED filter below otherwise launches a
+             SECOND MainActivity instance (second ViewModel, second QSO machine,
+             second rig controller) on every Digirig attach/re-enumeration.
+             Attach is delivered to the existing instance via onNewIntent. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.Ft8vc">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
