@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
@@ -213,28 +211,28 @@ private fun TxStepMenuButton(
                     .fillMaxWidth(0.92f)
                     .heightIn(max = 260.dp),
             ) {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    menuEntries.forEach { entry ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(entry.label, fontWeight = FontWeight.SemiBold)
-                                    entry.preview?.let { preview ->
-                                        Text(
-                                            preview,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
+                // DropdownMenu scrolls its content internally; wrapping items in
+                // Column(verticalScroll) here crashes with infinite-height constraints.
+                menuEntries.forEach { entry ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(entry.label, fontWeight = FontWeight.SemiBold)
+                                entry.preview?.let { preview ->
+                                    Text(
+                                        preview,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
-                            },
-                            onClick = {
-                                expanded = false
-                                onSelectStep(entry.step)
-                            },
-                        )
-                    }
+                            }
+                        },
+                        onClick = {
+                            expanded = false
+                            onSelectStep(entry.step)
+                        },
+                    )
                 }
             }
         }
