@@ -227,6 +227,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 catBusy = rig.catBusy,
                 lastDialFreqHz = settings.lastDialFreqHz,
                 pttPreference = settings.pttPreference,
+                catBaud = settings.catBaud,
                 slotIndex = qso.slotIndex,
                 secondsToNextSlot = qso.secondsToNextSlot,
                 isTxSlot = qso.isTxSlot,
@@ -303,6 +304,18 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 qsoSession.setSendRr73(s.sendRr73)
                 qsoSession.setAutoCqResumeEnabled(s.autoCqResumeEnabled)
                 qsoSession.setDefaultTxSlotParity(s.txSlotParity)
+                // CAT baud mirror + live apply (spec 2026-07-04-radio-settings).
+                // Handles both a user change and the startup race where the Digirig
+                // bound at the default before DataStore emitted a persisted value.
+                if (rig.catBaud != s.catBaud) {
+                    rig.catBaud = s.catBaud
+                    if (rig.isDigirigReady && !state.value.isTransmitting) {
+                        viewModelScope.launch(rigSession.catDispatcher) {
+                            rig.rebind()
+                            withContext(Dispatchers.Main) { prepareRig() }
+                        }
+                    }
+                }
             }
         }
         viewModelScope.launch {
@@ -490,6 +503,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setPttPreference(pref: PttPreference) {
         viewModelScope.launch { settingsRepo.setPttPreference(pref) }
+    }
+
+    fun setCatBaud(baud: Int) {
+        viewModelScope.launch { settingsRepo.setCatBaud(baud) }
     }
 
     fun acknowledgeLicense() {
