@@ -11,6 +11,9 @@ interface QsoDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(entity: QsoEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(entities: List<QsoEntity>)
+
     @Query("SELECT * FROM qso_contacts ORDER BY utcMillis DESC")
     fun observeAll(): Flow<List<QsoEntity>>
 
