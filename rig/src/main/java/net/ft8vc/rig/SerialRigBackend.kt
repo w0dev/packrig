@@ -94,6 +94,10 @@ class SerialRigBackend(
         val deadline = nowMs() + CAT_REPLY_DEADLINE_MS
         while (nowMs() < deadline) {
             val n = transport.read(buffer, CAT_TIMEOUT_MS)
+            if (n < 0) {
+                Log.w(TAG, "CAT read error — aborting reply wait")
+                return null
+            }
             if (n > 0) {
                 collected += buffer.copyOfRange(0, n)
                 val end = collected.indexOfFirst { it == protocol.replyTerminator }

@@ -13,6 +13,7 @@ class FakeSerialTransport : SerialTransport {
     var opened = false
         private set
     var failWrites = false
+    var failReads = false
 
     /** Max bytes returned per read() — lower to force partial reads. */
     var readChunkLimit = Int.MAX_VALUE
@@ -45,6 +46,7 @@ class FakeSerialTransport : SerialTransport {
     }
 
     override fun read(buffer: ByteArray, timeoutMs: Int): Int {
+        if (failReads) return -1
         if (pending.isEmpty()) return 0
         val n = minOf(buffer.size, readChunkLimit, pending.size)
         repeat(n) { buffer[it] = pending.removeFirst() }

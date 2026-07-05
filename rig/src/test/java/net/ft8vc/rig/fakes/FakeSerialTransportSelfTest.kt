@@ -45,6 +45,13 @@ class FakeSerialTransportSelfTest {
     }
 
     @Test
+    fun failReads_makesReadReturnNegativeOne() {
+        val t = FakeSerialTransport()
+        t.failReads = true
+        assertEquals(-1, t.read(ByteArray(64), 200))
+    }
+
+    @Test
     fun openHonoursOpenResult() {
         val t = FakeSerialTransport()
         assertTrue(t.open())

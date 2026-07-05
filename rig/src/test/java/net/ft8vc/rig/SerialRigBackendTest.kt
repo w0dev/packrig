@@ -57,6 +57,16 @@ class SerialRigBackendTest {
     }
 
     @Test
+    fun frequencyQuery_readErrorIsNull() {
+        // No reply enqueued; the transport reports a read error (e.g. USB
+        // detach mid-exchange). The real clock is fine here since the error
+        // path returns immediately — we're not relying on the deadline.
+        transport.failReads = true
+        assertNull(backend.frequencyHz())
+        assertEquals(listOf("FA;"), transport.writtenAscii())
+    }
+
+    @Test
     fun setFrequency_inRangeWrites_outOfRangeDoesNot()  {
         assertTrue(backend.setFrequencyHz(7_074_000L))
         assertEquals(listOf("FA007074000;"), transport.writtenAscii())
