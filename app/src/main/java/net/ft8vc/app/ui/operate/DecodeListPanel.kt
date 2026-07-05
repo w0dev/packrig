@@ -156,14 +156,19 @@ fun DecodeListPanel(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        // Match the data rows' effective inset: LazyColumn's 6.dp
+                        // plus each DecodeRowItem's own 2.dp horizontal padding.
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    DecodeHeaderCell("UTC")
+                    // Labels are space-padded to the monospace width of the data
+                    // cell below them (time HHmmss=6, snr %+3d=3, dist=4, cc=2,
+                    // freq %4d=4) so each header sits over its own column.
+                    DecodeHeaderCell("UTC   ")
                     DecodeHeaderCell("SNR")
                     DecodeHeaderCell("DIST")
                     DecodeHeaderCell("CC")
-                    DecodeHeaderCell("Hz")
+                    DecodeHeaderCell("  Hz")
                     Text(
                         text = "MSG",
                         style = MaterialTheme.typography.labelSmall,
