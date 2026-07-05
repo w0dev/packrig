@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.ft8vc.app.OperateUiState
 import net.ft8vc.app.OperateViewModel
 import net.ft8vc.app.SnackbarEvent
+import net.ft8vc.app.SnackbarThrottle
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.AppInfo
@@ -51,13 +52,16 @@ fun SettingsScreen(vm: OperateViewModel) {
     // Snackbar events fire from Settings actions too (Backup now, Import ADIF);
     // without a host here they were silently dropped while this tab was open.
     val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarThrottle = remember { SnackbarThrottle() }
     LaunchedEffect(Unit) {
         vm.events.collect { event ->
-            snackbarHostState.showSnackbar(
-                message = event.text,
-                duration = event.tag.duration,
-                withDismissAction = event.tag == SnackbarEvent.Tag.ERROR,
-            )
+            if (snackbarThrottle.shouldShow(event.text)) {
+                snackbarHostState.showSnackbar(
+                    message = event.text,
+                    duration = event.tag.duration,
+                    withDismissAction = event.tag == SnackbarEvent.Tag.ERROR,
+                )
+            }
         }
     }
 
