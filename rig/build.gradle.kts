@@ -29,6 +29,7 @@ kotlin {
 
 dependencies {
     implementation(project(":core"))
+    implementation(libs.usb.serial.android)
     testImplementation(libs.junit)
     testImplementation(libs.turbine)
     testImplementation(libs.mockk)
