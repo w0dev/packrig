@@ -29,9 +29,11 @@ A valid amateur radio license is required to transmit. The app boots into
 
 ## Documentation
 
-The [Operator's Manual](docs/manual/README.md) covers usage and behavior end to
-end — getting started, operating, QSO automation, logging, a full settings
-reference, and troubleshooting. The quick start below is the condensed version.
+The [Operator's Manual](docs/manual/README.md) is the user-facing
+documentation. [Getting started](docs/manual/getting-started.md) — install,
+hookup, configuration, and your first receive session — is written today;
+operating, logging, settings-reference, and troubleshooting chapters are
+planned. The quick start below is the condensed version.
 
 ## Quick start
 
@@ -175,6 +177,25 @@ Transmitting requires a valid amateur radio license for your jurisdiction. The
 app defaults to receive-only; TX must be explicitly enabled in Settings, and
 testing into a dummy load first is strongly recommended.
 
+## Acknowledgements
+
+FT8VC stands on the work of others:
+
+- **FT8 itself** was created by **Steven Franke, K9AN, and Joe Taylor, K1JT**
+  (the name stands for "Franke–Taylor design, 8-FSK modulation") and first
+  shipped in WSJT-X in 2017. The openly published FT4/FT8 protocol
+  specification is what makes independent implementations like this one
+  possible. Thank you.
+- [`kgoba/ft8_lib`](https://github.com/kgoba/ft8_lib) by **Kārlis Goba,
+  YL3JG**, does the actual FT8 encode/decode in FT8VC's native core.
+- **Kiss FFT** by **Mark Borgerding**, bundled with ft8_lib, powers the FFT.
+- The FT8 software that came before —
+  [WSJT-X](https://wsjt.sourceforge.io/wsjtx.html) and the WSJT development
+  group, JTDX, and Android pioneers like FT8CN — shaped what a good FT8
+  operating experience looks like and inspired this project.
+
 ## License
 
-[MIT](LICENSE). Built on `kgoba/ft8_lib` (MIT).
+FT8VC is licensed under the [MIT License](LICENSE). Bundled third-party
+components and their license texts are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

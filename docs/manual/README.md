@@ -5,20 +5,22 @@ licensed amateur operator who has used FT8 before (WSJT-X or similar) and is
 new to FT8VC. It documents the current **`unstable`** channel behavior; the
 stable channel may lag behind what is described here.
 
-## Reading order for a first session
+## Available now
 
 1. [Getting started](getting-started.md) — install, hook up the rig, configure,
    and see your first decodes.
-2. [Operating](operating.md) — the Operate and Spectrum tabs: decode list,
-   status bar, calling, answering, and QSO automation.
-3. [Logging and ADIF export](logging.md) — what gets logged and how to get it
-   out.
 
-## Reference
+## Planned chapters
 
-- [Settings reference](settings.md) — every setting: default, behavior,
-  interactions.
-- [Troubleshooting](troubleshooting.md) — symptom-first fixes.
+These are not yet written. Until they land, the
+[feature overview in the project README](../../README.md#features) is the best
+summary of operating behavior:
+
+- **Operating** — the Operate and Spectrum tabs: decode list, status bar,
+  calling, answering, and QSO automation.
+- **Logging and ADIF export** — what gets logged and how to get it out.
+- **Settings reference** — every setting: default, behavior, interactions.
+- **Troubleshooting** — symptom-first fixes.
 
 ## Related documentation
 

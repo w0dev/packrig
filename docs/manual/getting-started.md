@@ -115,5 +115,7 @@ pass finishes — you'll see your first batch within one slot of starting. If
 nothing decodes after a couple of slots, check the level meter isn't pinned at
 zero or clipping, and confirm the rig is tuned to an active FT8 sub-band.
 
-From here, see [Operating](operating.md) for the decode list, calling and
-answering, and QSO automation.
+From here, the [feature overview in the project
+README](../../README.md#features) summarizes the decode list, calling and
+answering, and QSO automation until the Operating chapter of this manual is
+written.
