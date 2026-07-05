@@ -162,6 +162,7 @@ fun DecodeListPanel(
                     DecodeHeaderCell("UTC")
                     DecodeHeaderCell("SNR")
                     DecodeHeaderCell("DIST")
+                    DecodeHeaderCell("CC")
                     DecodeHeaderCell("Hz")
                     Text(
                         text = "MSG",
@@ -331,6 +332,12 @@ private fun DecodeRowItem(
         )
         Text(
             text = if (isTx) "    " else DecodeDistance.label(row.distanceKm),
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = if (isTx) "  " else (row.countryCode ?: " —"),
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
