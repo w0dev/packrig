@@ -249,7 +249,7 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
                 AutoToggleRow(
                     title = "Send RR73 (log on send)",
-                    subtitle = "OFF sends RRR and waits for 73 (v1.0 behavior)",
+                    subtitle = "OFF sends RRR and logs when the partner's 73 arrives",
                     checked = state.sendRr73,
                     onCheckedChange = vm::setSendRr73,
                     enabled = state.txEnabled,
