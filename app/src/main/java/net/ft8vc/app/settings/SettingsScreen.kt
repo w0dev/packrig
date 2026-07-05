@@ -1,5 +1,7 @@
 package net.ft8vc.app.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,13 +16,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +38,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.ft8vc.app.OperateUiState
 import net.ft8vc.app.OperateViewModel
+import net.ft8vc.app.SnackbarEvent
+import net.ft8vc.app.SnackbarThrottle
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.AppInfo
@@ -41,8 +49,25 @@ import net.ft8vc.core.AppInfo
 fun SettingsScreen(vm: OperateViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
 
+    // Snackbar events fire from Settings actions too (Backup now, Import ADIF);
+    // without a host here they were silently dropped while this tab was open.
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarThrottle = remember { SnackbarThrottle() }
+    LaunchedEffect(Unit) {
+        vm.events.collect { event ->
+            if (snackbarThrottle.shouldShow(event.text)) {
+                snackbarHostState.showSnackbar(
+                    message = event.text,
+                    duration = event.tag.duration,
+                    withDismissAction = event.tag == SnackbarEvent.Tag.ERROR,
+                )
+            }
+        }
+    }
+
     Scaffold(
         topBar = { TopAppBar(title = { Text("Settings") }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -265,6 +290,9 @@ fun SettingsScreen(vm: OperateViewModel) {
             }
 
             SettingsSection("Logbook") {
+                val importLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenDocument(),
+                ) { uri -> uri?.let(vm::importAdif) }
                 val lastBackupLabel = state.lastAdifBackupAtMs?.let { ms ->
                     val ageMs = System.currentTimeMillis() - ms
                     when {
@@ -281,8 +309,16 @@ fun SettingsScreen(vm: OperateViewModel) {
                 ) {
                     Text("Backup now")
                 }
+                OutlinedButton(
+                    // .adi files have no registered MIME type; filter in the reader instead.
+                    onClick = { importLauncher.launch(arrayOf("*/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Import ADIF…")
+                }
                 Text(
-                    "ADIF auto-exports after every QSO to app-private external storage.",
+                    "ADIF auto-exports after every QSO to app-private storage " +
+                        "and Documents/ft8vc (survives uninstall).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

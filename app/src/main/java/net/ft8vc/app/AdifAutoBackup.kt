@@ -25,8 +25,9 @@ import java.io.File
  * application-scoped coroutine so the export survives ViewModel
  * destruction (e.g. process pause mid-write).
  *
- * The destination is the app-private external dir (no permission needed,
- * survives uninstall via Android backup if android:allowBackup is true).
+ * The destination is the app-private external dir (no permission needed), plus
+ * a best-effort mirror in Documents/ft8vc via [DocumentsAdifMirror] — the
+ * private copy is deleted on uninstall; the mirror survives it.
  */
 object AdifAutoBackup {
 
@@ -91,6 +92,7 @@ object AdifAutoBackup {
                 tmp.delete()
             }
             settings.setLastAdifBackupAtMs(System.currentTimeMillis())
+            DocumentsAdifMirror.write(context, adif)
             target
         } catch (t: Throwable) {
             Log.e(TAG, "ADIF backup failed", t)
