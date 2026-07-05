@@ -198,9 +198,12 @@ class RigController(private val context: Context) : RigBackend, CatControl {
 
     override fun setFrequencyHz(hz: Long): Boolean = digirig?.setFrequencyHz(hz) ?: false
 
-    override fun mode(): Ft891Cat.Mode? = digirig?.mode()
+    override fun modeLabel(): String? = digirig?.modeLabel()
 
-    override fun setMode(mode: Ft891Cat.Mode): Boolean = digirig?.setMode(mode) ?: false
+    override fun setDataMode(): Boolean = digirig?.setDataMode() ?: false
+
+    override fun dataModeLabel(): String =
+        digirig?.dataModeLabel() ?: Ft891Cat.Mode.DATA_USB.label
 
     override fun catPtt(on: Boolean): Boolean = digirig?.catPtt(on) ?: false
 

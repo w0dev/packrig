@@ -37,7 +37,6 @@ import net.ft8vc.data.db.Ft8vcDatabase
 import net.ft8vc.data.model.QsoContact
 import net.ft8vc.app.ui.bandLabelForLogging
 import net.ft8vc.ft8native.Ft8Native
-import net.ft8vc.rig.Ft891Cat
 import net.ft8vc.rig.RigController
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -678,7 +677,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setRigDataUsb() {
         if (!rig.isCatReady) return
-        viewModelScope.launch { rigSession.setMode(Ft891Cat.Mode.DATA_USB) }
+        viewModelScope.launch { rigSession.setDataMode() }
     }
 
     fun usbDiagnostics(): String = rig.usbDeviceSummary()

@@ -1,6 +1,5 @@
 package net.ft8vc.rig.fakes
 
-import net.ft8vc.rig.Ft891Cat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -46,12 +45,17 @@ class FakeRigBackendSelfTest {
     }
 
     @Test
-    fun mode_defaultAndSetMode_roundTrip() {
+    fun modeLabel_defaultAndSetDataMode_roundTrip() {
         val fake = FakeRigBackend()
-        assertEquals(Ft891Cat.Mode.DATA_USB, fake.mode())
+        assertEquals("DATA-U", fake.modeLabel())
+        assertEquals("DATA-U", fake.dataModeLabel())
 
-        assertTrue(fake.setMode(Ft891Cat.Mode.USB))
-        assertEquals(Ft891Cat.Mode.USB, fake.mode())
+        fake.configureModeLabel("USB")
+        assertEquals("USB", fake.modeLabel())
+
+        assertTrue(fake.setDataMode())
+        assertEquals("DATA-U", fake.modeLabel())
+        assertEquals("DATA-U", fake.currentModeLabel)
     }
 
     @Test
@@ -78,8 +82,8 @@ class FakeRigBackendSelfTest {
         assertNotNull(fake.frequencyHz())
 
         fake.configureTimeoutMode(true)
-        assertNull(fake.mode())
-        assertNotNull(fake.mode())
+        assertNull(fake.modeLabel())
+        assertNotNull(fake.modeLabel())
     }
 
     @Test
@@ -90,9 +94,9 @@ class FakeRigBackendSelfTest {
         fake.keyPtt()
         fake.releasePtt()
         assertNull(fake.frequencyHz())
-        assertNull(fake.mode())
+        assertNull(fake.modeLabel())
         assertFalse(fake.setFrequencyHz(7_074_000L))
-        assertFalse(fake.setMode(Ft891Cat.Mode.USB))
+        assertFalse(fake.setDataMode())
         assertFalse(fake.catPtt(true))
 
         val detachedEdges = fake.pttEdgesSnapshot().count { it.kind == PttEdgeKind.DETACHED }
@@ -100,7 +104,7 @@ class FakeRigBackendSelfTest {
 
         fake.reattach()
         assertNotNull(fake.frequencyHz())
-        assertNotNull(fake.mode())
+        assertNotNull(fake.modeLabel())
         fake.keyPtt()
         assertTrue(fake.pttKeyed)
     }

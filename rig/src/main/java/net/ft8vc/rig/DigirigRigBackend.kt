@@ -132,12 +132,15 @@ class DigirigRigBackend(
         return catWrite(command)
     }
 
-    override fun mode(): Ft891Cat.Mode? {
+    override fun modeLabel(): String? {
         val reply = catExchange(Ft891Cat.readModeCommand()) ?: return null
-        return Ft891Cat.parseModeResponse(reply)
+        return Ft891Cat.parseModeResponse(reply)?.label
     }
 
-    override fun setMode(mode: Ft891Cat.Mode): Boolean = catWrite(Ft891Cat.setModeCommand(mode))
+    override fun setDataMode(): Boolean =
+        catWrite(Ft891Cat.setModeCommand(Ft891Cat.Mode.DATA_USB))
+
+    override fun dataModeLabel(): String = Ft891Cat.Mode.DATA_USB.label
 
     override fun catPtt(on: Boolean): Boolean {
         val ok = catWrite(if (on) Ft891Cat.txOnCommand() else Ft891Cat.txOffCommand())

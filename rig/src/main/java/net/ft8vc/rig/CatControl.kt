@@ -17,11 +17,18 @@ interface CatControl {
     /** Tune VFO-A to [hz]. Returns true if the command was sent. */
     fun setFrequencyHz(hz: Long): Boolean
 
-    /** Read the current operating mode, or null on failure. */
-    fun mode(): Ft891Cat.Mode?
+    /**
+     * Read the current operating mode as a display label (e.g. "DATA-U"), or
+     * null on failure. Labels are protocol-defined; the app treats them as
+     * opaque strings.
+     */
+    fun modeLabel(): String?
 
-    /** Set the operating mode. Returns true if the command was sent. */
-    fun setMode(mode: Ft891Cat.Mode): Boolean
+    /** Put the rig in its FT8 data mode (e.g. DATA-U). Returns true if sent. */
+    fun setDataMode(): Boolean
+
+    /** Display label of the mode [setDataMode] selects (e.g. "DATA-U"). */
+    fun dataModeLabel(): String
 
     /**
      * Key ([on] = true) or un-key the transmitter over CAT (`TX1;`/`TX0;`).
