@@ -31,8 +31,8 @@ https://github.com/kgoba/ft8_lib/compare/9fec6ca...<new-hash>
 
 | Location | What it holds |
 |----------|---------------|
-| `ft8-native/src/main/cpp/CMakeLists.txt` — `GIT_TAG` in `FetchContent_Declare` | **Source of truth.** Full 40-char commit hash |
-| `ft8-native/src/main/cpp/ft8_jni.cpp` — `version()` | Short hash inside the `"ft8vc-native x.y.z (ft8_lib 9fec6ca)"` string shown in Settings → "Decoder library" |
+| `ft8-native/src/main/cpp/CMakeLists.txt` — `set(FT8LIB_COMMIT ...)` | **Source of truth.** Full 40-char commit hash; used as `GIT_TAG` and passed to the JNI code as the `FT8LIB_SHORT_HASH` compile definition |
+| `ft8-native/src/main/cpp/ft8_jni.cpp` — `version()` | Builds the `"ft8vc-native x.y.z (ft8_lib <short hash>)"` string shown in Settings → "Decoder library". The short hash comes from `FT8LIB_SHORT_HASH` automatically; only the `ft8vc-native` version number is hardcoded here |
 | [FT8_NATIVE.md](FT8_NATIVE.md) | Documents the pinned hash |
 | `.claude/CLAUDE.md` — Key Dependencies | Documents the pinned hash |
 
@@ -68,12 +68,13 @@ Also re-check `HAVE_STPCPY` (we define it so ft8_lib doesn't redefine bionic's
    changes in the compiled source subset, header/API changes in
    `ft8/constants.h`, `ft8/message.h`, `ft8/encode.h`, `ft8/decode.h`,
    `common/monitor.h`, and changes to the two demo files we ported from.
-2. **Bump the pin:** update `GIT_TAG` in
-   `ft8-native/src/main/cpp/CMakeLists.txt` to the new full hash.
+2. **Bump the pin:** update `set(FT8LIB_COMMIT ...)` in
+   `ft8-native/src/main/cpp/CMakeLists.txt` to the new full hash. The short
+   hash in the version string follows automatically.
 3. **Update the source list / JNI bridge** if the diff requires it (step 1).
-4. **Update the version string** in `ft8_jni.cpp` `version()`: new short hash,
-   and bump the `ft8vc-native` version (e.g. `0.3.0` → `0.4.0`). This is what
-   Settings displays, so it's also your on-device proof the new build shipped.
+4. **Bump the `ft8vc-native` version** in `ft8_jni.cpp` `version()`
+   (e.g. `0.3.0` → `0.4.0`). The version string is what Settings displays, so
+   it's also your on-device proof the new build shipped.
 5. **Update docs:** the pin in [FT8_NATIVE.md](FT8_NATIVE.md),
    `.claude/CLAUDE.md`, and the "Current state" section of this file.
 6. **Clean native rebuild** — FetchContent and the NDK cache stale sources
