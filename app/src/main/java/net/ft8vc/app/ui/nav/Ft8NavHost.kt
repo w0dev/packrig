@@ -7,9 +7,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -20,6 +24,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import net.ft8vc.app.LogViewModel
 import net.ft8vc.app.OperateViewModel
+import net.ft8vc.app.SnackbarEvent
+import net.ft8vc.app.SnackbarThrottle
 import net.ft8vc.app.settings.SettingsScreen
 import net.ft8vc.app.ui.log.LogScreen
 import net.ft8vc.app.ui.operate.OperateScreen
@@ -36,8 +42,29 @@ fun Ft8vcApp(
     val currentRoute = backStack?.destination?.route
     val operateState by operateVm.state.collectAsStateWithLifecycle()
 
+    // Single app-level host for OperateViewModel snackbar events. The events
+    // flow has no replay, so a per-tab collector meant messages fired while
+    // any other tab was open were silently dropped (2026-07-04 field report:
+    // "ADIF backup written" was never visible on Settings).
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarThrottle = remember { SnackbarThrottle() }
+    LaunchedEffect(Unit) {
+        operateVm.events.collect { event ->
+            if (snackbarThrottle.shouldShow(event.text)) {
+                snackbarHostState.showSnackbar(
+                    message = event.text,
+                    duration = event.tag.duration,
+                    // Errors linger 10 s each while the queue drains — let the
+                    // operator flick them away (2026-07-03 field report).
+                    withDismissAction = event.tag == SnackbarEvent.Tag.ERROR,
+                )
+            }
+        }
+    }
+
     Ft8vcTheme(darkTheme = operateState.useDarkTheme) {
         Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
                 NavigationBar {
                     Ft8Destination.entries.forEach { dest ->
