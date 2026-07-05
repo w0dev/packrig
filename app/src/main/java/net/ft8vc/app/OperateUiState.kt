@@ -28,6 +28,8 @@ data class DecodeRow(
     val isToMe: Boolean = false,
     /** Great-circle km when message carries a 4-char grid; null otherwise. */
     val distanceKm: Int? = null,
+    /** ISO 3166 alpha-2 code for the sender callsign; null when unresolvable. */
+    val countryCode: String? = null,
     /** UTC slot parity (Even/Odd) when this decode was received. */
     val slotParity: TxSlotParity = TxSlotParity.EVEN,
     /** Whether this row was received (RX) or synthesized from our own TX. */

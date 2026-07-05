@@ -24,6 +24,7 @@ import net.ft8vc.audio.dsp.SpectrumProcessor
 import net.ft8vc.core.AppInfo
 import net.ft8vc.core.CallsignMatcher
 import net.ft8vc.core.ClockOffsetEstimator
+import net.ft8vc.core.CallsignCountry
 import net.ft8vc.core.DecodeDistance
 import net.ft8vc.core.DecodePassSource
 import net.ft8vc.core.QsoDecode
@@ -317,6 +318,7 @@ class DecodeController(
                     isCq = message.startsWith("CQ"),
                     isToMe = QsoResume.isDirectedToMe(ctx.myCall, message),
                     distanceKm = DecodeDistance.kmFromMessage(ctx.myGrid, message),
+                    countryCode = sender?.let { CallsignCountry.isoFor(it) },
                     slotParity = slotParity,
                     workedBefore = worked,
                     passSource = source,
