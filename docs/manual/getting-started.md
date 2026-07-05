@@ -43,7 +43,9 @@ Android needs two things before FT8VC can talk to the interface: the
 for the Digirig's serial port (for CAT/PTT). The audio permission prompt
 appears the first time you start operating; the USB serial permission prompt
 appears when FT8VC finds a matching device and asks Android to grant access to
-it.
+it. Note that this USB prompt covers only the serial port: the Digirig's
+audio side is a standard USB audio device that Android's audio framework
+handles on its own, with no per-app USB permission needed.
 
 If you decline USB permission, or no matching device is present, FT8VC falls
 back to a no-op rig backend: PTT and CAT become inert (keying and frequency
@@ -66,11 +68,20 @@ multiple references for a two-fer.
 
 ### Audio
 
-In the **Audio** section, use the **Audio input** picker to select your USB
-interface. FT8VC lists whatever input devices Android reports; pick the
-Digirig's USB audio device. Once you start operating, tap the volume icon on
-the Operate tab's status bar to open an input-gain slider; watch the adjacent
-level meter to confirm audio levels are healthy.
+The **Audio input** picker lists whatever input devices Android reports.
+When the Digirig is attached, FT8VC selects its USB audio device
+automatically — you normally only need to confirm the Digirig is the one
+shown, not pick it yourself. The picker matters when more than one input is
+available (say, a headset alongside the Digirig), or for rig-free testing:
+select the phone's built-in microphone to decode FT8 audio played from a
+nearby speaker.
+
+The picker is disabled while audio capture or transmit is running; stop
+operating on the Operate tab before switching inputs.
+
+Once you start operating, tap the volume icon on the Operate tab's status
+bar to open an input-gain slider; watch the adjacent level meter to confirm
+audio levels are healthy.
 
 ### Rig
 
