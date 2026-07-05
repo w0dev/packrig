@@ -19,11 +19,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.ft8vc.app.OperateUiState
 import net.ft8vc.app.OperateViewModel
+import net.ft8vc.app.SnackbarEvent
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.AppInfo
@@ -44,8 +48,22 @@ import net.ft8vc.core.AppInfo
 fun SettingsScreen(vm: OperateViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
 
+    // Snackbar events fire from Settings actions too (Backup now, Import ADIF);
+    // without a host here they were silently dropped while this tab was open.
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        vm.events.collect { event ->
+            snackbarHostState.showSnackbar(
+                message = event.text,
+                duration = event.tag.duration,
+                withDismissAction = event.tag == SnackbarEvent.Tag.ERROR,
+            )
+        }
+    }
+
     Scaffold(
         topBar = { TopAppBar(title = { Text("Settings") }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
