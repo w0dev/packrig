@@ -189,6 +189,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 decodeViewMode = settings.decodeViewMode,
                 cq73OnlyFilter = settings.cq73OnlyFilter,
                 decodeColors = settings.decodeColors,
+                spectrumMarkersEnabled = settings.spectrumMarkersEnabled,
                 devices = view.devices,
                 selectedDeviceId = settings.selectedAudioDeviceId ?: view.selectedDeviceId,
                 isOperating = view.isOperating,
@@ -475,6 +476,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setCq73OnlyFilter(enabled: Boolean) {
         viewModelScope.launch { settingsRepo.setCq73OnlyFilter(enabled) }
+    }
+
+    fun setSpectrumMarkersEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepo.setSpectrumMarkersEnabled(enabled) }
     }
 
     fun setDecodeViewMode(mode: DecodeViewMode) {
