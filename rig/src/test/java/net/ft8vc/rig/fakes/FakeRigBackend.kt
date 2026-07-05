@@ -1,12 +1,12 @@
 package net.ft8vc.rig.fakes
 
 import net.ft8vc.rig.CatControl
-import net.ft8vc.rig.Ft891Cat
 import net.ft8vc.rig.RigBackend
+import net.ft8vc.rig.YaesuCat
 
 /**
  * Test fake for [RigBackend] + [CatControl] — mirrors the surface
- * `DigirigRigBackend` exposes (PTT + FT-891 CAT) without speaking serial.
+ * `SerialRigBackend` exposes (PTT + FT-891 CAT) without speaking serial.
  *
  * Phase 0 (FOUND-03): single in-memory fake used by every Phase 1-5 controller
  * test that needs to drive the rig boundary. Failure switches simulate the four
@@ -98,7 +98,7 @@ class FakeRigBackend(
 
     override fun setFrequencyHz(hz: Long): Boolean {
         if (detached) return false
-        if (hz !in Ft891Cat.MIN_FREQ_HZ..Ft891Cat.MAX_FREQ_HZ) return false
+        if (hz !in YaesuCat.FT891.minFreqHz..YaesuCat.FT891.maxFreqHz) return false
         frequencyHz = hz
         return true
     }

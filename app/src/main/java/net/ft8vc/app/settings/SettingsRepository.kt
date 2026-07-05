@@ -16,7 +16,7 @@ import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.DecodeCategory
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.TxSlotParity
-import net.ft8vc.rig.DigirigRigBackend
+import net.ft8vc.rig.RigController
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "ft8vc_settings",
@@ -34,7 +34,7 @@ class SettingsRepository(context: Context) {
             selectedAudioDeviceId = prefs[Keys.AUDIO_DEVICE_ID],
             pttPreference = prefs[Keys.PTT_PREFERENCE]?.let { PttPreference.valueOf(it) }
                 ?: PttPreference.AUTO,
-            catBaud = coerceCatBaud(prefs[Keys.CAT_BAUD] ?: DigirigRigBackend.DEFAULT_CAT_BAUD),
+            catBaud = coerceCatBaud(prefs[Keys.CAT_BAUD] ?: RigController.DEFAULT_CAT_BAUD),
             licenseAcknowledged = prefs[Keys.LICENSE_ACK] ?: false,
             txEnabledInSettings = prefs[Keys.TX_ENABLED] ?: false,
             autoSeqEnabled = prefs[Keys.AUTO_SEQ] ?: true,
@@ -253,6 +253,6 @@ class SettingsRepository(context: Context) {
 
         /** Unknown values fall back to the rig-module default (38400). */
         fun coerceCatBaud(baud: Int): Int =
-            if (baud in CAT_BAUD_OPTIONS) baud else DigirigRigBackend.DEFAULT_CAT_BAUD
+            if (baud in CAT_BAUD_OPTIONS) baud else RigController.DEFAULT_CAT_BAUD
     }
 }

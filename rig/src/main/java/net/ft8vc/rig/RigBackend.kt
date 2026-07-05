@@ -1,10 +1,10 @@
 package net.ft8vc.rig
 
 /**
- * Push-to-talk abstraction. The first concrete backend is the Digirig Mobile,
- * which exposes a CP2102 USB-serial bridge: PTT is keyed via the serial RTS
- * line. FT-891 CAT frequency/mode control rides the same port and is a separate
- * capability — see [CatControl].
+ * Push-to-talk abstraction. The first concrete backend is [SerialRigBackend],
+ * composed over a USB-serial transport (e.g. Digirig Mobile's CP2102 bridge):
+ * PTT is keyed via the serial RTS line. CAT frequency/mode control rides the
+ * same port and is a separate capability — see [CatControl].
  */
 interface RigBackend {
 
@@ -13,8 +13,4 @@ interface RigBackend {
 
     /** Release push-to-talk (return to receive). */
     fun releasePtt()
-
-    companion object {
-        const val DESCRIPTION = "Digirig RTS PTT + FT-891 CAT"
-    }
 }

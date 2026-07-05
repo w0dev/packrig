@@ -9,10 +9,17 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
 import android.util.Log
+import com.hoho.android.usbserial.driver.Cp21xxSerialDriver
+import com.hoho.android.usbserial.driver.ProbeTable
+import com.hoho.android.usbserial.driver.UsbSerialDriver
+import com.hoho.android.usbserial.driver.UsbSerialProber
 
 /**
- * Discovers a connected Digirig (CP2102), manages USB permission, and routes PTT
- * to the real [DigirigRigBackend] when available, falling back to a no-op.
+ * Discovers a supported USB-serial rig interface (Digirig CP210x today; FTDI /
+ * CH340 / PL2303 / CDC-ACM come with the library), manages USB permission, and
+ * routes PTT/CAT to a [SerialRigBackend] when available, falling back to a
+ * no-op. Phase 1 hardcodes the FT-891 protocol table; phase 2's RigDescriptor
+ * registry makes the model selectable.
  *
  * Implements [RigBackend] so callers can key/unkey PTT without caring whether a
  * radio is actually attached (e.g. on the emulator).
@@ -20,7 +27,7 @@ import android.util.Log
 class RigController(private val context: Context) : RigBackend, CatControl {
 
     enum class State {
-        /** No CP2102 device present. */
+        /** No supported USB-serial device present. */
         NoDevice,
 
         /** Device present but USB permission not yet granted. */
@@ -34,7 +41,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     private val usbManager get() = appContext.getSystemService(Context.USB_SERVICE) as UsbManager
 
     @Volatile
-    private var digirig: DigirigRigBackend? = null
+    private var backend: SerialRigBackend? = null
     private val fallback = NoOpRigBackend()
 
     /**
@@ -43,15 +50,21 @@ class RigController(private val context: Context) : RigBackend, CatControl {
      * NOT reconfigure a live connection — call [rebind] to apply.
      */
     @Volatile
-    var catBaud: Int = DigirigRigBackend.DEFAULT_CAT_BAUD
+    var catBaud: Int = DEFAULT_CAT_BAUD
 
-    /** True once a real Digirig PTT backend is open. */
-    val isDigirigReady: Boolean get() = digirig != null
+    /** True once a real serial PTT backend is open. (Name kept for app parity.) */
+    val isDigirigReady: Boolean get() = backend != null
 
-    fun findDevice(): UsbDevice? =
-        usbManager.deviceList.values.firstOrNull {
-            Cp210x.matches(it.vendorId, it.productId)
-        }
+    /** Silicon Labs PIDs the stock probe table may lack (CP2102 dual variant). */
+    private val customProber = UsbSerialProber(
+        ProbeTable().addProduct(0x10C4, 0xEA61, Cp21xxSerialDriver::class.java),
+    )
+
+    private fun findDriver(): UsbSerialDriver? =
+        UsbSerialProber.getDefaultProber().findAllDrivers(usbManager).firstOrNull()
+            ?: customProber.findAllDrivers(usbManager).firstOrNull()
+
+    fun findDevice(): UsbDevice? = findDriver()?.device
 
     /** Short summary of USB devices Android reports (for UI diagnostics). */
     fun usbDeviceSummary(): String {
@@ -68,25 +81,29 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     /** Current discovery/permission state (for UI status). */
     fun state(): State {
         findDevice() ?: return State.NoDevice
-        return if (digirig != null) State.Ready else State.NeedsPermission
+        return if (backend != null) State.Ready else State.NeedsPermission
     }
 
     /**
-     * Bind to a connected, permitted Digirig. Returns true if PTT is now wired.
-     * No-op (returns current readiness) if there is no device or no permission.
+     * Bind to a connected, permitted serial device. Returns true if PTT is now
+     * wired. No-op (returns current readiness) if no device or no permission.
      */
     @Synchronized
     fun bindIfPermitted(): Boolean {
-        if (digirig != null) return true
-        val device = findDevice() ?: return false
-        if (!usbManager.hasPermission(device)) return false
-        val backend = DigirigRigBackend(usbManager, device, catBaud)
-        return if (backend.open()) {
-            digirig = backend
-            Log.i(TAG, "Digirig bound for PTT/CAT")
+        if (backend != null) return true
+        val driver = findDriver() ?: return false
+        if (!usbManager.hasPermission(driver.device)) return false
+        val port = driver.ports.firstOrNull() ?: return false
+        val candidate = SerialRigBackend(
+            transport = UsbSerialTransport(usbManager, port, catBaud),
+            protocol = YaesuCat(YaesuCat.FT891),
+        )
+        return if (candidate.open()) {
+            backend = candidate
+            Log.i(TAG, "Serial rig backend bound for PTT/CAT (${driver.device.deviceName})")
             true
         } else {
-            Log.e(TAG, "Digirig open() failed after USB permission granted")
+            Log.e(TAG, "Backend open() failed after USB permission granted")
             false
         }
     }
@@ -94,14 +111,14 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     /**
      * Drop any backend left over from a previous USB enumeration and bind the
      * currently attached device. A detach/reattach cycle re-enumerates the
-     * Digirig, so a held [DigirigRigBackend] points at dead file descriptors
-     * while [state] still reports Ready — call this on USB_DEVICE_ATTACHED
-     * before re-probing. Returns true if PTT is wired to the fresh device.
+     * device, so a held backend points at dead file descriptors while [state]
+     * still reports Ready — call this on USB_DEVICE_ATTACHED before re-probing.
+     * Returns true if PTT is wired to the fresh device.
      */
     @Synchronized
     fun rebind(): Boolean {
-        digirig?.close()
-        digirig = null
+        backend?.close()
+        backend = null
         return bindIfPermitted()
     }
 
@@ -130,7 +147,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
                 val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
                 Log.i(TAG, "USB permission result: granted=$granted")
                 if (granted) bindIfPermitted()
-                onResult(digirig != null)
+                onResult(backend != null)
             }
         }
         val filter = IntentFilter(ACTION_USB_PERMISSION)
@@ -146,11 +163,11 @@ class RigController(private val context: Context) : RigBackend, CatControl {
         usbManager.requestPermission(device, pi)
     }
 
-    private fun active(): RigBackend = digirig ?: fallback
+    private fun active(): RigBackend = backend ?: fallback
 
     /**
      * When true, PTT uses CAT `TX1;`/`TX0;`. When false (Digirig default), PTT
-     * uses the CP2102 **RTS** line — the hardware PTT path on Digirig Mobile.
+     * uses the serial **RTS** line — the hardware PTT path on Digirig Mobile.
      *
      * [configurePttFromCatProbe] sets this from a live `FA;` query. Until then
      * we default to RTS so TX works even when CAT readback is broken on the phone.
@@ -163,7 +180,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
      * Call off the main thread (can block ~1 s on timeout).
      */
     fun configurePttFromCatProbe(): String {
-        val rig = digirig ?: return "no-op"
+        val rig = backend ?: return "no-op"
         useCatPtt = rig.frequencyHz() != null
         val method = if (useCatPtt) "CAT" else "RTS"
         Log.i(TAG, "PTT method: $method (CAT probe reply=${useCatPtt})")
@@ -171,7 +188,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     }
 
     override fun keyPtt() {
-        val rig = digirig
+        val rig = backend
         if (useCatPtt && rig != null) {
             // CAT only — do not assert RTS (Menu 05-08 CAT RTS can latch TX).
             rig.catPtt(true)
@@ -181,41 +198,47 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     }
 
     override fun releasePtt() {
-        val rig = digirig
+        val rig = backend
         if (useCatPtt && rig != null) {
             rig.catPtt(false)
         } else {
             active().releasePtt()
         }
-        // Always de-assert RTS after any TX path so Digirig hardware PTT cannot stick.
+        // Always de-assert RTS after any TX path so hardware PTT cannot stick.
         rig?.releasePtt()
     }
 
-    /** True once CAT can talk to a real rig (Digirig open). */
-    val isCatReady: Boolean get() = digirig != null
+    /** True once CAT can talk to a real rig (serial backend open). */
+    val isCatReady: Boolean get() = backend != null
 
-    override fun frequencyHz(): Long? = digirig?.frequencyHz()
+    override fun frequencyHz(): Long? = backend?.frequencyHz()
 
-    override fun setFrequencyHz(hz: Long): Boolean = digirig?.setFrequencyHz(hz) ?: false
+    override fun setFrequencyHz(hz: Long): Boolean = backend?.setFrequencyHz(hz) ?: false
 
-    override fun modeLabel(): String? = digirig?.modeLabel()
+    override fun modeLabel(): String? = backend?.modeLabel()
 
-    override fun setDataMode(): Boolean = digirig?.setDataMode() ?: false
+    override fun setDataMode(): Boolean = backend?.setDataMode() ?: false
 
     override fun dataModeLabel(): String =
-        digirig?.dataModeLabel() ?: Ft891Cat.Mode.DATA_USB.label
+        backend?.dataModeLabel() ?: YaesuCat(YaesuCat.FT891).dataModeLabel
 
-    override fun catPtt(on: Boolean): Boolean = digirig?.catPtt(on) ?: false
+    override fun catPtt(on: Boolean): Boolean = backend?.catPtt(on) ?: false
 
     /** Release the USB connection (call from owner's teardown). */
     @Synchronized
     fun close() {
-        digirig?.close()
-        digirig = null
+        backend?.close()
+        backend = null
     }
 
     companion object {
         private const val TAG = "RigController"
         private const val ACTION_USB_PERMISSION = "net.ft8vc.rig.USB_PERMISSION"
+
+        /**
+         * Default CAT baud. The FT-891 ships at 4800 (menu 05-06); FT8 setups
+         * commonly raise it to 38400 for snappier polling. Must match the rig.
+         */
+        const val DEFAULT_CAT_BAUD = 38_400
     }
 }

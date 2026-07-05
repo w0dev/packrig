@@ -13,7 +13,7 @@ import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.QsoForm
 import net.ft8vc.core.QsoTxStep
 import net.ft8vc.core.TxSlotParity
-import net.ft8vc.rig.DigirigRigBackend
+import net.ft8vc.rig.RigController
 
 @Immutable
 data class DecodeRow(
@@ -124,7 +124,7 @@ data class OperateUiState(
     val lastDialFreqHz: Long? = null,
     val pttPreference: PttPreference = PttPreference.AUTO,
     /** CAT serial baud from settings — must match FT-891 menu 05-06 (CAT RATE). */
-    val catBaud: Int = DigirigRigBackend.DEFAULT_CAT_BAUD,
+    val catBaud: Int = RigController.DEFAULT_CAT_BAUD,
 
     // ── Slot (UTC slot timing + parity) ───────────────────────────────────
     val slotIndex: Int = 0,
