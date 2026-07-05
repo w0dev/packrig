@@ -175,6 +175,16 @@ class DecodeController(
         }
     }
 
+    /**
+     * Discard the DT-offset estimator window and clear the published offset.
+     * Called after the operator applies a clock correction so the chip rebuilds
+     * from post-correction slots rather than lingering on stale DTs.
+     */
+    fun realignClockEstimate() {
+        clockOffset.reset()
+        _slice.update { it.copy(clockOffsetSeconds = null) }
+    }
+
     fun clearDecodes() {
         _slice.update { it.copy(decodes = persistentListOf(), lastSlotDecodeCount = -1) }
     }
