@@ -71,4 +71,24 @@ class SnrEstimatorWavTest {
             weakNeg >= (weak.size * 7 + 9) / 10, // >= 70%
         )
     }
+
+    @Test
+    fun earlyTruncatedBufferMatchesFullSlot() {
+        // The early decode pass estimates SNR from a ~12 s snapshot; the full
+        // pass from the whole 15 s slot. Field report 2026-07-04: the two
+        // disagreed for the same decode. On real air data they must agree.
+        val fx = loadFixtures()
+        assumeTrue("WAV fixtures not found; skipping", fx != null)
+        val (wav, decs) = fx!!
+
+        val n12 = wav.sampleRate * 12
+        for (d in decs) {
+            val full = SnrEstimator.estimate(wav.samples, wav.sampleRate, d.freq)
+            val early = SnrEstimator.estimate(wav.samples.copyOf(n12), wav.sampleRate, d.freq)
+            assertTrue(
+                "${d.freq} Hz: early 12 s snapshot read $early, full slot $full",
+                early == full,
+            )
+        }
+    }
 }
