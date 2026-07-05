@@ -10,9 +10,8 @@ fossil. Follow this top to bottom when upstream moves.
 ## Current state
 
 - **Pinned version:** `3.9.0` (upstream tag `v3.9.0`, latest as of 2026-07-04)
-- Introduced by the **multi-rig milestone** (`multi-rig` branch); the pin and
-  its guard rails land in phase 1 of
-  [the multi-rig spec](superpowers/specs/2026-07-04-multi-rig-support-design.md).
+- In production since multi-rig phase 1 (see
+  `docs/superpowers/plans/2026-07-04-multi-rig-phase1-transport-protocol-seams.md`).
 - Distributed **only via JitPack** (`com.github.mik3y:usb-serial-for-android`).
   JitPack builds artifacts from the GitHub tag on demand — there is no
   maintainer-signed Maven Central artifact, which is why the pin carries extra
