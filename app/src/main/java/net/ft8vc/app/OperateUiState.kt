@@ -160,6 +160,8 @@ data class OperateUiState(
     // ── Clock health ──────────────────────────────────────────────────────
     /** Estimated phone-clock offset vs FT8 band time (median DT), null when unknown. */
     val clockOffsetSeconds: Float? = null,
+    /** Operator-applied clock correction (ms), 0 when unaligned. In-memory only. */
+    val appliedClockOffsetMs: Long = 0L,
 
     // ── Misc ──────────────────────────────────────────────────────────────
     val operateStatus: String? = null,

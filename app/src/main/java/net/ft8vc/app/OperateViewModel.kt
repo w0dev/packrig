@@ -98,6 +98,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val txStatus: String? = null,
         val operateStatus: String? = null,
         val contactCount: Int = 0,
+        /** Operator-applied clock correction (ms); mirrored into OperateUiState for the Settings/chip display. */
+        val appliedClockOffsetMs: Long = 0L,
     )
 
     private val _viewState = MutableStateFlow(OperateViewState())
@@ -123,9 +125,12 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         catControl = rig,
         digirigPresenceProvider = { rig.isDigirigReady },
     )
+    private val clockCorrection = net.ft8vc.core.ClockCorrection()
+
     private val decodeController = DecodeController(
         decoder = Ft8Native,
         scope = viewModelScope,
+        clock = clockCorrection::now,
         workedBeforeLookup = { call ->
             // Synchronous wrapper around the suspending in-memory cache. Safe on
             // the decode dispatcher: first lookup per call hits Room once, every
@@ -143,6 +148,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     val maxAudioFreqHz: Int = decodeController.maxAudioFreqHz
 
     private val qsoSession = QsoSessionController(
+        clock = clockCorrection::now,
         scope = viewModelScope,
         transmitFn = ::transmitForQsoLoop,
         transmitIntoCurrentSlotFn = ::transmitIntoCurrentSlotForQsoLoop,
@@ -157,6 +163,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         playback = playback,
         rigSession = rigSession,
         scope = viewModelScope,
+        clock = clockCorrection::now,
         notifyFn = ::notify,
         outputDeviceIdProvider = { AudioOutputs.firstUsb(getApplication())?.id },
         captureControl = TxCaptureControl(
@@ -249,6 +256,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 decodeFailureRecent = decode.decodeFailureRecent,
                 zeroSampleSlots = decode.zeroSampleSlots,
                 clockOffsetSeconds = decode.clockOffsetSeconds,
+                appliedClockOffsetMs = view.appliedClockOffsetMs,
                 operateStatus = view.operateStatus,
                 contactCount = view.contactCount,
                 lastAdifBackupAtMs = settings.lastAdifBackupAtMs,
@@ -873,6 +881,25 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun retryCat() {
         rigSession.retryCat()
         readRig()
+    }
+
+    /**
+     * Apply the currently measured DT residual to the shared slot-timing clock,
+     * shifting RX slot collection, early-decode timing, TX keying, and slot
+     * parity together. No-op when no residual estimate is available yet.
+     */
+    fun alignClock() {
+        val residual = decodeController.slice.value.clockOffsetSeconds ?: return
+        clockCorrection.applyResidualSeconds(residual)
+        decodeController.realignClockEstimate()
+        _viewState.update { it.copy(appliedClockOffsetMs = clockCorrection.appliedOffsetMs) }
+    }
+
+    /** Clear any applied clock correction (Settings "Reset"). */
+    fun resetClockAlignment() {
+        clockCorrection.reset()
+        decodeController.realignClockEstimate()
+        _viewState.update { it.copy(appliedClockOffsetMs = 0L) }
     }
 
     fun clearDecodes() {
