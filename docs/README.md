@@ -33,6 +33,7 @@ Start here for component docs; existing setup guides remain at [SDK_SETUP.md](SD
 |----------|-------------|
 | [TESTING.md](TESTING.md) | Unit tests, instrumented tests, golden WAV assets, CI |
 | [RELEASE.md](RELEASE.md) | Signed release, tagging, field smoke checklist |
+| [FT8_LIB_UPGRADE.md](FT8_LIB_UPGRADE.md) | Runbook for bumping the pinned `ft8_lib` commit |
 
 ## Module dependency graph
 

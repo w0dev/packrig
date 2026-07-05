@@ -197,6 +197,7 @@ static void synth_gfsk(const uint8_t* symbols, int n_sym, int offset_symbols,
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_net_ft8vc_ft8native_Ft8Native_nativeVersion(JNIEnv* env, jobject) {
+    // Short hash must match GIT_TAG in CMakeLists.txt — see docs/FT8_LIB_UPGRADE.md.
     return env->NewStringUTF("ft8vc-native 0.3.0 (ft8_lib 9fec6ca)");
 }
 

@@ -40,7 +40,8 @@ One decoded message (field order matches JNI constructor):
 ### CMake (`src/main/cpp/CMakeLists.txt`)
 
 - **FetchContent** downloads `kgoba/ft8_lib` at pinned commit
-  `9fec6ca39886edbf96f4f5e71edc76da5074e871` (first configure needs internet)
+  `9fec6ca39886edbf96f4f5e71edc76da5074e871` (first configure needs internet).
+  To bump the pin, follow [FT8_LIB_UPGRADE.md](FT8_LIB_UPGRADE.md)
 - Compiles a subset of ft8_lib (no PortAudio / file I/O — PCM comes from Android)
 - Links `ft8_jni.cpp` JNI bridge
 - **16 KB page alignment** linker flags for Android 15+ / Pixel emulators (NDK r29)

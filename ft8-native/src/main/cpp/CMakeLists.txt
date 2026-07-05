@@ -12,7 +12,8 @@ project(ft8vc LANGUAGES C CXX)
 # kgoba/ft8_lib has no CMakeLists, so we download the sources (pinned commit)
 # and compile the subset we need directly into libft8vc.so. We deliberately omit
 # common/audio.c (PortAudio) and common/wave.c (file IO) since we feed PCM from
-# Android. Pin a commit for reproducible builds; bump deliberately.
+# Android. Pin a commit for reproducible builds; bump deliberately — follow
+# docs/FT8_LIB_UPGRADE.md (version string in ft8_jni.cpp must move with GIT_TAG).
 include(FetchContent)
 FetchContent_Declare(
         ft8lib
