@@ -191,8 +191,7 @@ FT8VC stands on the work of others:
 - **Kiss FFT** by **Mark Borgerding**, bundled with ft8_lib, powers the FFT.
 - The FT8 software that came before —
   [WSJT-X](https://wsjt.sourceforge.io/wsjtx.html) and the WSJT development
-  group, JTDX, and Android pioneers like FT8CN — shaped what a good FT8
-  operating experience looks like and inspired this project.
+  group, JTDX, and Android pioneers like FT8CN.
 
 ## License
 
