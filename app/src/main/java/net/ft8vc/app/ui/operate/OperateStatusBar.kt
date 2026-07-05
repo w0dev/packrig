@@ -60,6 +60,7 @@ fun OperateStatusBar(
     onHaltTx: () -> Unit = {},
     onTxSlotParityChange: (TxSlotParity) -> Unit = {},
     onRetryCat: () -> Unit = {},
+    onAlignClock: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var inputGainExpanded by remember { mutableStateOf(false) }
@@ -121,9 +122,13 @@ fun OperateStatusBar(
                     val severe = abs(off) >= ClockOffsetEstimator.SEVERE_S
                     val color = if (severe) Ft8Red else Ft8Amber
                     WithTooltip(
-                        text = "Phone clock differs from FT8 band time — fix in Android date & time settings",
+                        text = "Phone clock differs from FT8 band time — tap to align to the band",
                     ) {
-                        Surface(shape = Ft8Compact.chipShape, color = color.copy(alpha = 0.2f)) {
+                        Surface(
+                            shape = Ft8Compact.chipShape,
+                            color = color.copy(alpha = 0.2f),
+                            modifier = Modifier.clickable(onClick = onAlignClock),
+                        ) {
                             Text(
                                 text = "Clock %+.1fs".format(Locale.US, off),
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
