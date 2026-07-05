@@ -13,12 +13,16 @@ project(ft8vc LANGUAGES C CXX)
 # and compile the subset we need directly into libft8vc.so. We deliberately omit
 # common/audio.c (PortAudio) and common/wave.c (file IO) since we feed PCM from
 # Android. Pin a commit for reproducible builds; bump deliberately — follow
-# docs/FT8_LIB_UPGRADE.md (version string in ft8_jni.cpp must move with GIT_TAG).
+# docs/FT8_LIB_UPGRADE.md. FT8LIB_COMMIT is the single place the pin lives:
+# the short hash flows into the ft8_jni.cpp version string automatically.
+set(FT8LIB_COMMIT 9fec6ca39886edbf96f4f5e71edc76da5074e871)
+string(SUBSTRING "${FT8LIB_COMMIT}" 0 7 FT8LIB_SHORT_HASH)
+
 include(FetchContent)
 FetchContent_Declare(
         ft8lib
         GIT_REPOSITORY https://github.com/kgoba/ft8_lib.git
-        GIT_TAG 9fec6ca39886edbf96f4f5e71edc76da5074e871
+        GIT_TAG ${FT8LIB_COMMIT}
 )
 # CMake 4.1+: Populate() is deprecated; MakeAvailable() is the supported path.
 FetchContent_MakeAvailable(ft8lib)
@@ -42,7 +46,9 @@ add_library(ft8vc SHARED
 target_include_directories(ft8vc PRIVATE ${FT8_DIR})
 
 # bionic provides stpcpy; tell ft8_lib not to define its own.
-target_compile_definitions(ft8vc PRIVATE HAVE_STPCPY)
+target_compile_definitions(ft8vc PRIVATE
+        HAVE_STPCPY
+        FT8LIB_SHORT_HASH="${FT8LIB_SHORT_HASH}")
 
 find_library(log-lib log)
 target_link_libraries(ft8vc ${log-lib})
