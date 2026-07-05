@@ -149,6 +149,37 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
             }
 
+            SettingsSection("Clock alignment") {
+                val residual = state.clockOffsetSeconds
+                val appliedS = state.appliedClockOffsetMs / 1000f
+                Text(
+                    "Applied correction: %+.1f s".format(java.util.Locale.US, appliedS),
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    if (residual != null) {
+                        "Residual vs band time: %+.1f s".format(java.util.Locale.US, residual)
+                    } else {
+                        "Residual vs band time: not enough decodes yet"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = vm::alignClock,
+                        enabled = residual != null,
+                    ) { Text("Align now") }
+                    OutlinedButton(
+                        onClick = vm::resetClockAlignment,
+                        enabled = state.appliedClockOffsetMs != 0L,
+                    ) { Text("Reset") }
+                }
+            }
+
             SettingsSection("TX") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
