@@ -328,6 +328,12 @@ private fun DecodeRowItem(
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .clip(RoundedCornerShape(3.dp))
+                .background(
+                    MaterialTheme.colorScheme.onSurface
+                        .copy(alpha = slotTintAlpha(row.slotParity)),
+                ),
         )
         Text(
             text = if (isTx) "   " else "%+3d".format(row.snr),
