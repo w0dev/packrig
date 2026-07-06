@@ -168,6 +168,49 @@ mitigations (all land in phase 1):
 This matches the project's existing trust posture: `ft8_lib` is already
 fetched from GitHub at build time by pinned commit.
 
+## Decision: per-family drivers, not hamlib (researched 2026-07-05)
+
+Hamlib gives desktop apps (WSJT-X, JTDX, fldigi) 200+ radios "for free," so we
+checked whether to adopt it instead of hand-rolling `CatProtocol` drivers. **We
+do not.** Two independent findings, both primary-sourced:
+
+1. **Hamlib is not viable on stock Android.** Its own `README.android` states:
+   *"USB support (libusb) is not currently available in the Android cross build,
+   so `--without-libusb` is required."* The Android port docs add that the FTDI
+   serial driver "is not included in standard kernel but should work on rooted
+   devices," Bluetooth is reachable only from Java (not native), and the
+   working path is **NET rigctl** — talking to a `rigctld` daemon over the
+   network, i.e. the radio I/O lives on some *other* machine. For a no-laptop
+   field phone driving a USB rig, that means root or a second computer. Adopting
+   hamlib would really mean forking and maintaining a modified serial layer
+   routed through the Android USB API — more work than the handful of ASCII/CI-V
+   drivers we need, against our "no big new deps" constraint, and giving up the
+   exact PTT-safety control we already have.
+
+2. **The closest analog app already made our choices.** FT8CN (N0BOY) — native
+   Android, no laptop, widest radio list of any FT8 Android app — **does not use
+   hamlib**; it hand-rolls CAT in Java, and it **vendors mik3y's
+   usb-serial-for-android** (the copyright header of its `serialport/` package
+   is verbatim mik3y/Google) — the exact library we depend on. Its structure is
+   our design arrived at independently: a `connector/` layer (Cable/Bluetooth/
+   Wi-Fi transports) separate from a `rigs/` layer (`BaseRig` +
+   per-family `XxxCommand`/`XxxRigConstant`), with a `RigNameList` registry.
+   Its `Yaesu3Command` new-CAT parser is structurally identical to our
+   `YaesuCat`; it keeps a *separate* class hierarchy ("Yaesu2") for the old
+   5-byte binary CAT — which independently validates our scoping-out of the
+   FT-857/818 protocol as a genuinely different parser, not a table entry.
+
+**Divergence we keep:** FT8CN uses a class per model; we use data per model
+(`YaesuModelSpec`). Ours is lighter for breadth as long as a family is
+parameterizable; a rig that deviates hard gets a new `CatProtocol` impl (as
+FT8CN gives it a new hierarchy).
+
+**Middle path adopted for authoring:** hamlib's per-radio backend `.c` files and
+FT8CN's `*RigConstant.java` tables are both authoritative references for command
+strings and quirks. We use them as *reference data* to write and validate our
+own tables — especially for phase 4 Icom CI-V (address maps, echo handling) —
+without integrating either codebase.
+
 ## Testing & Verification
 
 - **Protocol drivers:** unit tests per family from transcript fixtures (real
