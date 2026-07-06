@@ -229,12 +229,36 @@ fun SettingsScreen(vm: OperateViewModel) {
                     onSelect = vm::setMaxUnansweredTxCycles,
                     enabled = state.txEnabled,
                 )
-                TextButton(
-                    onClick = vm::clearAbandonedPartners,
-                    enabled = state.txEnabled,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Clear abandoned-station blocklist")
+                Text(
+                    "Blocklist",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (state.userBlockedCalls.isEmpty()) {
+                    Text(
+                        "No blocked stations.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    state.userBlockedCalls.forEach { call ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(call, style = MaterialTheme.typography.bodyMedium)
+                            TextButton(onClick = { vm.unblockStation(call) }) {
+                                Text("Unblock")
+                            }
+                        }
+                    }
+                    TextButton(
+                        onClick = vm::clearAbandonedPartners,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Clear all")
+                    }
                 }
                 Text(
                     "Auto behaviors",
