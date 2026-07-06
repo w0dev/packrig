@@ -411,17 +411,7 @@ class DecodeController(
     }
 
     /** Extract the sender callsign from a parsed FT8 message; null when message has no sender. */
-    private fun senderCallFromMessage(message: String): String? =
-        when (val rx = QsoMessages.parse(message)) {
-            is QsoRx.Cq -> rx.call
-            is QsoRx.GridReply -> rx.sender
-            is QsoRx.Report -> rx.sender
-            is QsoRx.RReport -> rx.sender
-            is QsoRx.Roger -> rx.sender
-            is QsoRx.RogerBye -> rx.sender
-            is QsoRx.Bye -> rx.sender
-            QsoRx.Other -> null
-        }
+    private fun senderCallFromMessage(message: String): String? = QsoMessages.senderCall(message)
 
     override fun close() {
         (decodeDispatcher as? ExecutorCoroutineDispatcher)?.close()
