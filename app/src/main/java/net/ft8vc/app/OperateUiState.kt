@@ -168,6 +168,7 @@ data class OperateUiState(
     val contactCount: Int = 0,
     /** Phase 7 (UX-06): epoch ms of the most recent successful ADIF auto-backup, null if never. */
     val lastAdifBackupAtMs: Long? = null,
+    val userBlockedCalls: List<String> = emptyList(),
 ) {
     companion object {
         const val INPUT_GAIN_MIN = 0.1f

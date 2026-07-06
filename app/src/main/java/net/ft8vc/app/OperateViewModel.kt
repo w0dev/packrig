@@ -147,6 +147,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
     val maxAudioFreqHz: Int = decodeController.maxAudioFreqHz
 
+    private val abandonedPartners = net.ft8vc.core.AbandonedPartners()
+
     private val qsoSession = QsoSessionController(
         clock = clockCorrection::now,
         scope = viewModelScope,
@@ -156,6 +158,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         onQsoComplete = ::onQsoComplete,
         notifyFn = ::notify,
         resumeCaptureIfNeeded = ::resumeCaptureIfNeededForQso,
+        abandonedPartners = abandonedPartners,
     )
 
     private val txOrchestrator = TxOrchestrator(
@@ -260,6 +263,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 operateStatus = view.operateStatus,
                 contactCount = view.contactCount,
                 lastAdifBackupAtMs = settings.lastAdifBackupAtMs,
+                userBlockedCalls = qso.userBlockedCalls,
             )
         }.distinctUntilChanged().stateIn(
             viewModelScope,
@@ -725,15 +729,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         qsoSession.stopQso()
     }
 
-    fun abandonQso() {
-        playback.stop()
-        rigSession.releasePttAsync()
-        // TODO(Task 4): qsoSession.abandonQso() was removed with the userBlocked/
-        // autoSuppressed split; this button is replaced by block/unblock wiring
-        // in the next task. stopQso() keeps this entry point compiling in the
-        // interim without silently re-adding a blocklist entry.
-        qsoSession.stopQso()
+    fun blockStation(call: String) {
+        qsoSession.blockStation(call)
     }
+
+    fun unblockStation(call: String) = qsoSession.unblockStation(call)
 
     fun setOperateTxText(text: String) = qsoSession.setOperateTxText(text)
     fun selectOperateTxStep(step: QsoTxStep) = qsoSession.selectOperateTxStep(step)
