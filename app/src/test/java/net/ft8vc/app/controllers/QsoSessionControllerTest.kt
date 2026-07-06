@@ -392,6 +392,34 @@ class QsoSessionControllerTest {
     }
 
     @Test
+    fun autoResumeCq_afterCqRunPartnerGhosts_stillResumes() = runTest {
+        // Invariant guard: a CQ-origin run where the partner answers then ghosts
+        // (no-reply abandon) MUST still auto-resume — the flag survives stopQsoInternal().
+        // This is the exact case that justifies NOT resetting runOriginatedFromCq in
+        // stopQsoInternal(); adding such a reset would make this test fail.
+        controller.setMaxUnansweredTxCycles(1)
+        controller.setAutoCqResumeEnabled(true)
+        controller.startCq() // CQ origin = true
+        // K1ABC answers our CQ; we move to SendingReport with dx = K1ABC.
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -10)), TxSlotParity.EVEN)
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+        // K1ABC now ghosts. Drive the TX loop (manual clock + shared scheduler together,
+        // one 15 s slot per iteration) until the no-reply limit trips →
+        // abandonForNoReply(dx = K1ABC) → maybeAutoResumeCq. Same pattern as
+        // noReplyTimeout_suppressesAuto_withoutUserBlock.
+        repeat(4) {
+            clockMs.addAndGet(15_000L)
+            qsoScheduler.advanceTimeBy(15_000L)
+            qsoScheduler.runCurrent()
+        }
+        // The partner-abandon resume emits "Resuming CQ" only when the gate passes.
+        assertTrue(
+            "CQ-origin no-reply abandon must auto-resume CQ",
+            notifications.any { it.first.contains("Resuming CQ") },
+        )
+    }
+
+    @Test
     fun autoResumeCq_notAfterAnsweringCq() = runTest {
         // S&P: we answered K1ABC's CQ. Completing must NOT leave us calling CQ.
         controller.setAutoCqResumeEnabled(true)
