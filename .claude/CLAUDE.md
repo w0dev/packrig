@@ -236,6 +236,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 | **RigController** | USB device discovery, permission mgmt, PTT/CAT routing | `rig/src/main/java/net/ft8vc/rig/RigController.kt` |
 | **SerialRigBackend** | Composes serial transport + CAT protocol into PTT (RTS) and CAT control | `rig/src/main/java/net/ft8vc/rig/SerialRigBackend.kt` |
 | **YaesuCat** | Yaesu new-CAT command/response parsing (freq, mode, DATA-U), parameterized by model | `rig/src/main/java/net/ft8vc/rig/YaesuCat.kt` |
+| **RigRegistry** | Static `RigDescriptor` table of supported radios; no default (operator selects) | `rig/src/main/java/net/ft8vc/rig/RigRegistry.kt` |
 | **QsoMachine** | Pure FT8 QSO state machine (CQ → grid → reports → 73) | `core/src/main/java/net/ft8vc/core/QsoMachine.kt` |
 | **SlotCollector** | Buffers PCM samples, flushes on 15-second UTC slot boundary | `core/src/main/java/net/ft8vc/core/SlotCollector.kt` |
 | **QsoMessages** | Parses/formats FT8 message types (CQ, grid, reports, RRR, 73) | `core/src/main/java/net/ft8vc/core/QsoMessages.kt` |

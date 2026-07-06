@@ -90,6 +90,16 @@ The rig module is layered so radios and interfaces vary independently:
 Safety invariant: RTS is hardware PTT on the Digirig — nothing may assert RTS
 except `keyPtt()`; open/close paths explicitly de-assert it.
 
+## Radio model registry (multi-rig phase 2)
+
+`RigDescriptor` (id, protocol factory, default baud, CAT port index, PTT method,
+custom prober PIDs) + the static `RigRegistry` compose the Phase 1 seams per
+model. There is **no default rig** — the operator selects one in Settings;
+`RigController` reports `State.NoModel` until then. The CAT port index handles
+dual-UART built-in-USB rigs (CP2105 Enhanced port); an advanced Settings
+override appears only when a device exposes >1 port. See
+[RIG_MODELS.md](RIG_MODELS.md) for the supported list and verification status.
+
 ## Dependencies
 
 - Android USB host APIs (`UsbManager`, `UsbDeviceConnection`)
