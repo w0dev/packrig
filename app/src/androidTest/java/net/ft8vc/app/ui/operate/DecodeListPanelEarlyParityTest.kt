@@ -61,6 +61,8 @@ class DecodeListPanelEarlyParityTest {
                 onClear = {},
                 onAnswerCq = {},
                 onResume = {},
+                userBlockedCalls = emptyList(),
+                onBlockSender = {},
             )
         }
 

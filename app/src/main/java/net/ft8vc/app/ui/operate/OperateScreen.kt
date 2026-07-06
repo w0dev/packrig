@@ -135,6 +135,8 @@ fun OperateScreen(
                 onClear = vm::clearDecodes,
                 onAnswerCq = { row -> gateOnLicense { vm.answerCq(row) } },
                 onResume = { row -> gateOnLicense { vm.resumeFromDecode(row) } },
+                userBlockedCalls = state.userBlockedCalls,
+                onBlockSender = { call -> vm.blockStation(call) },
                 modifier = Modifier.fillMaxWidth().weight(1f),
             )
             OperateTxSelector(

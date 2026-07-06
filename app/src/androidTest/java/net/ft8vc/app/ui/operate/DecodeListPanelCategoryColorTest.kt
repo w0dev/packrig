@@ -40,6 +40,8 @@ class DecodeListPanelCategoryColorTest {
                 onClear = {},
                 onAnswerCq = {},
                 onResume = {},
+                userBlockedCalls = emptyList(),
+                onBlockSender = {},
             )
         }
     }

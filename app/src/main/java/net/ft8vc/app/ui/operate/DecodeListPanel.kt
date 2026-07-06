@@ -1,7 +1,8 @@
 package net.ft8vc.app.ui.operate
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,21 +63,24 @@ fun DecodeListPanel(
     onClear: () -> Unit,
     onAnswerCq: (DecodeRow) -> Unit,
     onResume: (DecodeRow) -> Unit,
+    userBlockedCalls: List<String>,
+    onBlockSender: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val visibleDecodes = decodes.filter { row ->
-        row.source is DecodeRowSource.Tx ||
-        MonitorDecodeFilter.visibleForDisplay(
-            message = row.message,
-            isCq = row.isCq,
-            myCall = myCall,
-            freqHz = row.freqHz,
-            txToneHz = txToneHz,
-            viewMode = decodeViewMode,
-            cq73OnlyFilter = cq73OnlyFilter,
-            qsoDx = qsoDx,
-            qsoActive = qsoActive,
-        )
+        !DecodeBlocklist.isSenderBlocked(row.message, row.source, userBlockedCalls) &&
+        (row.source is DecodeRowSource.Tx ||
+            MonitorDecodeFilter.visibleForDisplay(
+                message = row.message,
+                isCq = row.isCq,
+                myCall = myCall,
+                freqHz = row.freqHz,
+                txToneHz = txToneHz,
+                viewMode = decodeViewMode,
+                cq73OnlyFilter = cq73OnlyFilter,
+                qsoDx = qsoDx,
+                qsoActive = qsoActive,
+            ))
     }
     val filterActive = decodeViewMode == DecodeViewMode.OPERATE ||
         (decodeViewMode == DecodeViewMode.ALL && cq73OnlyFilter)
@@ -212,6 +216,7 @@ fun DecodeListPanel(
                     reverseLayout = true,
                 ) {
                     items(visibleDecodes, key = { it.id }) { row ->
+                        val blockTarget = DecodeBlocklist.senderToBlock(row.message, row.source)
                         DecodeRowItem(
                             row = row,
                             qsoDx = qsoDx,
@@ -222,6 +227,7 @@ fun DecodeListPanel(
                                 canResume && row.isToMe -> ({ onResume(row) })
                                 else -> null
                             },
+                            onLongClick = blockTarget?.let { call -> { onBlockSender(call) } },
                         )
                     }
                 }
@@ -275,6 +281,7 @@ private fun emptyDecodeMessage(
     else -> "No decodes match filters."
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DecodeRowItem(
     row: DecodeRow,
@@ -282,6 +289,7 @@ private fun DecodeRowItem(
     qsoActive: Boolean,
     decodeColors: DecodeColorScheme,
     onClick: (() -> Unit)?,
+    onLongClick: (() -> Unit)?,
 ) {
     val isTx = row.source is DecodeRowSource.Tx
     val category = DecodeCategoryResolver.resolve(
@@ -318,7 +326,16 @@ private fun DecodeRowItem(
             .heightIn(min = 40.dp)
             .background(rowBackground)
             .testTag("decodeRow_${category.name}")
-            .then(if (onClick != null && !isTx) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(
+                if (!isTx && (onClick != null || onLongClick != null)) {
+                    Modifier.combinedClickable(
+                        onClick = onClick ?: {},
+                        onLongClick = onLongClick,
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .padding(horizontal = 2.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,

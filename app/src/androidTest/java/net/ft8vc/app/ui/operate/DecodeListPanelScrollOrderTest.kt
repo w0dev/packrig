@@ -57,6 +57,8 @@ class DecodeListPanelScrollOrderTest {
                 onClear = {},
                 onAnswerCq = {},
                 onResume = {},
+                userBlockedCalls = emptyList(),
+                onBlockSender = {},
             )
         }
 
