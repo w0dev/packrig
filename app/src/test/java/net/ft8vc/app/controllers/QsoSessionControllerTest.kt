@@ -16,6 +16,7 @@ import net.ft8vc.core.TxSlotParity
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -391,6 +392,59 @@ class QsoSessionControllerTest {
     }
 
     @Test
+    fun autoResumeCq_notAfterAnsweringCq() = runTest {
+        // S&P: we answered K1ABC's CQ. Completing must NOT leave us calling CQ.
+        controller.setAutoCqResumeEnabled(true)
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        // Their directed reply, our R-report exchange, then their 73 → Complete.
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC -03", -8)), TxSlotParity.EVEN)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC RR73", -8)), TxSlotParity.EVEN)
+        assertEquals(1, completedSnapshots.size)
+        // RR73 logs immediately, but qsoActive only clears once the courtesy 73
+        // TXes and the loop tears down — drive the clock forward to that slot.
+        repeat(4) {
+            clockMs.addAndGet(15_000L)
+            qsoScheduler.advanceTimeBy(15_000L)
+            qsoScheduler.runCurrent()
+        }
+        assertFalse("answered-CQ session must not auto-resume CQ", controller.slice.value.qsoActive)
+        assertFalse(notifications.any { it.first.contains("resuming CQ", ignoreCase = true) })
+    }
+
+    @Test
+    fun autoResumeCq_notAfterResumeFromDecode() = runTest {
+        // Resuming a specific station is S&P-like → no auto-resume on completion.
+        controller.setAutoCqResumeEnabled(true)
+        // Initiator grid-reply opportunity: same machine state as startCq + received FN42.
+        controller.resumeFromDecode(decodeRowDirected("W0DEV K1ABC FN42"))
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC R-15", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
+        assertEquals(1, completedSnapshots.size)
+        assertFalse("resume-from-decode session must not auto-resume CQ", controller.slice.value.qsoActive)
+    }
+
+    @Test
+    fun autoResumeCq_carriesForwardAcrossRestart() = runTest {
+        // A CQ-origin session that auto-resumes must remain CQ-origin, so the NEXT
+        // completion resumes again — a running station keeps running.
+        controller.setAutoCqResumeEnabled(true)
+        controller.startCq()
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC R-15", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
+        assertEquals(1, completedSnapshots.size)
+        assertEquals("Calling CQ…", controller.slice.value.qsoState) // resumed CQ #1
+
+        // Second QSO on the auto-resumed CQ, different partner.
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K2XYZ EM12", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K2XYZ R-12", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K2XYZ 73", -8)), TxSlotParity.ODD)
+        assertEquals(2, completedSnapshots.size)
+        assertTrue("auto-resumed CQ must itself auto-resume", controller.slice.value.qsoActive)
+        assertEquals("Calling CQ…", controller.slice.value.qsoState) // resumed CQ #2
+    }
+
+    @Test
     fun dxAnswersAnotherStation_stopsSession() = runTest {
         controller.answerCq(decodeRowCq("K1ABC", "FN42"))
         assertTrue(controller.slice.value.qsoActive)
@@ -438,15 +492,17 @@ class QsoSessionControllerTest {
     }
 
     @Test
-    fun dxAnswersAnotherStation_autoResumesCqWhenEnabled() = runTest {
+    fun dxAnswersAnotherStation_doesNotAutoResumeCq_afterAnswering() = runTest {
+        // We answered K1ABC (S&P). They pick another caller → we stop. Even with
+        // auto-resume on, an answered-CQ session must NOT leave us calling CQ.
         controller.setAutoCqResumeEnabled(true)
         controller.answerCq(decodeRowCq("K1ABC", "FN42"))
         controller.onDecodeBatch(
             listOf(QsoDecode("N0XYZ K1ABC +03", -5)),
             slotParity = TxSlotParity.EVEN,
         )
-        assertTrue(controller.slice.value.qsoActive)
-        assertEquals("Calling CQ…", controller.slice.value.qsoState)
+        assertFalse(controller.slice.value.qsoActive)
+        assertNotEquals("Calling CQ…", controller.slice.value.qsoState)
     }
 
     // ── WSJT-X log timing: answerer logs at RR73/RRR receipt ───────────

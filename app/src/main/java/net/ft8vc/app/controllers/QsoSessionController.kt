@@ -131,6 +131,15 @@ class QsoSessionController(
     private var operateTxUserEdited: Boolean = false
     /** Set when a completed/abandoned QSO should auto-restart CQ; cleared by manual stop. */
     private var pendingAutoCqResume: Boolean = false
+
+    /**
+     * True when the active session originated from the operator calling CQ (run mode).
+     * Gates auto-resume CQ so S&P sessions (answer/resume) don't leave the operator
+     * running. Set only in [startQsoLoop] from its cqOrigin param; deliberately NOT
+     * reset by [stopQsoInternal] — it holds the most-recently-started session's origin
+     * and is read only in the window right after a session ends.
+     */
+    private var runOriginatedFromCq: Boolean = false
     /** Set when the current QSO has been logged (possibly before the courtesy 73 TX). */
     private var qsoLogged: Boolean = false
 
@@ -200,7 +209,7 @@ class QsoSessionController(
             val machine = newQsoMachine()
             machine.startCq()
             applyOperateTxOverride(machine)
-            startQsoLoop(machine, hearingSlotParity = null)
+            startQsoLoop(machine, hearingSlotParity = null, cqOrigin = true)
         }
     }
 
@@ -218,7 +227,7 @@ class QsoSessionController(
         scope.launch(qsoDispatcher) {
             val machine = newQsoMachine()
             machine.answerCq(cq.call, cq.grid, row.snr)
-            startQsoLoop(machine, hearingSlotParity = row.slotParity)
+            startQsoLoop(machine, hearingSlotParity = row.slotParity, cqOrigin = false)
         }
     }
 
@@ -362,8 +371,13 @@ class QsoSessionController(
 
     // ── Internal: QSO loop ──────────────────────────────────────────────
 
-    private suspend fun startQsoLoop(machine: QsoMachine, hearingSlotParity: TxSlotParity?) {
+    private suspend fun startQsoLoop(
+        machine: QsoMachine,
+        hearingSlotParity: TxSlotParity?,
+        cqOrigin: Boolean,
+    ) {
         stopQsoInternal()
+        runOriginatedFromCq = cqOrigin
         qso = machine
         qsoTxParity = resolveTxParity(machine, hearingSlotParity)
         publishQsoState()
@@ -489,6 +503,7 @@ class QsoSessionController(
      */
     private fun maybeAutoResumeCq(snackbar: String, finishedJob: Job? = null) {
         if (!autoCqResumeEnabled) return
+        if (!runOriginatedFromCq) return
         pendingAutoCqResume = true
         val jobToJoin = finishedJob ?: qsoLoopJob
         scope.launch(qsoDispatcher) {
@@ -503,7 +518,7 @@ class QsoSessionController(
             notifyFn(snackbar, SnackbarEvent.Tag.TRANSIENT)
             val machine = newQsoMachine()
             machine.startCq()
-            startQsoLoop(machine, hearingSlotParity = null)
+            startQsoLoop(machine, hearingSlotParity = null, cqOrigin = true)
         }
     }
 
@@ -538,6 +553,7 @@ class QsoSessionController(
         startQsoLoop(
             machine,
             hearingSlotParity = if (machine.role == QsoRole.Answerer) hearingSlotParity else null,
+            cqOrigin = false,
         )
     }
 
@@ -566,7 +582,7 @@ class QsoSessionController(
         notifyFn("Answering ${cq.call}", SnackbarEvent.Tag.TRANSIENT)
         val machine = newQsoMachine()
         machine.answerCq(cq.call, cq.grid, picked.snr)
-        startQsoLoop(machine, hearingSlotParity = hearingSlotParity)
+        startQsoLoop(machine, hearingSlotParity = hearingSlotParity, cqOrigin = false)
     }
 
     // ── Internal: TX-text derivation ────────────────────────────────────
