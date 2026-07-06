@@ -8,6 +8,8 @@
 
 **Tech Stack:** Kotlin, Coroutines, JUnit4 + kotlinx-coroutines-test (existing `QsoSessionControllerTest` harness with `UnconfinedTestDispatcher` and an `AtomicLong` fake clock).
 
+> **Line-number note (verified 2026-07-05, HEAD `914bfd6`):** intervening branch work shifted `QsoSessionController.kt` down by ~21 lines and `SettingsScreen.kt` down by ~55. All code the edits anchor on is **byte-identical** to what is quoted here — match on content, not the "~line" hints. Current anchors: `startQsoLoop` def `:365`, its calls `:203/:221/:506/:538/:569`; `maybeAutoResumeCq` def `:490`, calls `:343/:352/:438/:476`; `pendingAutoCqResume` field `:133`; `stopQsoInternal` `:444`; settings subtitle `:314`. The existing green-list test formerly named `autoResumeCq_notAfterManualAbandon` is now `autoResumeCq_notAfterManualStop`.
+
 ## Global Constraints
 
 - Tech stack: Kotlin + Coroutines; no new dependencies.
@@ -219,7 +221,7 @@ Run:
 ```bash
 ./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.controllers.QsoSessionControllerTest" -q
 ```
-Expected: PASS. All new tests plus the renamed `dxAnswersAnotherStation_doesNotAutoResumeCq_afterAnswering` pass; the pre-existing `autoResumeCq_restartsAfterCompletion`, `autoResumeCq_disabled_staysStopped`, `autoResumeCq_notAfterManualAbandon`, `autoResumeCq_notWhenTxDisabledAtFireTime`, and the other `dxAnswersAnotherStation_*` tests remain green.
+Expected: PASS. All new tests plus the renamed `dxAnswersAnotherStation_doesNotAutoResumeCq_afterAnswering` pass; the pre-existing `autoResumeCq_restartsAfterCompletion`, `autoResumeCq_disabled_staysStopped`, `autoResumeCq_notAfterManualStop`, `autoResumeCq_notWhenTxDisabledAtFireTime`, and the other `dxAnswersAnotherStation_*` tests remain green.
 
 - [ ] **Step 5: Commit**
 
