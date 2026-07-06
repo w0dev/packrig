@@ -60,6 +60,7 @@ fun OperateStatusBar(
     onHaltTx: () -> Unit = {},
     onTxSlotParityChange: (TxSlotParity) -> Unit = {},
     onRetryCat: () -> Unit = {},
+    onRetryCapture: () -> Unit = {},
     onAlignClock: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -68,7 +69,7 @@ fun OperateStatusBar(
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         // Phase 6: persistent reliability chips at the top of the header.
-        if (state.catUnreachable || state.decodeFailureRecent || state.digirigDisconnected || state.txSafetyHaltActive) {
+        if (state.catUnreachable || state.captureFailed || state.decodeFailureRecent || state.digirigDisconnected || state.txSafetyHaltActive) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -78,6 +79,12 @@ fun OperateStatusBar(
                     CompactChip(
                         text = "CAT unreachable — tap to retry",
                         modifier = Modifier.clickable(onClick = onRetryCat),
+                    )
+                }
+                if (state.captureFailed) {
+                    CompactChip(
+                        text = "Audio capture failed — tap to retry",
+                        modifier = Modifier.clickable(onClick = onRetryCapture),
                     )
                 }
                 if (state.digirigDisconnected) {
