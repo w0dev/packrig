@@ -67,8 +67,7 @@ fun OperateControls(
     state: OperateUiState,
     onToggleOperate: () -> Unit,
     onStartCq: () -> Unit,
-    onStopQso: () -> Unit,
-    onAbandonQso: () -> Unit,
+    onEndQso: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -96,27 +95,17 @@ fun OperateControls(
         if (state.isOperating && state.txEnabled) {
             if (state.qsoActive) {
                 Button(
-                    onClick = onStopQso,
+                    onClick = onEndQso,
                     modifier = Modifier
                         .weight(1f)
                         .height(Ft8Compact.tapTargetPrimary),
                     contentPadding = Ft8Compact.buttonPadding,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        containerColor = Ft8Red,
+                        contentColor = Color.Black,
                     ),
                 ) {
-                    Text("Stop QSO", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-                }
-                Button(
-                    onClick = onAbandonQso,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(Ft8Compact.tapTargetPrimary),
-                    contentPadding = Ft8Compact.buttonPadding,
-                    colors = ButtonDefaults.buttonColors(containerColor = Ft8Red, contentColor = Color.Black),
-                ) {
-                    Text("Abandon", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                    Text("End QSO", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
                 }
             } else {
                 val stationComplete = StationProfileValidator.isComplete(state.myCall, state.myGrid)

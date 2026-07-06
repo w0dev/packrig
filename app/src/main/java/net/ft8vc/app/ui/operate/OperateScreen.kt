@@ -156,8 +156,7 @@ fun OperateScreen(
                     }
                 },
                 onStartCq = { gateOnLicense { vm.startCq() } },
-                onStopQso = vm::stopQso,
-                onAbandonQso = vm::abandonQso,
+                onEndQso = vm::stopQso,
             )
         }
     }
