@@ -4,8 +4,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import net.ft8vc.app.SnackbarEvent
 import net.ft8vc.core.AnswerPolicy
@@ -38,6 +38,15 @@ class QsoSessionControllerTest {
     private val resumeCaptureCalls = AtomicInteger(0)
     private val clockMs = AtomicLong(BASE_EPOCH_MS)
 
+    /**
+     * Shared with [scope] and the controller's `qsoDispatcher` so that a test can
+     * drive the QSO loop's `delay()`-based TX cycles deterministically via
+     * [TestCoroutineScheduler.advanceTimeBy] — `runTest`'s own scheduler is a
+     * separate instance and does not reach dispatchers built with a fresh
+     * no-arg `UnconfinedTestDispatcher()`.
+     */
+    private lateinit var qsoScheduler: TestCoroutineScheduler
+
     private var lateTxEnabled = true
 
     @Before fun setUp() {
@@ -48,7 +57,8 @@ class QsoSessionControllerTest {
         notifications.clear()
         resumeCaptureCalls.set(0)
         lateTxEnabled = true
-        scope = CoroutineScope(UnconfinedTestDispatcher())
+        qsoScheduler = TestCoroutineScheduler()
+        scope = CoroutineScope(UnconfinedTestDispatcher(qsoScheduler))
         rebuildController()
     }
 
@@ -67,7 +77,7 @@ class QsoSessionControllerTest {
             notifyFn = { text, tag -> notifications += text to tag },
             resumeCaptureIfNeeded = { resumeCaptureCalls.incrementAndGet() },
             executor = executor,
-            qsoDispatcher = UnconfinedTestDispatcher(),
+            qsoDispatcher = UnconfinedTestDispatcher(qsoScheduler),
             clock = { clockMs.get() },
             slotClockIntervalMs = 10_000L,
         )
@@ -226,14 +236,16 @@ class QsoSessionControllerTest {
     }
 
     @Test
-    fun abandonQso_blocksLaterAutoResume() = runTest {
+    fun blockStation_suppressesLaterAutoResume() = runTest {
         controller.onDecodeBatch(
             listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
             slotParity = TxSlotParity.EVEN,
         )
         assertEquals("K1ABC", controller.slice.value.qsoDx)
-        controller.abandonQso()
-        // Second directed message from same caller should NOT auto-resume.
+        controller.stopQso()
+        controller.blockStation("K1ABC")
+        assertEquals(listOf("K1ABC"), controller.slice.value.userBlockedCalls)
+        // Same caller must NOT auto-resume while user-blocked.
         controller.onDecodeBatch(
             listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
             slotParity = TxSlotParity.EVEN,
@@ -331,11 +343,11 @@ class QsoSessionControllerTest {
     }
 
     @Test
-    fun autoResumeCq_notAfterManualAbandon() = runTest {
+    fun autoResumeCq_notAfterManualStop() = runTest {
         controller.setAutoCqResumeEnabled(true)
         controller.startCq()
         controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
-        controller.abandonQso()
+        controller.stopQso()
         assertFalse(controller.slice.value.qsoActive)
         assertNull(controller.slice.value.qsoState)
     }
@@ -483,6 +495,32 @@ class QsoSessionControllerTest {
         controller.onDecodeBatch(listOf(QsoDecode("W0DEV N0XYZ 73", -8)), TxSlotParity.ODD)
         assertEquals(2, completedSnapshots.size)
         assertEquals("N0XYZ", completedSnapshots[1].dxCall)
+    }
+
+    @Test
+    fun noReplyTimeout_suppressesAuto_withoutUserBlock() = runTest {
+        controller.setMaxUnansweredTxCycles(1)
+        controller.setAutoCqResumeEnabled(false)
+        controller.onDecodeBatch(
+            listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
+            slotParity = TxSlotParity.EVEN,
+        )
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+        // Initiator role (grid-reply resume) ties TX parity to defaultTxSlotParity
+        // (EVEN), not the hearing slot — advance the manual clock one slot (15s)
+        // per iteration so the loop's frozen-clock parity check actually lands on
+        // an EVEN slot, then advance the shared qsoScheduler so its delay()s
+        // resolve against that clock. Both must move together: qsoScheduler drives
+        // the loop's suspension points, clockMs drives what SlotTiming/TxSlotSelection
+        // read when the loop wakes up.
+        repeat(4) {
+            clockMs.addAndGet(15_000L)
+            qsoScheduler.advanceTimeBy(15_000L)
+            qsoScheduler.runCurrent()
+        }
+        assertFalse(controller.slice.value.qsoActive)
+        // No-reply must not add the station to the user blocklist.
+        assertTrue(controller.slice.value.userBlockedCalls.isEmpty())
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

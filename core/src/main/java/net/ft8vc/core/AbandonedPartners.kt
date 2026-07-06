@@ -1,32 +1,48 @@
 package net.ft8vc.core
 
 /**
- * In-session blocklist for stations whose QSO was abandoned (no-reply timeout or user Abandon).
- * Prevents auto-resume to incomplete exchanges after abandon or no-reply timeout.
+ * In-session station suppression, split by intent:
+ *  - [userBlocked]: stations the operator explicitly blocked (long-press). Hidden
+ *    from the decode list and shown in the Settings blocklist manager.
+ *  - [autoSuppressed]: stations dropped by the no-reply timeout. Excluded from
+ *    auto-answer/CQ selection only; never hidden, never shown in the manager.
+ * Auto-answer/CQ exclusion uses the union ([snapshot]).
  */
 class AbandonedPartners {
 
-    private val blocked = LinkedHashSet<String>()
+    private val userBlocked = LinkedHashSet<String>()
+    private val autoSuppressed = LinkedHashSet<String>()
 
-    fun abandon(callsign: String) {
-        baseCall(callsign)?.let { blocked.add(it) }
+    /** Explicit operator block (long-press). */
+    fun blockUser(callsign: String) {
+        CallBaseName.of(callsign)?.let { userBlocked.add(it) }
     }
 
-    fun isAbandoned(callsign: String): Boolean {
-        val base = baseCall(callsign) ?: return false
-        return blocked.contains(base)
+    /** Transient no-reply suppression (auto-answer exclusion only). */
+    fun suppressAuto(callsign: String) {
+        CallBaseName.of(callsign)?.let { autoSuppressed.add(it) }
+    }
+
+    fun isUserBlocked(callsign: String): Boolean {
+        val base = CallBaseName.of(callsign) ?: return false
+        return userBlocked.contains(base)
+    }
+
+    /** Manual "engage this station now" override (tap-to-resume / manager unblock). */
+    fun allowResume(callsign: String) {
+        val base = CallBaseName.of(callsign) ?: return
+        userBlocked.remove(base)
+        autoSuppressed.remove(base)
     }
 
     fun clear() {
-        blocked.clear()
+        userBlocked.clear()
+        autoSuppressed.clear()
     }
 
-    /** Allow manual resume (tap decode) to override the block for one station. */
-    fun allowResume(callsign: String) {
-        baseCall(callsign)?.let { blocked.remove(it) }
-    }
+    /** Union of both sets: everything excluded from auto-answer/CQ selection. */
+    fun snapshot(): Set<String> = LinkedHashSet(userBlocked).apply { addAll(autoSuppressed) }
 
-    fun snapshot(): Set<String> = blocked.toSet()
-
-    private fun baseCall(callsign: String): String? = CallBaseName.of(callsign)
+    /** User-blocked stations only (row hiding + Settings manager). */
+    fun userBlockedSnapshot(): Set<String> = userBlocked.toSet()
 }

@@ -119,9 +119,9 @@ class QsoSessionController(
     val qsoDispatcher: CoroutineDispatcher = executor.asCoroutineDispatcher(),
     private val clock: () -> Long = { System.currentTimeMillis() },
     private val slotClockIntervalMs: Long = 250L,
+    private val abandonedPartners: AbandonedPartners = AbandonedPartners(),
 ) : AutoCloseable {
 
-    private val abandonedPartners = AbandonedPartners()
     private val dupeLogGuard = DupeLogGuard()
     private var qso: QsoMachine? = null
     private var qsoLoopJob: Job? = null
@@ -232,6 +232,7 @@ class QsoSessionController(
             return
         }
         abandonedPartners.allowResume(opp.dxCall)
+        publishBlocklist()
         scope.launch(qsoDispatcher) {
             resumeFromOpportunity(opp, "Resuming QSO with ${opp.dxCall}", row.slotParity)
         }
@@ -239,15 +240,6 @@ class QsoSessionController(
 
     fun stopQso() {
         scope.launch(qsoDispatcher) { stopQsoInternal() }
-    }
-
-    fun abandonQso() {
-        scope.launch(qsoDispatcher) {
-            val dx = qso?.dxCall
-            if (dx != null) abandonedPartners.abandon(dx)
-            stopQsoInternal()
-            notifyFn(dx?.let { "Abandoned QSO with $it" } ?: "QSO stopped", SnackbarEvent.Tag.TRANSIENT)
-        }
     }
 
     fun setOperateTxText(text: String) {
@@ -284,7 +276,25 @@ class QsoSessionController(
 
     fun clearAbandonedPartners() {
         abandonedPartners.clear()
-        notifyFn("Cleared abandoned-station blocklist", SnackbarEvent.Tag.TRANSIENT)
+        publishBlocklist()
+        notifyFn("Cleared blocklist", SnackbarEvent.Tag.TRANSIENT)
+    }
+
+    /** Explicit operator block from a long-press on a decode row. */
+    fun blockStation(callsign: String) {
+        abandonedPartners.blockUser(callsign)
+        publishBlocklist()
+        notifyFn("Blocked $callsign", SnackbarEvent.Tag.TRANSIENT)
+    }
+
+    /** Remove a station from the user blocklist (manager unblock). */
+    fun unblockStation(callsign: String) {
+        abandonedPartners.allowResume(callsign)
+        publishBlocklist()
+    }
+
+    private fun publishBlocklist() {
+        _slice.update { it.copy(userBlockedCalls = abandonedPartners.userBlockedSnapshot().sorted()) }
     }
 
     fun refreshOperateTxFromStation() {
@@ -445,7 +455,7 @@ class QsoSessionController(
 
     private suspend fun abandonForNoReply() {
         val dx = qso?.dxCall
-        if (dx != null) abandonedPartners.abandon(dx)
+        if (dx != null) abandonedPartners.suppressAuto(dx)
         val message = when {
             dx != null -> "No reply from $dx — QSO abandoned"
             else -> "No answers — stopped calling CQ"
@@ -701,4 +711,5 @@ data class QsoSlice(
     val isTxSlot: Boolean = false,
     val secondsUntilOurTxSlot: Int = 15,
     val utcClock: String = "00:00:00",
+    val userBlockedCalls: List<String> = emptyList(),
 )

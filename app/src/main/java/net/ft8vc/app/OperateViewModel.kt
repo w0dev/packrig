@@ -728,7 +728,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun abandonQso() {
         playback.stop()
         rigSession.releasePttAsync()
-        qsoSession.abandonQso()
+        // TODO(Task 4): qsoSession.abandonQso() was removed with the userBlocked/
+        // autoSuppressed split; this button is replaced by block/unblock wiring
+        // in the next task. stopQso() keeps this entry point compiling in the
+        // interim without silently re-adding a blocklist entry.
+        qsoSession.stopQso()
     }
 
     fun setOperateTxText(text: String) = qsoSession.setOperateTxText(text)
