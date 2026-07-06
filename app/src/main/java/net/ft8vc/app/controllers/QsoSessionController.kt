@@ -20,6 +20,7 @@ import net.ft8vc.app.SnackbarEvent
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AbandonedPartners
 import net.ft8vc.core.AnswerPolicy
+import net.ft8vc.core.CallBaseName
 import net.ft8vc.core.DupeLogGuard
 import net.ft8vc.core.AnswerSelector
 import net.ft8vc.core.QsoDecode
@@ -282,9 +283,19 @@ class QsoSessionController(
 
     /** Explicit operator block from a long-press on a decode row. */
     fun blockStation(callsign: String) {
-        abandonedPartners.blockUser(callsign)
-        publishBlocklist()
-        notifyFn("Blocked $callsign", SnackbarEvent.Tag.TRANSIENT)
+        scope.launch(qsoDispatcher) {
+            abandonedPartners.blockUser(callsign)
+            // Blocking the station we are actively working ends the QSO too, so the
+            // block takes real effect instead of the loop transmitting to a blocked call.
+            val dx = qso?.dxCall
+            val endedActive = dx != null && CallBaseName.of(dx) == CallBaseName.of(callsign)
+            if (endedActive) stopQsoInternal()
+            publishBlocklist()
+            notifyFn(
+                if (endedActive) "Blocked $callsign — QSO ended" else "Blocked $callsign",
+                SnackbarEvent.Tag.TRANSIENT,
+            )
+        }
     }
 
     /** Remove a station from the user blocklist (manager unblock). */

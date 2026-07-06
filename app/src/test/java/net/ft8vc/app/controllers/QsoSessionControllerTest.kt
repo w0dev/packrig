@@ -254,6 +254,32 @@ class QsoSessionControllerTest {
     }
 
     @Test
+    fun blockStation_activePartner_endsQso() = runTest {
+        controller.onDecodeBatch(
+            listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
+            slotParity = TxSlotParity.EVEN,
+        )
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+        controller.blockStation("K1ABC")
+        assertFalse(controller.slice.value.qsoActive)
+        assertNull(controller.slice.value.qsoDx)
+        assertEquals(listOf("K1ABC"), controller.slice.value.userBlockedCalls)
+    }
+
+    @Test
+    fun blockStation_otherStation_leavesActiveQsoRunning() = runTest {
+        controller.onDecodeBatch(
+            listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
+            slotParity = TxSlotParity.EVEN,
+        )
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+        controller.blockStation("N0XYZ")
+        assertTrue(controller.slice.value.qsoActive)
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+        assertEquals(listOf("N0XYZ"), controller.slice.value.userBlockedCalls)
+    }
+
+    @Test
     fun setOperateTxText_marksEdited_andSlicePropagates() = runTest {
         controller.startCq()
         controller.setOperateTxText("CUSTOM MESSAGE")
