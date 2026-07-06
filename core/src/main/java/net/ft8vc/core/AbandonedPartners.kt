@@ -28,9 +28,5 @@ class AbandonedPartners {
 
     fun snapshot(): Set<String> = blocked.toSet()
 
-    private fun baseCall(callsign: String): String? {
-        val trimmed = callsign.trim()
-        if (trimmed.isEmpty()) return null
-        return trimmed.substringBefore('/').substringBefore('-').uppercase()
-    }
+    private fun baseCall(callsign: String): String? = CallBaseName.of(callsign)
 }
