@@ -107,6 +107,7 @@ fun OperateScreen(
                 onTxSlotParityChange = vm::setTxSlotParity,
                 onRetryCat = vm::retryCat,
                 onRetryCapture = vm::retryCapture,
+                onAlignClock = vm::alignClock,
                 modifier = Modifier.fillMaxWidth(),
             )
             val stationComplete = StationProfileValidator.isComplete(state.myCall, state.myGrid)
