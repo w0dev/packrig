@@ -21,6 +21,10 @@ data class StationSettings(
     val pttPreference: PttPreference = PttPreference.AUTO,
     /** CAT serial baud — must match FT-891 menu 05-06 (CAT RATE). Default = v1.0 behavior. */
     val catBaud: Int = RigController.DEFAULT_CAT_BAUD,
+    /** Selected radio model id (see net.ft8vc.rig.RigRegistry). Null = none chosen. */
+    val radioModelId: String? = null,
+    /** Operator override for the CAT serial port index; null = descriptor default. */
+    val catPortOverride: Int? = null,
     val licenseAcknowledged: Boolean = false,
     val txEnabledInSettings: Boolean = false,
     val autoSeqEnabled: Boolean = true,
