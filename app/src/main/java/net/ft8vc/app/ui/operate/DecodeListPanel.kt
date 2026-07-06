@@ -83,7 +83,8 @@ fun DecodeListPanel(
             ))
     }
     val filterActive = decodeViewMode == DecodeViewMode.OPERATE ||
-        (decodeViewMode == DecodeViewMode.ALL && cq73OnlyFilter)
+        (decodeViewMode == DecodeViewMode.ALL && cq73OnlyFilter) ||
+        visibleDecodes.size != decodes.size
     val decodeCountLabel = if (filterActive) {
         "${visibleDecodes.size}/${decodes.size}"
     } else {
