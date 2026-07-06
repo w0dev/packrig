@@ -67,8 +67,6 @@ class DecodeListPanelFollowTest {
                 onClear = {},
                 onAnswerCq = {},
                 onResume = {},
-                userBlockedCalls = emptyList(),
-                onBlockSender = {},
                 modifier = Modifier.height(280.dp),
             )
         }

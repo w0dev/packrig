@@ -63,8 +63,8 @@ fun DecodeListPanel(
     onClear: () -> Unit,
     onAnswerCq: (DecodeRow) -> Unit,
     onResume: (DecodeRow) -> Unit,
-    userBlockedCalls: List<String>,
-    onBlockSender: (String) -> Unit,
+    userBlockedCalls: List<String> = emptyList(),
+    onBlockSender: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val visibleDecodes = decodes.filter { row ->
