@@ -66,18 +66,28 @@ portable FT8 session.
 - USB audio RX from the Digirig (12 kHz, UTC slot-aligned decode)
 - Compact 3-row status bar: dial MHz (tap to retune via CAT), mode, **TX tone**
   chip, POTA chip, **Halt TX** button; slot progress, UTC countdown, **Even/Odd**
-  TX slot chips with a **TX Ns** countdown to your next TX period
+  TX slot chips with a **TX Ns** countdown to your next TX period. A **clock
+  offset chip** appears when the device clock drifts from band time — tap it to
+  align to the decoded slot (see Settings → Clock alignment)
 - Decode list: CQ highlighted, traffic directed to you in amber; QSO partner in
-  bold; **distance (km)** shown when a 4-char grid is in the message
+  bold; **distance (km)** shown when a 4-char grid is in the message; a two-letter
+  **country (CC)** column; the UTC cell is tinted by slot parity so Even/Odd slots
+  read apart at a glance. **Long-press a row to block** that sender
 - **Focus** mode (default) hides chatter unrelated to your call, the active QSO
   partner, or signals near your TX tone. **Band** mode shows the full passband.
   Optional **CQ·73** chip narrows further when browsing.
 - Inline level meter and one-tap input gain while operating
+- A capture-stall **watchdog** auto-restarts USB audio if the RX thread goes
+  silent; a **tap-to-retry** chip appears if automatic recovery is exhausted
 
 ### Spectrum
 
 - Full-screen waterfall on its own tab; tap or drag to set the TX audio offset
 - TX tone persists across tabs and shows on the Operate status bar
+- Decode **markers** overlay the waterfall — CQ callers get labelled ticks, and a
+  **Labels** toggle shows or hides the callsign text. Your 50 Hz TX band is drawn
+  on the waterfall and tints red when it clashes with a nearby decode; a live
+  **TX Hz** readout confirms your offset (markers toggle persists in Settings)
 - **Dial** label (when CAT is ready): tap to pick a band / preset FT8 dial
   frequency and tune the rig over CAT
 - Dark/Light mode toggle in Settings → Display (whole app commits to the choice)
@@ -89,12 +99,16 @@ portable FT8 session.
 - Auto-seq QSO state machine (CQ → grid → reports → RRR → 73)
 - **Start CQ** waits for your chosen Even/Odd TX slot; tap any CQ to answer
 - **Answer when called** auto-resumes when someone calls you; **Auto answer CQ**
-  hunts CQs when idle (independent toggles in Settings → Operating)
+  hunts CQs when idle; **Resume CQ after QSO** keeps calling CQ once a contact you
+  started by calling CQ wraps up (Search & Pounce QSOs do not auto-resume).
+  Independent toggles in Settings → Operating
 - Answer selection policy: **First**, **Best SNR**, or **Furthest** (great-circle
   km from your grid)
-- **Abandon after N TX cycles** with no reply; the partner is added to a session
-  blocklist so auto modes do not call them again until you clear it
-- **Stop QSO / Abandon** during a contact; resume on the next call
+- **Abandon after N TX cycles** with no reply auto-drops the non-responder from
+  further auto-answer / auto-CQ selection for the rest of the session
+- Single **End QSO** button ends the active contact; long-press a decode to block
+  a sender outright. Blocked stations are hidden from the decode list and managed
+  in **Settings → Blocklist** (per-call **Unblock** or **Clear all**)
 - License acknowledgment gates the first TX
 
 ### Activation (POTA)

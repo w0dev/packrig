@@ -87,7 +87,7 @@ Golden WAV assets live in `ft8-native/src/androidTest/assets/`. See
 
 ## Integration in the app
 
-`MonitorViewModel`:
+`OperateViewModel`:
 
 1. `SlotCollector` delivers ~15 s of PCM per UTC slot
 2. `Ft8Native.decode()` runs on a background executor
