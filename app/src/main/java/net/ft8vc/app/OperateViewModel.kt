@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import net.ft8vc.app.controllers.AppRfState
+import net.ft8vc.app.controllers.CaptureWatchdog
 import net.ft8vc.app.controllers.DecodeController
 import net.ft8vc.app.controllers.QsoSessionController
 import net.ft8vc.app.controllers.RigSession
@@ -40,6 +41,8 @@ import net.ft8vc.ft8native.Ft8Native
 import net.ft8vc.rig.RigController
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -100,6 +103,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val contactCount: Int = 0,
         /** Operator-applied clock correction (ms); mirrored into OperateUiState for the Settings/chip display. */
         val appliedClockOffsetMs: Long = 0L,
+        /** Capture watchdog gave up after exhausting restarts; drives the retry chip. */
+        val captureFailed: Boolean = false,
     )
 
     private val _viewState = MutableStateFlow(OperateViewState())
@@ -118,6 +123,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private val capture = UsbAudioCapture(app)
     private val captureLifecycle = CaptureLifecycle(capture)
+    private val captureWatchdog = CaptureWatchdog()
     private val playback = UsbAudioPlayback(app)
     private val rig = RigController(app)
     private val rigSession = RigSession(
@@ -256,6 +262,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 txSafetyHaltActive = tx.txSafetyHaltActive,
                 digirigDisconnected = tx.digirigDisconnected,
                 catUnreachable = rig.catUnreachable,
+                captureFailed = view.captureFailed,
                 decodeFailureRecent = decode.decodeFailureRecent,
                 zeroSampleSlots = decode.zeroSampleSlots,
                 clockOffsetSeconds = decode.clockOffsetSeconds,
@@ -351,6 +358,29 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         notify("Audio device removed — restarting capture", SnackbarEvent.Tag.ERROR)
                         restartCapture()
                     }
+                }
+            }
+        }
+        // Capture heartbeat watchdog: a stalled/dead capture thread stops delivering
+        // frames entirely, so the zero-sample slice watchdog (which needs frames
+        // flowing) can't see it. Poll on a timer instead.
+        viewModelScope.launch {
+            while (isActive) {
+                delay(CAPTURE_WATCHDOG_TICK_MS)
+                val ui = state.value
+                if (!ui.isCapturing) continue
+                val devicePresent = AudioInputs.list(getApplication()).any { it.isUsb }
+                when (captureWatchdog.poll(ui.isCapturing, ui.isTransmitting, devicePresent)) {
+                    CaptureWatchdog.Decision.Recover -> {
+                        notify("Audio stalled — restarting capture", SnackbarEvent.Tag.ERROR)
+                        restartCapture()
+                    }
+                    CaptureWatchdog.Decision.GiveUp -> {
+                        _viewState.update { it.copy(captureFailed = true) }
+                        stopCapture()
+                        notify("Audio capture failed — tap to retry", SnackbarEvent.Tag.ERROR)
+                    }
+                    CaptureWatchdog.Decision.Idle -> {}
                 }
             }
         }
@@ -850,7 +880,14 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun beginCapture() {
         _viewState.update { it.copy(isCapturing = true) }
-        captureLifecycle.start(state.value.selectedDeviceId, decodeController::onFrames) { t ->
+        captureWatchdog.onCaptureStarted()
+        captureLifecycle.start(
+            state.value.selectedDeviceId,
+            { frames ->
+                captureWatchdog.onFrame()
+                decodeController.onFrames(frames)
+            },
+        ) { t ->
             _viewState.update { it.copy(isCapturing = false, isOperating = false) }
             notify(t.message ?: "Capture failed", SnackbarEvent.Tag.ERROR)
         }
@@ -863,6 +900,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun stopCapture(onStopped: () -> Unit = {}) {
         _viewState.update { it.copy(isCapturing = false) }
+        captureWatchdog.reset()
         captureLifecycle.stop {
             // Runs after the engine actually stopped, so the reset can't race
             // frames still draining from the capture thread.
@@ -885,6 +923,13 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun retryCat() {
         rigSession.retryCat()
         readRig()
+    }
+
+    /** Operator taps the "Audio capture failed — tap to retry" chip. */
+    fun retryCapture() {
+        _viewState.update { it.copy(captureFailed = false) }
+        captureWatchdog.reset()
+        restartCapture()
     }
 
     /**
@@ -937,5 +982,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private companion object {
         /** Floor-offset dB used by the spectrum/waterfall renderer at the default brightness (0.6). */
         const val WATERFALL_FLOOR_OFFSET_DB_DEFAULT = 24f - 0.6f * 32f
+        /** Poll interval for the capture-stall watchdog monitor coroutine. */
+        const val CAPTURE_WATCHDOG_TICK_MS = 1_000L
     }
 }
