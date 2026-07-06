@@ -131,6 +131,8 @@ data class OperateUiState(
     val catBaud: Int = RigController.DEFAULT_CAT_BAUD,
     /** Selected radio model id, or null if none chosen yet. */
     val radioModelId: String? = null,
+    /** Manual CAT-port override index within the model's serial ports, or null for auto. */
+    val catPortOverride: Int? = null,
 
     // ── Slot (UTC slot timing + parity) ───────────────────────────────────
     val slotIndex: Int = 0,

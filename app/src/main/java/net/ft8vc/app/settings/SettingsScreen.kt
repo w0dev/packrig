@@ -137,10 +137,17 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
             }
 
-            SettingsSection("Rig (FT-891 CAT)") {
+            val rigTitle = state.radioModelId
+                ?.let { net.ft8vc.rig.RigRegistry.byId(it)?.displayName }
+                ?.let { "Rig ($it)" }
+                ?: "Radio"
+            SettingsSection(rigTitle) {
                 RadioSettingsSection(
                     state = state,
                     usbDiagnostics = vm.usbDiagnostics(),
+                    serialPortCount = vm.availableSerialPortCount(),
+                    onSelectRadioModel = vm::setRadioModel,
+                    onSelectCatPort = vm::setCatPortOverride,
                     onSelectDialFrequency = vm::setRigFrequency,
                     onReadRig = vm::readRig,
                     onSetRigDataUsb = vm::setRigDataUsb,
@@ -375,7 +382,7 @@ fun SettingsScreen(vm: OperateViewModel) {
                     )
                 }
                 Text(
-                    "Field setup: Yaesu FT-891 + Digirig Mobile. See docs/HARDWARE.md in the repo.",
+                    "Field reference: Yaesu FT-891 + Digirig Mobile. Other rigs: see docs/HARDWARE.md.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

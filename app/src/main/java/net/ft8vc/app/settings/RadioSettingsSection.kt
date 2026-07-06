@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import net.ft8vc.app.OperateUiState
 import net.ft8vc.app.ui.DialFrequencyDropdownField
 import net.ft8vc.app.ui.theme.Ft8Green
+import net.ft8vc.rig.RigRegistry
 
 /**
  * Radio (rig + serial link) settings: dial frequency, mode, DATA-U, CAT baud,
@@ -39,6 +40,9 @@ import net.ft8vc.app.ui.theme.Ft8Green
 fun RadioSettingsSection(
     state: OperateUiState,
     usbDiagnostics: String,
+    serialPortCount: Int,
+    onSelectRadioModel: (String) -> Unit,
+    onSelectCatPort: (Int?) -> Unit,
     onSelectDialFrequency: (Long) -> Unit,
     onReadRig: () -> Unit,
     onSetRigDataUsb: () -> Unit,
@@ -46,6 +50,23 @@ fun RadioSettingsSection(
     onSetPttPreference: (PttPreference) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        RadioModelPicker(
+            selectedId = state.radioModelId,
+            onSelect = onSelectRadioModel,
+        )
+        if (serialPortCount > 1) {
+            CatPortOverridePicker(
+                override = state.catPortOverride,
+                portCount = serialPortCount,
+                onSelect = onSelectCatPort,
+            )
+        }
+        if (state.radioModelId == null) {
+            Text(
+                "Select your radio model to enable CAT and PTT.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
         if (state.catReady) {
             DialFrequencyDropdownField(
                 rigFreqHz = state.rigFreqHz,
@@ -73,9 +94,9 @@ fun RadioSettingsSection(
             state.catStatus?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             }
-        } else {
+        } else if (state.radioModelId != null) {
             Text(
-                "CAT unavailable — connect Digirig serial and grant USB permission.",
+                "CAT unavailable — connect the radio's serial link and grant USB permission.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -89,6 +110,73 @@ fun RadioSettingsSection(
             onSelect = onSetPttPreference,
         )
         UsbDiagnosticsExpandable(diagnostics = usbDiagnostics)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RadioModelPicker(
+    selectedId: String?,
+    onSelect: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedName = selectedId
+        ?.let { id -> RigRegistry.byId(id)?.displayName }
+        ?: "Select your radio model"
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selectedName,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Radio model") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            RigRegistry.all.forEach { d ->
+                DropdownMenuItem(
+                    text = { Text(d.displayName) },
+                    onClick = {
+                        expanded = false
+                        onSelect(d.id)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CatPortOverridePicker(
+    override: Int?,
+    portCount: Int,
+    onSelect: (Int?) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val label = override?.let { "Port $it" } ?: "Auto (from model)"
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = label,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("CAT port") },
+            supportingText = { Text("This radio exposes $portCount serial ports") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Auto (from model)") },
+                onClick = { expanded = false; onSelect(null) },
+            )
+            (0 until portCount).forEach { i ->
+                DropdownMenuItem(
+                    text = { Text("Port $i") },
+                    onClick = { expanded = false; onSelect(i) },
+                )
+            }
+        }
     }
 }
 

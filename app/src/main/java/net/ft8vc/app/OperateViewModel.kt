@@ -259,6 +259,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 pttPreference = settings.pttPreference,
                 catBaud = settings.catBaud,
                 radioModelId = settings.radioModelId,
+                catPortOverride = settings.catPortOverride,
                 slotIndex = qso.slotIndex,
                 secondsToNextSlot = qso.secondsToNextSlot,
                 isTxSlot = qso.isTxSlot,
