@@ -645,6 +645,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun prepareRig() {
         when (rig.state()) {
+            RigController.State.NoModel -> {
+                // No radio model selected yet (RigController.descriptor is null).
+                // Model selection UI lands in a later task; nothing to prepare.
+            }
             RigController.State.NoDevice -> {
                 val usb = rig.usbDeviceSummary()
                 _viewState.update {

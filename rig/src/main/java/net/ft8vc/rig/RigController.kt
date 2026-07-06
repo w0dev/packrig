@@ -9,6 +9,7 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
 import android.util.Log
+import com.hoho.android.usbserial.driver.CdcAcmSerialDriver
 import com.hoho.android.usbserial.driver.Cp21xxSerialDriver
 import com.hoho.android.usbserial.driver.ProbeTable
 import com.hoho.android.usbserial.driver.UsbSerialDriver
@@ -27,7 +28,10 @@ import com.hoho.android.usbserial.driver.UsbSerialProber
 class RigController(private val context: Context) : RigBackend, CatControl {
 
     enum class State {
-        /** No supported USB-serial device present. */
+        /** No radio model selected yet. */
+        NoModel,
+
+        /** Model selected, but no supported USB-serial device present. */
         NoDevice,
 
         /** Device present but USB permission not yet granted. */
@@ -55,16 +59,58 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     /** True once a real serial PTT backend is open. (Name kept for app parity.) */
     val isDigirigReady: Boolean get() = backend != null
 
-    /** Silicon Labs PIDs the stock probe table may lack (CP2102 dual variant). */
-    private val customProber = UsbSerialProber(
-        ProbeTable().addProduct(0x10C4, 0xEA61, Cp21xxSerialDriver::class.java),
-    )
+    /**
+     * Selected radio. Null until the operator picks a model — [bindIfPermitted]
+     * is a no-op and [state] reports [State.NoModel]. Owner (OperateViewModel)
+     * mirrors the persisted RADIO_MODEL setting here; call [rebind] to apply.
+     *
+     * The synthesized Kotlin property setter is renamed at the JVM level
+     * (`@set:JvmName`) so it does not clash with the explicit [setDescriptor]
+     * function below, which additionally drops any backend bound to the
+     * previous model — direct `descriptor = x` assignment does not.
+     */
+    @Volatile
+    @get:JvmName("getDescriptor")
+    @set:JvmName("assignDescriptor")
+    var descriptor: RigDescriptor? = null
 
-    private fun findDriver(): UsbSerialDriver? =
-        UsbSerialProber.getDefaultProber().findAllDrivers(usbManager).firstOrNull()
-            ?: customProber.findAllDrivers(usbManager).firstOrNull()
+    /** Operator override for which serial port carries CAT; null = descriptor default. */
+    @Volatile
+    var catPortOverride: Int? = null
+
+    /** Set the active model and drop any backend bound to the previous one. */
+    @Synchronized
+    fun setDescriptor(d: RigDescriptor?) {
+        if (descriptor?.id == d?.id) return
+        descriptor = d
+        backend?.close()
+        backend = null
+    }
+
+    private fun findDriver(): UsbSerialDriver? {
+        val fromStock = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager).firstOrNull()
+        if (fromStock != null) return fromStock
+        val custom = customProber().findAllDrivers(usbManager).firstOrNull()
+        if (custom != null) return custom
+        // Some built-in-USB rigs enumerate as CDC-ACM, which the stock prober
+        // does not match blindly; try it directly against a present device.
+        val device = usbManager.deviceList.values.firstOrNull() ?: return null
+        return runCatching { CdcAcmSerialDriver(device) }.getOrNull()
+    }
+
+    /** Prober seeded with the current descriptor's custom PIDs plus the CP2102 dual variant. */
+    private fun customProber(): UsbSerialProber {
+        val table = ProbeTable().addProduct(0x10C4, 0xEA61, Cp21xxSerialDriver::class.java)
+        descriptor?.customProbePids?.forEach { id ->
+            table.addProduct(id.vendorId, id.productId, Cp21xxSerialDriver::class.java)
+        }
+        return UsbSerialProber(table)
+    }
 
     fun findDevice(): UsbDevice? = findDriver()?.device
+
+    /** Serial ports the currently attached, matched driver exposes (0 if none). */
+    fun availablePortCount(): Int = findDriver()?.ports?.size ?: 0
 
     /** Short summary of USB devices Android reports (for UI diagnostics). */
     fun usbDeviceSummary(): String {
@@ -80,27 +126,35 @@ class RigController(private val context: Context) : RigBackend, CatControl {
 
     /** Current discovery/permission state (for UI status). */
     fun state(): State {
+        if (descriptor == null) return State.NoModel
         findDevice() ?: return State.NoDevice
         return if (backend != null) State.Ready else State.NeedsPermission
     }
 
     /**
      * Bind to a connected, permitted serial device. Returns true if PTT is now
-     * wired. No-op (returns current readiness) if no device or no permission.
+     * wired. No-op (returns current readiness) if no model selected, no device,
+     * no permission, or no usable CAT port index.
      */
     @Synchronized
     fun bindIfPermitted(): Boolean {
         if (backend != null) return true
+        val d = descriptor ?: return false
         val driver = findDriver() ?: return false
         if (!usbManager.hasPermission(driver.device)) return false
-        val port = driver.ports.firstOrNull() ?: return false
+        val index = resolveCatPortIndex(driver.ports.size, catPortOverride, d.catPortIndex)
+        if (index == null) {
+            Log.e(TAG, "No serial port at CAT index (ports=${driver.ports.size}, override=$catPortOverride, descriptor=${d.catPortIndex})")
+            return false
+        }
+        val port = driver.ports[index]
         val candidate = SerialRigBackend(
             transport = UsbSerialTransport(usbManager, port, catBaud),
-            protocol = YaesuCat(YaesuCat.FT891),
+            protocol = d.protocolFactory(),
         )
         return if (candidate.open()) {
             backend = candidate
-            Log.i(TAG, "Serial rig backend bound for PTT/CAT (${driver.device.deviceName})")
+            Log.i(TAG, "Serial rig backend bound: ${d.displayName} @ port $index (${driver.device.deviceName})")
             true
         } else {
             Log.e(TAG, "Backend open() failed after USB permission granted")
@@ -220,7 +274,9 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     override fun setDataMode(): Boolean = backend?.setDataMode() ?: false
 
     override fun dataModeLabel(): String =
-        backend?.dataModeLabel() ?: YaesuCat(YaesuCat.FT891).dataModeLabel
+        backend?.dataModeLabel()
+            ?: descriptor?.protocolFactory()?.dataModeLabel
+            ?: "DATA-U"
 
     override fun catPtt(on: Boolean): Boolean = backend?.catPtt(on) ?: false
 
@@ -240,5 +296,14 @@ class RigController(private val context: Context) : RigBackend, CatControl {
          * commonly raise it to 38400 for snappier polling. Must match the rig.
          */
         const val DEFAULT_CAT_BAUD = 38_400
+
+        /**
+         * Pick the serial port index for CAT: operator [override] if set, else the
+         * [descriptorIndex], validated against [portCount]. Null = no usable port.
+         */
+        fun resolveCatPortIndex(portCount: Int, override: Int?, descriptorIndex: Int): Int? {
+            val wanted = override ?: descriptorIndex
+            return if (wanted in 0 until portCount) wanted else null
+        }
     }
 }
