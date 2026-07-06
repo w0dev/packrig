@@ -311,7 +311,7 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
                 AutoToggleRow(
                     title = "Resume CQ after QSO",
-                    subtitle = "Keep calling CQ after each logged or abandoned QSO",
+                    subtitle = "After a QSO you started by calling CQ, keep calling CQ",
                     checked = state.autoCqResumeEnabled,
                     onCheckedChange = vm::setAutoCqResumeEnabled,
                     enabled = state.txEnabled,
