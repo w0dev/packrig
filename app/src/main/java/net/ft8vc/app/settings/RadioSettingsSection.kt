@@ -52,12 +52,14 @@ fun RadioSettingsSection(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         RadioModelPicker(
             selectedId = state.radioModelId,
+            enabled = !state.catBusy && !state.isTransmitting,
             onSelect = onSelectRadioModel,
         )
         if (serialPortCount > 1) {
             CatPortOverridePicker(
                 override = state.catPortOverride,
                 portCount = serialPortCount,
+                enabled = !state.catBusy && !state.isTransmitting,
                 onSelect = onSelectCatPort,
             )
         }
@@ -117,17 +119,19 @@ fun RadioSettingsSection(
 @Composable
 private fun RadioModelPicker(
     selectedId: String?,
+    enabled: Boolean,
     onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedName = selectedId
         ?.let { id -> RigRegistry.byId(id)?.displayName }
         ?: "Select your radio model"
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
         OutlinedTextField(
             value = selectedName,
             onValueChange = {},
             readOnly = true,
+            enabled = enabled,
             label = { Text("Radio model") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(),
@@ -151,15 +155,17 @@ private fun RadioModelPicker(
 private fun CatPortOverridePicker(
     override: Int?,
     portCount: Int,
+    enabled: Boolean,
     onSelect: (Int?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val label = override?.let { "Port $it" } ?: "Auto (from model)"
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
         OutlinedTextField(
             value = label,
             onValueChange = {},
             readOnly = true,
+            enabled = enabled,
             label = { Text("CAT port") },
             supportingText = { Text("This radio exposes $portCount serial ports") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
