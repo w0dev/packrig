@@ -38,7 +38,9 @@ import net.ft8vc.data.db.Ft8vcDatabase
 import net.ft8vc.data.model.QsoContact
 import net.ft8vc.app.ui.bandLabelForLogging
 import net.ft8vc.ft8native.Ft8Native
+import net.ft8vc.rig.PttMethod
 import net.ft8vc.rig.RigController
+import net.ft8vc.rig.RigRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -58,6 +60,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.util.Locale
+
+/** Map a descriptor's default PTT method onto the app's PTT preference. */
+fun PttMethod.toPreference(): PttPreference = when (this) {
+    PttMethod.AUTO -> PttPreference.AUTO
+    PttMethod.CAT -> PttPreference.CAT
+    PttMethod.RTS -> PttPreference.RTS
+}
 
 /**
  * Thin orchestrator: constructs the five controllers (SettingsBridge,
@@ -249,6 +258,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 lastDialFreqHz = settings.lastDialFreqHz,
                 pttPreference = settings.pttPreference,
                 catBaud = settings.catBaud,
+                radioModelId = settings.radioModelId,
                 slotIndex = qso.slotIndex,
                 secondsToNextSlot = qso.secondsToNextSlot,
                 isTxSlot = qso.isTxSlot,
@@ -334,6 +344,19 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 if (rig.catBaud != s.catBaud) {
                     rig.catBaud = s.catBaud
                     if (rig.isDigirigReady && !state.value.isTransmitting) {
+                        viewModelScope.launch(rigSession.catDispatcher) {
+                            rig.rebind()
+                            withContext(Dispatchers.Main) { prepareRig() }
+                        }
+                    }
+                }
+                // Radio-model mirror: resolve the selected id to a descriptor and
+                // apply it to the controller, rebinding like the CAT-baud mirror.
+                val wantModel = s.radioModelId?.let { RigRegistry.byId(it) }
+                if (rig.descriptor?.id != wantModel?.id || rig.catPortOverride != s.catPortOverride) {
+                    rig.setDescriptor(wantModel)
+                    rig.catPortOverride = s.catPortOverride
+                    if (!state.value.isTransmitting) {
                         viewModelScope.launch(rigSession.catDispatcher) {
                             rig.rebind()
                             withContext(Dispatchers.Main) { prepareRig() }
@@ -560,6 +583,22 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settingsRepo.setCatBaud(baud) }
     }
 
+    /** Select the radio model; applies the model's default baud + PTT method. */
+    fun setRadioModel(id: String) {
+        val d = RigRegistry.byId(id) ?: return
+        viewModelScope.launch {
+            settingsRepo.setRadioModel(id)
+            settingsRepo.setCatBaud(d.defaultBaud)
+            settingsRepo.setPttPreference(d.defaultPtt.toPreference())
+        }
+    }
+
+    fun setCatPortOverride(index: Int?) {
+        viewModelScope.launch { settingsRepo.setCatPortOverride(index) }
+    }
+
+    fun availableSerialPortCount(): Int = rig.availablePortCount()
+
     fun acknowledgeLicense() {
         viewModelScope.launch { settingsRepo.setLicenseAcknowledged(true) }
         // Per SAFETY-02: license re-acknowledgment after a USB reconnect is the
@@ -646,8 +685,13 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private fun prepareRig() {
         when (rig.state()) {
             RigController.State.NoModel -> {
-                // No radio model selected yet (RigController.descriptor is null).
-                // Model selection UI lands in a later task; nothing to prepare.
+                _viewState.update {
+                    it.copy(
+                        pttReady = false,
+                        catReady = false,
+                        txStatus = "Select your radio model in Settings",
+                    )
+                }
             }
             RigController.State.NoDevice -> {
                 val usb = rig.usbDeviceSummary()

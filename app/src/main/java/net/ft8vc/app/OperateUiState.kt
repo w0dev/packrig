@@ -129,6 +129,8 @@ data class OperateUiState(
     val pttPreference: PttPreference = PttPreference.AUTO,
     /** CAT serial baud from settings — must match FT-891 menu 05-06 (CAT RATE). */
     val catBaud: Int = RigController.DEFAULT_CAT_BAUD,
+    /** Selected radio model id, or null if none chosen yet. */
+    val radioModelId: String? = null,
 
     // ── Slot (UTC slot timing + parity) ───────────────────────────────────
     val slotIndex: Int = 0,
