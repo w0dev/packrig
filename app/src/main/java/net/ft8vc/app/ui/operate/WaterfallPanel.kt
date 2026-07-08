@@ -20,19 +20,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import net.ft8vc.app.OperateViewModel
-import net.ft8vc.app.ui.spectrum.SpectrumMarker
-import net.ft8vc.app.ui.spectrum.SpectrumMarkers
 import net.ft8vc.app.ui.theme.Ft8Amber
-import net.ft8vc.app.ui.theme.Ft8Red
 
 /** FT8 occupied bandwidth: 8-FSK x 6.25 Hz tone spacing. */
 private const val FT8_SIGNAL_WIDTH_HZ = 50
@@ -44,19 +37,10 @@ fun WaterfallPanel(
     maxFreqHz: Int,
     txFreqHz: Int,
     onFreqChange: (Int) -> Unit,
-    markers: List<SpectrumMarker>,
-    showMarkers: Boolean,
     modifier: Modifier = Modifier,
 ) {
     fun freqForX(x: Float, widthPx: Int): Int =
         if (widthPx <= 0) txFreqHz else (x / widthPx * maxFreqHz).toInt()
-
-    val textMeasurer = rememberTextMeasurer()
-    val labelStyle = TextStyle(
-        color = Ft8Amber,
-        fontFamily = FontFamily.Monospace,
-        fontSize = 10.sp,
-    )
 
     Column(modifier = modifier) {
         Box(
@@ -88,47 +72,18 @@ fun WaterfallPanel(
                 if (maxFreqHz <= 0) return@Canvas
                 val hzToX = { hz: Int -> (hz.toFloat() / maxFreqHz * size.width).coerceIn(0f, size.width) }
 
-                // TX footprint band (txFreq .. txFreq + 50 Hz), tinted on clash.
+                // TX footprint band (txFreq .. txFreq + 50 Hz).
                 val bandStart = hzToX(txFreqHz)
                 val bandEnd = hzToX(txFreqHz + FT8_SIGNAL_WIDTH_HZ)
-                val clash = SpectrumMarkers.txClashes(txFreqHz, markers)
-                val bandColor = if (clash) Ft8Red else Ft8Amber
                 drawRect(
-                    color = bandColor.copy(alpha = 0.22f),
+                    color = Ft8Amber.copy(alpha = 0.22f),
                     topLeft = Offset(bandStart, 0f),
                     size = Size((bandEnd - bandStart).coerceAtLeast(1f), size.height),
                 )
 
-                // CQ ticks + callsign labels (declutter into two stacked rows).
-                if (showMarkers) {
-                    val cqMarkers = markers.filter { it.isCq }.sortedBy { it.freqHz }
-                    var lastRightRow0 = Float.NEGATIVE_INFINITY
-                    var lastRightRow1 = Float.NEGATIVE_INFINITY
-                    for (m in cqMarkers) {
-                        val x = hzToX(m.freqHz)
-                        drawLine(
-                            color = Ft8Amber.copy(alpha = 0.35f),
-                            start = Offset(x, 0f),
-                            end = Offset(x, size.height),
-                            strokeWidth = 1.dp.toPx(),
-                        )
-                        val layout = textMeasurer.measure(m.callsign, style = labelStyle)
-                        val labelX = x.coerceAtMost(size.width - layout.size.width)
-                        // Choose the topmost row whose last label does not overlap.
-                        val (rowY, placed) = when {
-                            labelX >= lastRightRow0 -> 2.dp.toPx() to 0
-                            labelX >= lastRightRow1 -> (2.dp.toPx() + layout.size.height + 1.dp.toPx()) to 1
-                            else -> continue // no room in either row without overlap; keep tick only
-                        }
-                        drawText(layout, topLeft = Offset(labelX, rowY))
-                        val right = labelX + layout.size.width + 4.dp.toPx()
-                        if (placed == 0) lastRightRow0 = right else lastRightRow1 = right
-                    }
-                }
-
                 // Solid leading edge at the exact TX tone (preserves v1.0 precision marker).
                 drawLine(
-                    color = bandColor,
+                    color = Ft8Amber,
                     start = Offset(bandStart, 0f),
                     end = Offset(bandStart, size.height),
                     strokeWidth = 2.dp.toPx(),

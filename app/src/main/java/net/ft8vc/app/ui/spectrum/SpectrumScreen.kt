@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -14,7 +13,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -29,7 +27,6 @@ import net.ft8vc.app.ui.operate.WaterfallPanel
 @Composable
 fun SpectrumScreen(vm: OperateViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val markers = remember(state.decodes) { SpectrumMarkers.forLatestSlot(state.decodes) }
 
     Scaffold(
         topBar = {
@@ -61,24 +58,12 @@ fun SpectrumScreen(vm: OperateViewModel) {
                     enabled = state.catReady && !state.catBusy,
                     onSelect = vm::setRigFrequency,
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "TX ${state.txFreqHz} Hz",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(end = 12.dp),
-                    )
-                    Text(
-                        "Labels",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Checkbox(
-                        checked = state.spectrumMarkersEnabled,
-                        onCheckedChange = vm::setSpectrumMarkersEnabled,
-                    )
-                }
+                Text(
+                    "TX ${state.txFreqHz} Hz",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
             WaterfallPanel(
                 vm = vm,
@@ -86,8 +71,6 @@ fun SpectrumScreen(vm: OperateViewModel) {
                 maxFreqHz = vm.maxAudioFreqHz,
                 txFreqHz = state.txFreqHz,
                 onFreqChange = vm::setTxFreqHz,
-                markers = markers,
-                showMarkers = state.spectrumMarkersEnabled,
                 modifier = Modifier.fillMaxWidth().weight(1f),
             )
         }
