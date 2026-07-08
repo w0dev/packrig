@@ -62,23 +62,30 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     /**
      * Selected radio. Null until the operator picks a model — [bindIfPermitted]
      * is a no-op and [state] reports [State.NoModel]. Owner (OperateViewModel)
-     * mirrors the persisted RADIO_MODEL setting here; call [rebind] to apply.
+     * mirrors the persisted RADIO_MODEL setting via [setDescriptor]; call
+     * [rebind] to apply.
      *
-     * The synthesized Kotlin property setter is renamed at the JVM level
-     * (`@set:JvmName`) so it does not clash with the explicit [setDescriptor]
-     * function below, which additionally drops any backend bound to the
-     * previous model — direct `descriptor = x` assignment does not.
+     * The setter is private so callers cannot bypass [setDescriptor], which
+     * additionally drops any backend bound to the previous model. The
+     * synthesized setter is also renamed at the JVM level (`@set:JvmName`) so
+     * it does not clash with [setDescriptor]'s signature.
      */
     @Volatile
     @get:JvmName("getDescriptor")
     @set:JvmName("assignDescriptor")
     var descriptor: RigDescriptor? = null
+        private set
 
     /** Operator override for which serial port carries CAT; null = descriptor default. */
     @Volatile
     var catPortOverride: Int? = null
 
-    /** Set the active model and drop any backend bound to the previous one. */
+    /**
+     * Set the active model and drop any backend bound to the previous one.
+     * Closing a live backend is blocking USB I/O, and this method contends the
+     * same monitor as [bindIfPermitted]/[rebind] — call off the main thread
+     * whenever a backend may be bound (field ANR class, 2026-07-03).
+     */
     @Synchronized
     fun setDescriptor(d: RigDescriptor?) {
         if (descriptor?.id == d?.id) return
