@@ -59,7 +59,7 @@ import kotlin.system.measureTimeMillis
  * [DecodeSlice.decodeFailureCount]. Phase 6 promotes that counter into the
  * Operate-header "Decodes dropped: N" status chip.
  *
- * Stable DecodeRow ids (`slotStart * 1000 + indexInSlot`) and an
+ * Stable DecodeRow ids ([DecodeRowKey.stableId] hashes) and an
  * ImmutableList slice type are wired here so Compose stability work in
  * Phase 7 has the foundation it needs.
  */
