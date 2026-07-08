@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import net.ft8vc.app.OperateViewModel
-import net.ft8vc.app.ui.theme.Ft8Amber
+import net.ft8vc.app.ui.theme.Ft8Red
 
 /** FT8 occupied bandwidth: 8-FSK x 6.25 Hz tone spacing. */
 private const val FT8_SIGNAL_WIDTH_HZ = 50
@@ -72,21 +72,37 @@ fun WaterfallPanel(
                 if (maxFreqHz <= 0) return@Canvas
                 val hzToX = { hz: Int -> (hz.toFloat() / maxFreqHz * size.width).coerceIn(0f, size.width) }
 
-                // TX footprint band (txFreq .. txFreq + 50 Hz).
+                // TX marker, WSJT-X style: light red fill over the 50 Hz FT8
+                // footprint, goalpost caps at top/bottom, and a solid line at
+                // the exact TX tone so the operator can read their footprint
+                // directly against the band traces.
                 val bandStart = hzToX(txFreqHz)
                 val bandEnd = hzToX(txFreqHz + FT8_SIGNAL_WIDTH_HZ)
+                val bandWidth = (bandEnd - bandStart).coerceAtLeast(1f)
                 drawRect(
-                    color = Ft8Amber.copy(alpha = 0.22f),
+                    color = Ft8Red.copy(alpha = 0.18f),
                     topLeft = Offset(bandStart, 0f),
-                    size = Size((bandEnd - bandStart).coerceAtLeast(1f), size.height),
+                    size = Size(bandWidth, size.height),
                 )
-
-                // Solid leading edge at the exact TX tone (preserves v1.0 precision marker).
+                val capStroke = 3.dp.toPx()
                 drawLine(
-                    color = Ft8Amber,
+                    color = Ft8Red,
+                    start = Offset(bandStart, capStroke / 2f),
+                    end = Offset(bandEnd, capStroke / 2f),
+                    strokeWidth = capStroke,
+                )
+                drawLine(
+                    color = Ft8Red,
+                    start = Offset(bandStart, size.height - capStroke / 2f),
+                    end = Offset(bandEnd, size.height - capStroke / 2f),
+                    strokeWidth = capStroke,
+                )
+                // Solid leading edge at the exact TX tone.
+                drawLine(
+                    color = Ft8Red,
                     start = Offset(bandStart, 0f),
                     end = Offset(bandStart, size.height),
-                    strokeWidth = 2.dp.toPx(),
+                    strokeWidth = 2.5.dp.toPx(),
                 )
             }
         }
