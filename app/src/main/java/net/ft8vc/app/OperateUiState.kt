@@ -70,8 +70,6 @@ data class OperateUiState(
     val cq73OnlyFilter: Boolean = false,
     /** User-configurable decode row colors. */
     val decodeColors: DecodeColorScheme = DecodeColorScheme.DEFAULT,
-    /** Show CQ decode labels on the Spectrum waterfall. */
-    val spectrumMarkersEnabled: Boolean = true,
 
     // ── Rx (capture, decodes, level metering) ─────────────────────────────
     val devices: List<AudioInputDevice> = emptyList(),

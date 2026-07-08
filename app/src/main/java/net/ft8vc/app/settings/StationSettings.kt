@@ -32,8 +32,6 @@ data class StationSettings(
     val autoAnswerCqEnabled: Boolean = false,
     val lateStartTxEnabled: Boolean = true,
     val earlyDecodeEnabled: Boolean = true,
-    /** Show CQ decode labels on the Spectrum waterfall. Default ON. */
-    val spectrumMarkersEnabled: Boolean = true,
     val sendRr73: Boolean = true,
     val autoCqResumeEnabled: Boolean = false,
     val answerPolicy: AnswerPolicy = AnswerPolicy.FIRST,
