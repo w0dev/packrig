@@ -33,7 +33,7 @@ Compact, field-first layout (decode list gets maximum vertical space):
 Full-screen waterfall on its own tab (shared `OperateViewModel` — RX continues while viewing):
 
 - Tap or drag to set TX audio offset (Hz); persisted and shown on Operate status bar
-- **Decode markers** (derived by `SpectrumMarkers`, `app/ui/spectrum/`): CQ callers drawn as labelled ticks on the waterfall, a **Labels** toggle shows/hides the callsign text, and the 50 Hz TX band is overlaid — tinting red when `SpectrumMarkers.txClashes` detects a decode in your TX slot. A live **TX Hz** readout confirms the offset. The markers toggle persists via `spectrumMarkersEnabled` (`Keys.SPECTRUM_MARKERS_ENABLED`).
+- **Waterfall**: occupancy view showing RX activity; no on-waterfall callsign labels (callsigns appear in the decode list on the Operate tab). A bold red TX marker overlays the 50 Hz FT8 footprint at your TX offset — solid leading edge with top/bottom goalpost caps. A live **TX Hz** readout confirms the offset.
 - **Dial** label (when CAT ready): tap to pick band / preset dial frequency; tunes rig via Digirig CAT (common FT8 spots, e.g. 20m 14.074 and 14.090 MHz)
 - Dark/Light theme toggle in Settings → Display
 
