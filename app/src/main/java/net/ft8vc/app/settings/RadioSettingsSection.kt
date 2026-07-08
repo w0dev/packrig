@@ -109,6 +109,9 @@ fun RadioSettingsSection(
         )
         PttPreferencePicker(
             preference = state.pttPreference,
+            // TX-guarded: flipping the PTT method mid-transmit could strand a
+            // CAT-keyed rig (TX1; sent, TX0; never sent on the new path).
+            enabled = !state.catBusy && !state.isTransmitting,
             onSelect = onSetPttPreference,
         )
         UsbDiagnosticsExpandable(diagnostics = usbDiagnostics)
@@ -223,14 +226,16 @@ private fun CatBaudPicker(
 @Composable
 private fun PttPreferencePicker(
     preference: PttPreference,
+    enabled: Boolean,
     onSelect: (PttPreference) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
         OutlinedTextField(
             value = preference.displayName,
             onValueChange = {},
             readOnly = true,
+            enabled = enabled,
             label = { Text("PTT preference") },
             supportingText = { Text(preference.description) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },

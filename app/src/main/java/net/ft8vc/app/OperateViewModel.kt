@@ -324,6 +324,9 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         // Settings → controller setters (the only mirror left: settings need to
         // be pushed INTO controllers so their loops see fresh values).
         viewModelScope.launch {
+            // Tracks the last PTT preference actually pushed into the rig, so the
+            // mirror below only reacts to real changes (not every slice emission).
+            var lastAppliedPttPreference: PttPreference? = null
             settingsBridge.slice.collect { s ->
                 lastDialFreqHz = s.lastDialFreqHz
                 decodeController.setInputGain(s.inputGain)
@@ -353,14 +356,36 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 // Radio-model mirror: resolve the selected id to a descriptor and
                 // apply it to the controller, rebinding like the CAT-baud mirror.
+                // The whole body runs on the CAT dispatcher: setDescriptor closes
+                // a live backend (blocking USB I/O) and contends the controller
+                // monitor with rebind — neither may pin Main (field ANR class,
+                // 2026-07-03). setDescriptor/rebind are idempotent, so a stale
+                // duplicate launch from a rapid settings burst is harmless.
                 val wantModel = s.radioModelId?.let { RigRegistry.byId(it) }
                 if (rig.descriptor?.id != wantModel?.id || rig.catPortOverride != s.catPortOverride) {
-                    rig.setDescriptor(wantModel)
-                    rig.catPortOverride = s.catPortOverride
-                    if (!state.value.isTransmitting) {
-                        viewModelScope.launch(rigSession.catDispatcher) {
+                    viewModelScope.launch(rigSession.catDispatcher) {
+                        rig.setDescriptor(wantModel)
+                        rig.catPortOverride = s.catPortOverride
+                        if (!state.value.isTransmitting) {
                             rig.rebind()
                             withContext(Dispatchers.Main) { prepareRig() }
+                        }
+                    }
+                }
+                // PTT preference mirror (phase 2: a model's default PTT method —
+                // and the operator's explicit choice — must actually take effect).
+                // Forced modes are a volatile write; AUTO re-probes CAT off Main.
+                // The picker is TX-guarded, so a mid-TX method flip cannot happen
+                // from the UI (a CAT→RTS flip mid-key would strand TX1 unkeyed).
+                if (lastAppliedPttPreference != s.pttPreference) {
+                    lastAppliedPttPreference = s.pttPreference
+                    when (s.pttPreference) {
+                        PttPreference.CAT -> rig.useCatPtt = true
+                        PttPreference.RTS -> rig.useCatPtt = false
+                        PttPreference.AUTO -> if (rig.isDigirigReady) {
+                            viewModelScope.launch(rigSession.catDispatcher) {
+                                rig.configurePttFromCatProbe()
+                            }
                         }
                     }
                 }
@@ -683,6 +708,24 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         if (announce) notify("Transmit halted")
     }
 
+    /**
+     * Apply the operator's PTT preference at rig-ready time: AUTO probes CAT
+     * (blocking ~1 s on timeout — call on the CAT dispatcher), CAT/RTS force
+     * the method without probing. Returns the method label for status display.
+     */
+    private fun applyPttMethod(): String =
+        when (settingsBridge.slice.value.pttPreference) {
+            PttPreference.AUTO -> rig.configurePttFromCatProbe()
+            PttPreference.CAT -> {
+                rig.useCatPtt = true
+                "CAT"
+            }
+            PttPreference.RTS -> {
+                rig.useCatPtt = false
+                "RTS"
+            }
+        }
+
     private fun prepareRig() {
         when (rig.state()) {
             RigController.State.NoModel -> {
@@ -709,7 +752,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 rigSession.refreshDigirigPresence()
                 onRigReattached()
                 viewModelScope.launch(rigSession.catDispatcher) {
-                    val method = rig.configurePttFromCatProbe()
+                    val method = applyPttMethod()
                     _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
                     onRigReady()
                 }
@@ -727,7 +770,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                     rigSession.refreshDigirigPresence()
                     onRigReattached()
                     viewModelScope.launch(rigSession.catDispatcher) {
-                        val method = rig.configurePttFromCatProbe()
+                        val method = applyPttMethod()
                         _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
                         onRigReady()
                     }
