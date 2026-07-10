@@ -168,7 +168,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
         val port = driver.ports[index]
         val candidate = SerialRigBackend(
             transport = UsbSerialTransport(usbManager, port, catBaud),
-            protocol = d.protocolFactory(),
+            protocol = d.protocolFactory?.invoke(),
         )
         return if (candidate.open()) {
             backend = candidate
@@ -293,7 +293,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
 
     override fun dataModeLabel(): String =
         backend?.dataModeLabel()
-            ?: descriptor?.protocolFactory()?.dataModeLabel
+            ?: descriptor?.protocolFactory?.invoke()?.dataModeLabel
             ?: "DATA-U"
 
     override fun catPtt(on: Boolean): Boolean = backend?.catPtt(on) ?: false

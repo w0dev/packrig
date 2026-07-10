@@ -18,7 +18,7 @@ class RigRegistryTest {
     @Test
     fun everyDescriptorResolvesAProtocolAndHasNonNegativePort() {
         for (d in RigRegistry.all) {
-            assertNotNull("${d.id} protocol", d.protocolFactory())
+            assertNotNull("${d.id} protocol", d.protocolFactory?.invoke())
             assertTrue("${d.id} port index >= 0", d.catPortIndex >= 0)
             assertTrue("${d.id} baud > 0", d.defaultBaud > 0)
         }
@@ -62,7 +62,7 @@ class RigRegistryTest {
 
     @Test
     fun ft891ProtocolIsByteEquivalentToYaesuFt891() {
-        val cat = RigRegistry.byId("ft891")!!.protocolFactory()
+        val cat = RigRegistry.byId("ft891")!!.protocolFactory!!.invoke()
         assertEquals(
             "FA014074000;",
             cat.setFrequencyCommand(14_074_000)!!.toString(Charsets.US_ASCII),
