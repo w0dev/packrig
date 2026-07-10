@@ -108,6 +108,9 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Real org.json for JVM unit tests (android.jar ships throw-only stubs).
+    // Runtime uses the Android platform copy — this is test classpath only.
+    testImplementation("org.json:json:20240303")
     testImplementation(testFixtures(project(":rig")))
     testImplementation(testFixtures(project(":ft8-native")))
     testImplementation(testFixtures(project(":audio")))
