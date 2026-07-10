@@ -17,6 +17,8 @@ import net.ft8vc.core.DecodeCategory
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.TxSlotParity
 import net.ft8vc.rig.RigController
+import net.ft8vc.rig.RigProfile
+import net.ft8vc.rig.RigRegistry
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "ft8vc_settings",
@@ -70,7 +72,9 @@ class SettingsRepository(context: Context) {
                     ?: DecodeColorScheme.DEFAULT_CQ_WORKED_THIS_BAND,
             ),
             lastAdifBackupAtMs = prefs[Keys.LAST_ADIF_BACKUP_AT_MS],
-        )
+            rigProfiles = RigProfileJson.decode(prefs[Keys.RIG_PROFILES]),
+            selectedRigProfileId = prefs[Keys.SELECTED_RIG_PROFILE],
+        ).withRigProfileApplied()
     }
 
     suspend fun setMyCall(call: String) {
@@ -106,6 +110,70 @@ class SettingsRepository(context: Context) {
     suspend fun setCatPortOverride(index: Int?) {
         appContext.settingsDataStore.edit {
             if (index == null) it.remove(Keys.CAT_PORT_OVERRIDE) else it[Keys.CAT_PORT_OVERRIDE] = index
+        }
+    }
+
+    /** Add or update a profile. First saved profile auto-selects. False = rejected (cap/name). */
+    suspend fun saveRigProfile(profile: RigProfile): Boolean {
+        var saved = false
+        appContext.settingsDataStore.edit { prefs ->
+            val current = RigProfileJson.decode(prefs[Keys.RIG_PROFILES])
+            val updated = RigProfileList.upsert(current, profile) ?: return@edit
+            prefs[Keys.RIG_PROFILES] = RigProfileJson.encode(updated)
+            if (prefs[Keys.SELECTED_RIG_PROFILE] == null) {
+                prefs[Keys.SELECTED_RIG_PROFILE] = profile.id
+            }
+            saved = true
+        }
+        return saved
+    }
+
+    /** Delete a profile; selection falls back to the first remaining profile. */
+    suspend fun deleteRigProfile(id: String) {
+        appContext.settingsDataStore.edit { prefs ->
+            val remaining = RigProfileList.delete(RigProfileJson.decode(prefs[Keys.RIG_PROFILES]), id)
+            prefs[Keys.RIG_PROFILES] = RigProfileJson.encode(remaining)
+            val selection = RigProfileList.selectionAfterDelete(
+                remaining, deletedId = id, currentSelection = prefs[Keys.SELECTED_RIG_PROFILE],
+            )
+            if (selection == null) {
+                prefs.remove(Keys.SELECTED_RIG_PROFILE)
+            } else {
+                prefs[Keys.SELECTED_RIG_PROFILE] = selection
+            }
+        }
+    }
+
+    suspend fun selectRigProfile(id: String) {
+        appContext.settingsDataStore.edit { prefs ->
+            if (RigProfileJson.decode(prefs[Keys.RIG_PROFILES]).any { it.id == id }) {
+                prefs[Keys.SELECTED_RIG_PROFILE] = id
+            }
+        }
+    }
+
+    /**
+     * One-time upgrade: turn the legacy RADIO_MODEL selection into the first
+     * saved profile, carrying the legacy baud/port/PTT knobs so behavior is
+     * byte-identical (spec: parity regression + field gate 1). Legacy knob
+     * keys stay as pre-migration fallback values; only RADIO_MODEL is cleared.
+     */
+    suspend fun migrateLegacyRadioModel() {
+        appContext.settingsDataStore.edit { prefs ->
+            val legacy = prefs[Keys.RADIO_MODEL] ?: return@edit
+            if (prefs[Keys.RIG_PROFILES] == null) {
+                val profile = buildMigratedProfile(
+                    modelId = legacy,
+                    baud = prefs[Keys.CAT_BAUD],
+                    catPortOverride = prefs[Keys.CAT_PORT_OVERRIDE],
+                    pttPreference = prefs[Keys.PTT_PREFERENCE]?.let { name ->
+                        PttPreference.entries.firstOrNull { it.name == name }
+                    },
+                )
+                prefs[Keys.RIG_PROFILES] = RigProfileJson.encode(listOf(profile))
+                prefs[Keys.SELECTED_RIG_PROFILE] = profile.id
+            }
+            prefs.remove(Keys.RADIO_MODEL)
         }
     }
 
@@ -257,6 +325,8 @@ class SettingsRepository(context: Context) {
         val DECODE_COLOR_CQ_WORKED_OTHER = intPreferencesKey("decode_color_cq_worked_other")
         val DECODE_COLOR_CQ_WORKED_THIS = intPreferencesKey("decode_color_cq_worked_this")
         val LAST_ADIF_BACKUP_AT_MS = longPreferencesKey("last_adif_backup_at_ms")
+        val RIG_PROFILES = stringPreferencesKey("rig_profiles")
+        val SELECTED_RIG_PROFILE = stringPreferencesKey("selected_rig_profile")
     }
 
     companion object {
@@ -268,5 +338,21 @@ class SettingsRepository(context: Context) {
         /** Unknown values fall back to the rig-module default (38400). */
         fun coerceCatBaud(baud: Int): Int =
             if (baud in CAT_BAUD_OPTIONS) baud else RigController.DEFAULT_CAT_BAUD
+
+        /** Pure migration mapping (unit-tested; the DataStore edit is device-verified). */
+        fun buildMigratedProfile(
+            modelId: String,
+            baud: Int?,
+            catPortOverride: Int?,
+            pttPreference: PttPreference?,
+        ): RigProfile = RigProfile(
+            id = java.util.UUID.randomUUID().toString(),
+            name = RigRegistry.byId(modelId)?.displayName ?: modelId,
+            presetId = modelId,
+            catProtocolId = null,
+            baud = baud,
+            catPortIndex = catPortOverride,
+            pttMethod = pttPreference?.toPttMethod(),
+        )
     }
 }

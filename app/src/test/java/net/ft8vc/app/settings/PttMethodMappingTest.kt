@@ -1,6 +1,5 @@
 package net.ft8vc.app.settings
 
-import net.ft8vc.app.toPreference
 import net.ft8vc.rig.PttMethod
 import org.junit.Assert.assertEquals
 import org.junit.Test

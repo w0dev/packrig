@@ -17,6 +17,7 @@ import net.ft8vc.app.ui.Waterfall
 import net.ft8vc.app.ui.bandLabelForFreqLoose
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.app.settings.SettingsRepository
+import net.ft8vc.app.settings.toPreference
 import net.ft8vc.audio.AudioInputs
 import net.ft8vc.audio.AudioOutputs
 import net.ft8vc.audio.CaptureLifecycle
@@ -60,13 +61,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.util.Locale
-
-/** Map a descriptor's default PTT method onto the app's PTT preference. */
-fun PttMethod.toPreference(): PttPreference = when (this) {
-    PttMethod.AUTO -> PttPreference.AUTO
-    PttMethod.CAT -> PttPreference.CAT
-    PttMethod.RTS -> PttPreference.RTS
-}
 
 /**
  * Thin orchestrator: constructs the five controllers (SettingsBridge,
