@@ -60,7 +60,10 @@ object RigRegistry {
             defaultBaud = 38_400,
             catPortIndex = 0,
             defaultPtt = PttMethod.CAT,
-            transportVerified = false,
+            // Bench 2026-07-09, owner hardware: internal hub → stock CP2105
+            // (10c4:ea70, CAT on port 0 = Enhanced) + Yaesu aux CDC device +
+            // C-Media UAC codec. CAT read/write confirmed at 38400.
+            transportVerified = true,
         ),
     )
 

@@ -6,7 +6,8 @@ package net.ft8vc.rig
  * range varies. Ranges below are the published general-coverage RX/TX spans from
  * each rig's operating manual — verify the exact min/max against the manual when
  * touching a spec. The min is the receiver's low edge; the max covers the rig's
- * top band (HF+6 m for the FTDX10/FT-710/FTDX101/FTX-1; +VHF/UHF for the FT-991A).
+ * top band (HF+6 m for the FTDX10/FT-710/FTDX101; +VHF/UHF for the FT-991A and
+ * the FTX-1, the latter bench-confirmed).
  */
 object YaesuModels {
 
@@ -49,11 +50,15 @@ object YaesuModels {
         modeLabels = NEW_CAT_MODES,
     )
 
-    /** FTX-1: HF + 50 MHz (portable SDR). Transport details unverified — see registry. */
+    /**
+     * FTX-1: HF/50/144/430 MHz portable SDR. Bench-verified 2026-07-09 on owner
+     * hardware: CAT read the rig sitting at 444.0925 MHz (`FA444092570;`), so
+     * the tuning range extends through 70 cm like the FT-991A.
+     */
     val FTX1 = YaesuModelSpec(
         name = "Yaesu FTX-1",
         minFreqHz = 30_000L,
-        maxFreqHz = 56_000_000L,
+        maxFreqHz = 470_000_000L,
         dataModeCode = 'C',
         modeLabels = NEW_CAT_MODES,
     )

@@ -34,13 +34,25 @@ class RigRegistryTest {
     }
 
     @Test
-    fun builtInUsbRigsAreUnverifiedWithCatPtt() {
-        for (id in listOf("ft991a", "ftdx10", "ft710", "ftdx101", "ftx1")) {
+    fun builtInUsbRigsUseCatPtt_unverifiedOnesFlagged() {
+        // Still CAT-from-manual only; flip an id out of this list when its
+        // transport is confirmed on real hardware (see docs/RIG_MODELS.md).
+        for (id in listOf("ft991a", "ftdx10", "ft710", "ftdx101")) {
             val d = RigRegistry.byId(id)
             assertNotNull("$id present", d)
             assertFalse("$id transport unverified", d!!.transportVerified)
             assertEquals("$id CAT PTT", PttMethod.CAT, d.defaultPtt)
         }
+    }
+
+    @Test
+    fun ftx1IsBenchVerified_catPttOnEnhancedPort() {
+        // Bench 2026-07-09: stock CP2105, CAT confirmed on port 0 (Enhanced).
+        val d = RigRegistry.byId("ftx1")
+        assertNotNull(d)
+        assertTrue(d!!.transportVerified)
+        assertEquals(PttMethod.CAT, d.defaultPtt)
+        assertEquals(0, d.catPortIndex)
     }
 
     @Test

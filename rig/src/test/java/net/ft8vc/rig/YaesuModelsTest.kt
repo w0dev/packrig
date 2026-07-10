@@ -62,4 +62,14 @@ class YaesuModelsTest {
         val names = allSpecs.map { it.name } + YaesuCat.FT891.name
         assertEquals(names.size, names.toSet().size)
     }
+
+    // Bench evidence 2026-07-09: owner FTX-1 read at 444.0925 MHz over CAT
+    // (FA444092570;) — the rig covers VHF/UHF, so its spec must accept them.
+    @Test
+    fun ftx1AcceptsVhfAndUhf() {
+        val cat = YaesuCat(YaesuModels.FTX1)
+        assertNotNull(cat.setFrequencyCommand(144_174_000)) // 2 m FT8
+        assertNotNull(cat.setFrequencyCommand(444_092_570)) // observed on bench
+        assertEquals(444_092_570L, cat.parseFrequency("FA444092570;".toByteArray(Charsets.US_ASCII)))
+    }
 }
