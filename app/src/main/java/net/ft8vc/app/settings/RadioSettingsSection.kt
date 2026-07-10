@@ -40,7 +40,7 @@ import net.ft8vc.rig.RigRegistry
 fun RadioSettingsSection(
     state: OperateUiState,
     usbDiagnostics: String,
-    serialPortCount: Int,
+    serialPortNames: List<String>,
     onSelectRadioModel: (String) -> Unit,
     onSelectCatPort: (Int?) -> Unit,
     onSelectDialFrequency: (Long) -> Unit,
@@ -55,10 +55,10 @@ fun RadioSettingsSection(
             enabled = !state.catBusy && !state.isTransmitting,
             onSelect = onSelectRadioModel,
         )
-        if (serialPortCount > 1) {
+        if (serialPortNames.size > 1) {
             CatPortOverridePicker(
                 override = state.catPortOverride,
-                portCount = serialPortCount,
+                portNames = serialPortNames,
                 enabled = !state.catBusy && !state.isTransmitting,
                 onSelect = onSelectCatPort,
             )
@@ -74,6 +74,7 @@ fun RadioSettingsSection(
                 rigFreqHz = state.rigFreqHz,
                 enabled = !state.catBusy,
                 onSelect = onSelectDialFrequency,
+                radioModelId = state.radioModelId,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -157,12 +158,13 @@ private fun RadioModelPicker(
 @Composable
 private fun CatPortOverridePicker(
     override: Int?,
-    portCount: Int,
+    portNames: List<String>,
     enabled: Boolean,
     onSelect: (Int?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val label = override?.let { "Port $it" } ?: "Auto (from model)"
+    val label = override?.let { portNames.getOrNull(it) ?: "Serial port ${it + 1}" }
+        ?: "Automatic (recommended)"
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
         OutlinedTextField(
             value = label,
@@ -170,18 +172,20 @@ private fun CatPortOverridePicker(
             readOnly = true,
             enabled = enabled,
             label = { Text("CAT port") },
-            supportingText = { Text("This radio exposes $portCount serial ports") },
+            supportingText = {
+                Text("Which of the radio's serial channels carries CAT control. Automatic uses your radio model's default.")
+            },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text("Auto (from model)") },
+                text = { Text("Automatic (recommended)") },
                 onClick = { expanded = false; onSelect(null) },
             )
-            (0 until portCount).forEach { i ->
+            portNames.forEachIndexed { i, name ->
                 DropdownMenuItem(
-                    text = { Text("Port $i") },
+                    text = { Text(name) },
                     onClick = { expanded = false; onSelect(i) },
                 )
             }
@@ -199,7 +203,7 @@ private fun CatBaudPicker(
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
         OutlinedTextField(
-            value = "$baud baud",
+            value = baud.toString(),
             onValueChange = {},
             readOnly = true,
             enabled = enabled,
@@ -211,7 +215,7 @@ private fun CatBaudPicker(
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             SettingsRepository.CAT_BAUD_OPTIONS.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text("$option baud") },
+                    text = { Text(option.toString()) },
                     onClick = {
                         expanded = false
                         onSelect(option)

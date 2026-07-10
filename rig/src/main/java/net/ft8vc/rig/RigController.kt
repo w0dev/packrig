@@ -124,6 +124,12 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     /** Serial ports the currently attached, matched driver exposes (0 if none). */
     fun availablePortCount(): Int = findDriver()?.ports?.size ?: 0
 
+    /** Operator-facing names for the attached driver's serial ports (see [portDisplayNames]). */
+    fun catPortDisplayNames(): List<String> {
+        val driver = findDriver() ?: return emptyList()
+        return portDisplayNames(driver.ports.size, driver is Cp21xxSerialDriver)
+    }
+
     /** Short summary of USB devices Android reports (for UI diagnostics). */
     fun usbDeviceSummary(): String {
         val devices = usbManager.deviceList.values.toList()
@@ -326,5 +332,19 @@ class RigController(private val context: Context) : RigBackend, CatControl {
          */
         fun preferVendorBridge(drivers: List<UsbSerialDriver>): UsbSerialDriver? =
             drivers.firstOrNull { it !is CdcAcmSerialDriver } ?: drivers.firstOrNull()
+
+        /**
+         * Operator-facing serial-port names. Every dual-port bridge in the
+         * current registry is a CP210x-family dual UART whose two channels
+         * Yaesu (and the Silicon Labs Windows driver hams know from WSJT-X
+         * setup) call the Enhanced and Standard COM ports — CAT rides
+         * Enhanced. Anything else gets generic 1-based names.
+         */
+        fun portDisplayNames(portCount: Int, isCp21xx: Boolean): List<String> =
+            if (isCp21xx && portCount == 2) {
+                listOf("Enhanced port — CAT (default)", "Standard port")
+            } else {
+                (1..portCount).map { "Serial port $it" }
+            }
     }
 }

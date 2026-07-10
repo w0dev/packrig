@@ -77,4 +77,23 @@ class RigControllerDescriptorTest {
         assertEquals(cdc, RigController.preferVendorBridge(listOf(cdc)))
         assertNull(RigController.preferVendorBridge(emptyList()))
     }
+
+    @Test
+    fun portDisplayNames_cp21xxDualGetsYaesuVocabulary_othersGeneric() {
+        assertEquals(
+            listOf("Enhanced port — CAT (default)", "Standard port"),
+            RigController.portDisplayNames(portCount = 2, isCp21xx = true),
+        )
+        // Generic 1-based names for anything else (0-based is programmer-speak).
+        assertEquals(
+            listOf("Serial port 1", "Serial port 2", "Serial port 3"),
+            RigController.portDisplayNames(portCount = 3, isCp21xx = true),
+        )
+        assertEquals(
+            listOf("Serial port 1", "Serial port 2"),
+            RigController.portDisplayNames(portCount = 2, isCp21xx = false),
+        )
+        assertEquals(listOf("Serial port 1"), RigController.portDisplayNames(1, isCp21xx = true))
+        assertEquals(emptyList<String>(), RigController.portDisplayNames(0, isCp21xx = false))
+    }
 }

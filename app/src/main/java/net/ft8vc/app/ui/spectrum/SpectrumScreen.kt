@@ -57,6 +57,7 @@ fun SpectrumScreen(vm: OperateViewModel) {
                     rigFreqHz = state.rigFreqHz,
                     enabled = state.catReady && !state.catBusy,
                     onSelect = vm::setRigFrequency,
+                    radioModelId = state.radioModelId,
                 )
                 Text(
                     "TX ${state.txFreqHz} Hz",

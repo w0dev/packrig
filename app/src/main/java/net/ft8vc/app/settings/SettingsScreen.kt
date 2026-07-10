@@ -145,7 +145,7 @@ fun SettingsScreen(vm: OperateViewModel) {
                 RadioSettingsSection(
                     state = state,
                     usbDiagnostics = vm.usbDiagnostics(),
-                    serialPortCount = vm.availableSerialPortCount(),
+                    serialPortNames = vm.serialPortDisplayNames(),
                     onSelectRadioModel = vm::setRadioModel,
                     onSelectCatPort = vm::setCatPortOverride,
                     onSelectDialFrequency = vm::setRigFrequency,
@@ -367,7 +367,6 @@ fun SettingsScreen(vm: OperateViewModel) {
 
             SettingsSection("About") {
                 Text("${AppInfo.APP_NAME} ${AppInfo.VERSION_NAME}")
-                Text(AppInfo.TAGLINE, style = MaterialTheme.typography.bodySmall)
                 if (state.nativeLoaded) {
                     Text(
                         "Decoder library: loaded v${state.nativeVersion}",
@@ -381,11 +380,6 @@ fun SettingsScreen(vm: OperateViewModel) {
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
-                Text(
-                    "Field reference: Yaesu FT-891 + Digirig Mobile. Other rigs: see docs/HARDWARE.md.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 if (state.txSafetyHaltActive) {
                     Button(
                         onClick = vm::acknowledgeSafetyHalt,

@@ -618,7 +618,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settingsRepo.setCatPortOverride(index) }
     }
 
-    fun availableSerialPortCount(): Int = rig.availablePortCount()
+    /** Operator-facing names of the attached rig's serial ports (empty when none). */
+    fun serialPortDisplayNames(): List<String> = rig.catPortDisplayNames()
 
     fun acknowledgeLicense() {
         viewModelScope.launch { settingsRepo.setLicenseAcknowledged(true) }

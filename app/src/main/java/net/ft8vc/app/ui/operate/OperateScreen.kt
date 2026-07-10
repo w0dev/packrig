@@ -200,6 +200,7 @@ fun OperateScreen(
         DialFrequencyBottomSheet(
             onDismissRequest = { showBandSheet = false },
             onSelect = vm::setRigFrequency,
+            radioModelId = state.radioModelId,
         )
     }
 
