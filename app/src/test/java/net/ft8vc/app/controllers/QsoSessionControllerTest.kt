@@ -4,8 +4,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import net.ft8vc.app.SnackbarEvent
 import net.ft8vc.core.AnswerPolicy
@@ -16,6 +16,7 @@ import net.ft8vc.core.TxSlotParity
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -38,6 +39,15 @@ class QsoSessionControllerTest {
     private val resumeCaptureCalls = AtomicInteger(0)
     private val clockMs = AtomicLong(BASE_EPOCH_MS)
 
+    /**
+     * Shared with [scope] and the controller's `qsoDispatcher` so that a test can
+     * drive the QSO loop's `delay()`-based TX cycles deterministically via
+     * [TestCoroutineScheduler.advanceTimeBy] — `runTest`'s own scheduler is a
+     * separate instance and does not reach dispatchers built with a fresh
+     * no-arg `UnconfinedTestDispatcher()`.
+     */
+    private lateinit var qsoScheduler: TestCoroutineScheduler
+
     private var lateTxEnabled = true
 
     @Before fun setUp() {
@@ -48,7 +58,8 @@ class QsoSessionControllerTest {
         notifications.clear()
         resumeCaptureCalls.set(0)
         lateTxEnabled = true
-        scope = CoroutineScope(UnconfinedTestDispatcher())
+        qsoScheduler = TestCoroutineScheduler()
+        scope = CoroutineScope(UnconfinedTestDispatcher(qsoScheduler))
         rebuildController()
     }
 
@@ -67,7 +78,7 @@ class QsoSessionControllerTest {
             notifyFn = { text, tag -> notifications += text to tag },
             resumeCaptureIfNeeded = { resumeCaptureCalls.incrementAndGet() },
             executor = executor,
-            qsoDispatcher = UnconfinedTestDispatcher(),
+            qsoDispatcher = UnconfinedTestDispatcher(qsoScheduler),
             clock = { clockMs.get() },
             slotClockIntervalMs = 10_000L,
         )
@@ -226,19 +237,47 @@ class QsoSessionControllerTest {
     }
 
     @Test
-    fun abandonQso_blocksLaterAutoResume() = runTest {
+    fun blockStation_suppressesLaterAutoResume() = runTest {
         controller.onDecodeBatch(
             listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
             slotParity = TxSlotParity.EVEN,
         )
         assertEquals("K1ABC", controller.slice.value.qsoDx)
-        controller.abandonQso()
-        // Second directed message from same caller should NOT auto-resume.
+        controller.stopQso()
+        controller.blockStation("K1ABC")
+        assertEquals(listOf("K1ABC"), controller.slice.value.userBlockedCalls)
+        // Same caller must NOT auto-resume while user-blocked.
         controller.onDecodeBatch(
             listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
             slotParity = TxSlotParity.EVEN,
         )
         assertFalse(controller.slice.value.qsoActive)
+    }
+
+    @Test
+    fun blockStation_activePartner_endsQso() = runTest {
+        controller.onDecodeBatch(
+            listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
+            slotParity = TxSlotParity.EVEN,
+        )
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+        controller.blockStation("K1ABC")
+        assertFalse(controller.slice.value.qsoActive)
+        assertNull(controller.slice.value.qsoDx)
+        assertEquals(listOf("K1ABC"), controller.slice.value.userBlockedCalls)
+    }
+
+    @Test
+    fun blockStation_otherStation_leavesActiveQsoRunning() = runTest {
+        controller.onDecodeBatch(
+            listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
+            slotParity = TxSlotParity.EVEN,
+        )
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+        controller.blockStation("N0XYZ")
+        assertTrue(controller.slice.value.qsoActive)
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+        assertEquals(listOf("N0XYZ"), controller.slice.value.userBlockedCalls)
     }
 
     @Test
@@ -331,11 +370,11 @@ class QsoSessionControllerTest {
     }
 
     @Test
-    fun autoResumeCq_notAfterManualAbandon() = runTest {
+    fun autoResumeCq_notAfterManualStop() = runTest {
         controller.setAutoCqResumeEnabled(true)
         controller.startCq()
         controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
-        controller.abandonQso()
+        controller.stopQso()
         assertFalse(controller.slice.value.qsoActive)
         assertNull(controller.slice.value.qsoState)
     }
@@ -350,6 +389,87 @@ class QsoSessionControllerTest {
         controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
         assertEquals(1, completedSnapshots.size)
         assertFalse(controller.slice.value.qsoActive)
+    }
+
+    @Test
+    fun autoResumeCq_afterCqRunPartnerGhosts_stillResumes() = runTest {
+        // Invariant guard: a CQ-origin run where the partner answers then ghosts
+        // (no-reply abandon) MUST still auto-resume — the flag survives stopQsoInternal().
+        // This is the exact case that justifies NOT resetting runOriginatedFromCq in
+        // stopQsoInternal(); adding such a reset would make this test fail.
+        controller.setMaxUnansweredTxCycles(1)
+        controller.setAutoCqResumeEnabled(true)
+        controller.startCq() // CQ origin = true
+        // K1ABC answers our CQ; we move to SendingReport with dx = K1ABC.
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -10)), TxSlotParity.EVEN)
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+        // K1ABC now ghosts. Drive the TX loop (manual clock + shared scheduler together,
+        // one 15 s slot per iteration) until the no-reply limit trips →
+        // abandonForNoReply(dx = K1ABC) → maybeAutoResumeCq. Same pattern as
+        // noReplyTimeout_suppressesAuto_withoutUserBlock.
+        repeat(4) {
+            clockMs.addAndGet(15_000L)
+            qsoScheduler.advanceTimeBy(15_000L)
+            qsoScheduler.runCurrent()
+        }
+        // The partner-abandon resume emits "Resuming CQ" only when the gate passes.
+        assertTrue(
+            "CQ-origin no-reply abandon must auto-resume CQ",
+            notifications.any { it.first.contains("Resuming CQ") },
+        )
+    }
+
+    @Test
+    fun autoResumeCq_notAfterAnsweringCq() = runTest {
+        // S&P: we answered K1ABC's CQ. Completing must NOT leave us calling CQ.
+        controller.setAutoCqResumeEnabled(true)
+        controller.answerCq(decodeRowCq("K1ABC", "FN42"))
+        // Their directed reply, our R-report exchange, then their 73 → Complete.
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC -03", -8)), TxSlotParity.EVEN)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC RR73", -8)), TxSlotParity.EVEN)
+        assertEquals(1, completedSnapshots.size)
+        // RR73 logs immediately, but qsoActive only clears once the courtesy 73
+        // TXes and the loop tears down — drive the clock forward to that slot.
+        repeat(4) {
+            clockMs.addAndGet(15_000L)
+            qsoScheduler.advanceTimeBy(15_000L)
+            qsoScheduler.runCurrent()
+        }
+        assertFalse("answered-CQ session must not auto-resume CQ", controller.slice.value.qsoActive)
+        assertFalse(notifications.any { it.first.contains("resuming CQ", ignoreCase = true) })
+    }
+
+    @Test
+    fun autoResumeCq_notAfterResumeFromDecode() = runTest {
+        // Resuming a specific station is S&P-like → no auto-resume on completion.
+        controller.setAutoCqResumeEnabled(true)
+        // Initiator grid-reply opportunity: same machine state as startCq + received FN42.
+        controller.resumeFromDecode(decodeRowDirected("W0DEV K1ABC FN42"))
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC R-15", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
+        assertEquals(1, completedSnapshots.size)
+        assertFalse("resume-from-decode session must not auto-resume CQ", controller.slice.value.qsoActive)
+    }
+
+    @Test
+    fun autoResumeCq_carriesForwardAcrossRestart() = runTest {
+        // A CQ-origin session that auto-resumes must remain CQ-origin, so the NEXT
+        // completion resumes again — a running station keeps running.
+        controller.setAutoCqResumeEnabled(true)
+        controller.startCq()
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC FN42", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC R-15", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K1ABC 73", -8)), TxSlotParity.ODD)
+        assertEquals(1, completedSnapshots.size)
+        assertEquals("Calling CQ…", controller.slice.value.qsoState) // resumed CQ #1
+
+        // Second QSO on the auto-resumed CQ, different partner.
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K2XYZ EM12", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K2XYZ R-12", -8)), TxSlotParity.ODD)
+        controller.onDecodeBatch(listOf(QsoDecode("W0DEV K2XYZ 73", -8)), TxSlotParity.ODD)
+        assertEquals(2, completedSnapshots.size)
+        assertTrue("auto-resumed CQ must itself auto-resume", controller.slice.value.qsoActive)
+        assertEquals("Calling CQ…", controller.slice.value.qsoState) // resumed CQ #2
     }
 
     @Test
@@ -400,15 +520,17 @@ class QsoSessionControllerTest {
     }
 
     @Test
-    fun dxAnswersAnotherStation_autoResumesCqWhenEnabled() = runTest {
+    fun dxAnswersAnotherStation_doesNotAutoResumeCq_afterAnswering() = runTest {
+        // We answered K1ABC (S&P). They pick another caller → we stop. Even with
+        // auto-resume on, an answered-CQ session must NOT leave us calling CQ.
         controller.setAutoCqResumeEnabled(true)
         controller.answerCq(decodeRowCq("K1ABC", "FN42"))
         controller.onDecodeBatch(
             listOf(QsoDecode("N0XYZ K1ABC +03", -5)),
             slotParity = TxSlotParity.EVEN,
         )
-        assertTrue(controller.slice.value.qsoActive)
-        assertEquals("Calling CQ…", controller.slice.value.qsoState)
+        assertFalse(controller.slice.value.qsoActive)
+        assertNotEquals("Calling CQ…", controller.slice.value.qsoState)
     }
 
     // ── WSJT-X log timing: answerer logs at RR73/RRR receipt ───────────
@@ -483,6 +605,32 @@ class QsoSessionControllerTest {
         controller.onDecodeBatch(listOf(QsoDecode("W0DEV N0XYZ 73", -8)), TxSlotParity.ODD)
         assertEquals(2, completedSnapshots.size)
         assertEquals("N0XYZ", completedSnapshots[1].dxCall)
+    }
+
+    @Test
+    fun noReplyTimeout_suppressesAuto_withoutUserBlock() = runTest {
+        controller.setMaxUnansweredTxCycles(1)
+        controller.setAutoCqResumeEnabled(false)
+        controller.onDecodeBatch(
+            listOf(QsoDecode("W0DEV K1ABC FN42", -10)),
+            slotParity = TxSlotParity.EVEN,
+        )
+        assertEquals("K1ABC", controller.slice.value.qsoDx)
+        // Initiator role (grid-reply resume) ties TX parity to defaultTxSlotParity
+        // (EVEN), not the hearing slot — advance the manual clock one slot (15s)
+        // per iteration so the loop's frozen-clock parity check actually lands on
+        // an EVEN slot, then advance the shared qsoScheduler so its delay()s
+        // resolve against that clock. Both must move together: qsoScheduler drives
+        // the loop's suspension points, clockMs drives what SlotTiming/TxSlotSelection
+        // read when the loop wakes up.
+        repeat(4) {
+            clockMs.addAndGet(15_000L)
+            qsoScheduler.advanceTimeBy(15_000L)
+            qsoScheduler.runCurrent()
+        }
+        assertFalse(controller.slice.value.qsoActive)
+        // No-reply must not add the station to the user blocklist.
+        assertTrue(controller.slice.value.userBlockedCalls.isEmpty())
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

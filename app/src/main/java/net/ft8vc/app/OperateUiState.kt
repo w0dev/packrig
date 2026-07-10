@@ -13,7 +13,7 @@ import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.QsoForm
 import net.ft8vc.core.QsoTxStep
 import net.ft8vc.core.TxSlotParity
-import net.ft8vc.rig.DigirigRigBackend
+import net.ft8vc.rig.RigController
 
 @Immutable
 data class DecodeRow(
@@ -28,6 +28,8 @@ data class DecodeRow(
     val isToMe: Boolean = false,
     /** Great-circle km when message carries a 4-char grid; null otherwise. */
     val distanceKm: Int? = null,
+    /** ISO 3166 alpha-2 code for the sender callsign; null when unresolvable. */
+    val countryCode: String? = null,
     /** UTC slot parity (Even/Odd) when this decode was received. */
     val slotParity: TxSlotParity = TxSlotParity.EVEN,
     /** Whether this row was received (RX) or synthesized from our own TX. */
@@ -124,7 +126,11 @@ data class OperateUiState(
     val lastDialFreqHz: Long? = null,
     val pttPreference: PttPreference = PttPreference.AUTO,
     /** CAT serial baud from settings — must match FT-891 menu 05-06 (CAT RATE). */
-    val catBaud: Int = DigirigRigBackend.DEFAULT_CAT_BAUD,
+    val catBaud: Int = RigController.DEFAULT_CAT_BAUD,
+    /** Selected radio model id, or null if none chosen yet. */
+    val radioModelId: String? = null,
+    /** Manual CAT-port override index within the model's serial ports, or null for auto. */
+    val catPortOverride: Int? = null,
 
     // ── Slot (UTC slot timing + parity) ───────────────────────────────────
     val slotIndex: Int = 0,
@@ -148,6 +154,8 @@ data class OperateUiState(
     // ── Reliability hardening (Phase 6) ──────────────────────────────────
     /** Latched after 3 consecutive CAT timeouts; cleared by `retryCat`. */
     val catUnreachable: Boolean = false,
+    /** Latched when the capture watchdog exhausts its restart budget; cleared by `retryCapture`. */
+    val captureFailed: Boolean = false,
     /** True for at least one decode failure in the last 5 slots (auto-clears). */
     val decodeFailureRecent: Boolean = false,
     /** Consecutive slots with all-zero PCM. >2 cross-checked with AudioManager triggers capture recreate. */
@@ -156,12 +164,15 @@ data class OperateUiState(
     // ── Clock health ──────────────────────────────────────────────────────
     /** Estimated phone-clock offset vs FT8 band time (median DT), null when unknown. */
     val clockOffsetSeconds: Float? = null,
+    /** Operator-applied clock correction (ms), 0 when unaligned. In-memory only. */
+    val appliedClockOffsetMs: Long = 0L,
 
     // ── Misc ──────────────────────────────────────────────────────────────
     val operateStatus: String? = null,
     val contactCount: Int = 0,
     /** Phase 7 (UX-06): epoch ms of the most recent successful ADIF auto-backup, null if never. */
     val lastAdifBackupAtMs: Long? = null,
+    val userBlockedCalls: List<String> = emptyList(),
 ) {
     companion object {
         const val INPUT_GAIN_MIN = 0.1f

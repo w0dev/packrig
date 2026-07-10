@@ -86,9 +86,43 @@ Validates the operator's callsign and Maidenhead grid before transmit. `isValidC
 
 Returns a single-glyph prefix for a decode message — `●` (CQ), `→` (directed to my call, idle), `▸` (active QSO partner) — so the row type is visible without relying on color. Used by the Operate decode list.
 
+### `CallBaseName`
+
+Normalizes a callsign to its base form for identity matching: strips `/portable`
+and `-suffix` decorations and uppercases, so `W0DEV`, `W0DEV/P`, and `W0DEV-1`
+resolve to one key. `of(call)` returns `null` for unparseable input. Shared by
+[AbandonedPartners], [QsoMessages]`.senderCall`, and blocklist matching.
+
+### `CallsignCountry`
+
+Maps a decoded callsign to a two-letter ISO 3166 country code via a generated
+prefix table (`CallsignCountryTable`, produced by `tools/gen_country_table.py`);
+returns `null` when the prefix is unresolved. Feeds the **CC** column in the
+Operate decode list.
+
+### `ClockCorrection`
+
+Holds the operator-applied offset (ms) between the device clock and FT8 band
+time (the DT self-cal feature). `OperateViewModel.alignClock()` applies the
+residual estimated from decodes; `resetClockAlignment()` clears it. The app feeds
+the corrected time into slot timing so RX/TX slot boundaries track real band time
+even when the phone lacks NTP sync.
+
 ### `AbandonedPartners`
 
-In-session blocklist for incomplete QSO partners. After **Abandon** or a no-reply timeout, a callsign is excluded from auto-resume, auto-answer-CQ, and CQ pileup selection until the user taps to resume manually or clears the blocklist in Settings.
+Two disjoint sets keyed on base callsign ([CallBaseName]`.of`):
+
+- **`userBlocked`** (`blockUser`) — stations the operator explicitly blocked by
+  long-pressing a decode. Hidden from the decode list and listed in the
+  Settings → Blocklist manager (`userBlockedSnapshot`); `isUserBlocked` drives
+  the row hiding.
+- **`autoSuppressed`** (`suppressAuto`) — stations dropped by a no-reply timeout.
+  Excluded from auto-resume, auto-answer-CQ, and CQ-pileup selection, but never
+  hidden and never shown in the manager.
+
+`snapshot()` returns the union (everything excluded from auto selection).
+`allowResume(call)` removes a call from both sets (tap-to-resume, or per-call
+**Unblock**); `clear()` empties both (**Clear all**).
 
 ### `MonitorDecodeFilter` / `DecodeViewMode`
 

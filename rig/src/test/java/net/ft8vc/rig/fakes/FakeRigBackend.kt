@@ -1,12 +1,12 @@
 package net.ft8vc.rig.fakes
 
 import net.ft8vc.rig.CatControl
-import net.ft8vc.rig.Ft891Cat
 import net.ft8vc.rig.RigBackend
+import net.ft8vc.rig.YaesuCat
 
 /**
  * Test fake for [RigBackend] + [CatControl] — mirrors the surface
- * `DigirigRigBackend` exposes (PTT + FT-891 CAT) without speaking serial.
+ * `SerialRigBackend` exposes (PTT + FT-891 CAT) without speaking serial.
  *
  * Phase 0 (FOUND-03): single in-memory fake used by every Phase 1-5 controller
  * test that needs to drive the rig boundary. Failure switches simulate the four
@@ -24,7 +24,7 @@ import net.ft8vc.rig.RigBackend
  */
 class FakeRigBackend(
     initialFrequencyHz: Long = 14_074_000L,
-    initialMode: Ft891Cat.Mode = Ft891Cat.Mode.DATA_USB,
+    initialModeLabel: String = DATA_MODE_LABEL,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RigBackend, CatControl {
 
@@ -35,7 +35,7 @@ class FakeRigBackend(
     private var frequencyHz: Long = initialFrequencyHz
 
     @Volatile
-    private var modeValue: Ft891Cat.Mode = initialMode
+    private var modeLabelValue: String = initialModeLabel
 
     @Volatile
     private var latencyMs: Long = 0L
@@ -64,7 +64,7 @@ class FakeRigBackend(
 
     val currentFrequencyHz: Long get() = frequencyHz
 
-    val currentMode: Ft891Cat.Mode get() = modeValue
+    val currentModeLabel: String get() = modeLabelValue
 
     override fun keyPtt() {
         if (detached) {
@@ -98,12 +98,12 @@ class FakeRigBackend(
 
     override fun setFrequencyHz(hz: Long): Boolean {
         if (detached) return false
-        if (hz !in Ft891Cat.MIN_FREQ_HZ..Ft891Cat.MAX_FREQ_HZ) return false
+        if (hz !in YaesuCat.FT891.minFreqHz..YaesuCat.FT891.maxFreqHz) return false
         frequencyHz = hz
         return true
     }
 
-    override fun mode(): Ft891Cat.Mode? {
+    override fun modeLabel(): String? {
         if (detached) return null
         if (timeoutMode) {
             timeoutMode = false
@@ -112,13 +112,19 @@ class FakeRigBackend(
         if (latencyMs > 0L) {
             Thread.sleep(latencyMs)
         }
-        return modeValue
+        return modeLabelValue
     }
 
-    override fun setMode(mode: Ft891Cat.Mode): Boolean {
+    override fun setDataMode(): Boolean {
         if (detached) return false
-        modeValue = mode
+        modeLabelValue = DATA_MODE_LABEL
         return true
+    }
+
+    override fun dataModeLabel(): String = DATA_MODE_LABEL
+
+    fun configureModeLabel(label: String) {
+        modeLabelValue = label
     }
 
     override fun catPtt(on: Boolean): Boolean {
@@ -159,6 +165,11 @@ class FakeRigBackend(
         synchronized(historyLock) {
             history += edge
         }
+    }
+
+    companion object {
+        /** Label of the FT8 data mode the fake selects (mirrors FT-891 DATA-U). */
+        const val DATA_MODE_LABEL = "DATA-U"
     }
 }
 

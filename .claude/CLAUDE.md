@@ -57,6 +57,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 ## Key Dependencies
 
 - `ft8_lib` (kgoba GitHub) - Pinned commit 9fec6ca39886edbf96f4f5e71edc76da5074e871 via CMake FetchContent
+- `usb-serial-for-android` 3.9.0 (mik3y) - CAT serial transport; JitPack scoped to `com.github.mik3y`, checksum-verified (see docs/USB_SERIAL_LIB_UPGRADE.md)
 - AndroidX Core-KTX 1.16.0 - Core Android utilities
 - Android System Libraries - USB Host, Audio Recording (via manifest permissions)
 
@@ -233,8 +234,9 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 | **UsbAudioPlayback** | USB audio TX, encodes FT8 to 12 kHz samples | `audio/src/main/java/net/ft8vc/audio/UsbAudioPlayback.kt` |
 | **SpectrumProcessor** | FFT and waterfall for display | `audio/src/main/java/net/ft8vc/audio/dsp/SpectrumProcessor.kt` |
 | **RigController** | USB device discovery, permission mgmt, PTT/CAT routing | `rig/src/main/java/net/ft8vc/rig/RigController.kt` |
-| **DigirigRigBackend** | Digirig PTT (RTS) and CAT protocol (Yaesu FT-891) | `rig/src/main/java/net/ft8vc/rig/DigirigRigBackend.kt` |
-| **Ft891Cat** | FT-891 CAT command/response parsing (freq, mode, DATA-U) | `rig/src/main/java/net/ft8vc/rig/Ft891Cat.kt` |
+| **SerialRigBackend** | Composes serial transport + CAT protocol into PTT (RTS) and CAT control | `rig/src/main/java/net/ft8vc/rig/SerialRigBackend.kt` |
+| **YaesuCat** | Yaesu new-CAT command/response parsing (freq, mode, DATA-U), parameterized by model | `rig/src/main/java/net/ft8vc/rig/YaesuCat.kt` |
+| **RigRegistry** | Static `RigDescriptor` table of supported radios; no default (operator selects) | `rig/src/main/java/net/ft8vc/rig/RigRegistry.kt` |
 | **QsoMachine** | Pure FT8 QSO state machine (CQ → grid → reports → 73) | `core/src/main/java/net/ft8vc/core/QsoMachine.kt` |
 | **SlotCollector** | Buffers PCM samples, flushes on 15-second UTC slot boundary | `core/src/main/java/net/ft8vc/core/SlotCollector.kt` |
 | **QsoMessages** | Parses/formats FT8 message types (CQ, grid, reports, RRR, 73) | `core/src/main/java/net/ft8vc/core/QsoMessages.kt` |
@@ -270,7 +272,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 - Used by: OperateViewModel (callbacks for frames and spectrum)
 - Purpose: USB device discovery, PTT keying, CAT for frequency/mode
 - Location: `rig/src/main/java/net/ft8vc/rig/`
-- Contains: RigController, DigirigRigBackend, Ft891Cat, Cp210x (USB VID/PID), NoOpRigBackend
+- Contains: RigController, SerialRigBackend, SerialTransport/UsbSerialTransport, CatProtocol/YaesuCat, PttStrategy, NoOpRigBackend
 - Depends on: Android USB APIs, Kotlin stdlib
 - Used by: OperateViewModel (read CAT, set PTT)
 - Purpose: Room database, ADIF export
@@ -312,7 +314,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 - Examples: `audio/src/main/java/net/ft8vc/audio/AudioEngine.kt` (interface), UsbAudioCapture/UsbAudioPlayback
 - Pattern: start(deviceId, callback) and stop() contract; onFrames/onEncoded callbacks carry data
 - Purpose: Abstraction for PTT and CAT, allows mocking and fallback
-- Examples: `rig/src/main/java/net/ft8vc/rig/RigBackend.kt` (interface), DigirigRigBackend, NoOpRigBackend
+- Examples: `rig/src/main/java/net/ft8vc/rig/RigBackend.kt` (interface), SerialRigBackend, NoOpRigBackend
 - Pattern: keysender, unsendPtt(), readCat() → returns struct with freq, mode
 - Purpose: Abstraction for log persistence (Room impl; could be swapped)
 - Examples: `data/src/main/java/net/ft8vc/data/Logbook.kt` (interface), RoomLogbook
@@ -352,7 +354,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 
 - **USB device not ready** → RigController falls back to NoOpRigBackend; CAT and PTT become no-ops; state.catReady remains false; Settings screen shows USB status
 - **Audio capture fails** → Exception caught in UsbAudioCapture.start() thread loop; notify() emits SnackbarEvent; isCapturing remains false
-- **CAT read timeout** → Ft891Cat returns Optional.empty(); state.rigFreqHz remains stale until next successful read
+- **CAT read timeout** → `SerialRigBackend`/`YaesuCat` return null; state.rigFreqHz remains stale until next successful read
 - **Decode out of samples** → SlotCollector skips slot if < 85% of expected samples; silent skip (no error)
 - **ADIF export validation fails** → Export fails closed; exception propagates as SnackbarEvent with reason
 

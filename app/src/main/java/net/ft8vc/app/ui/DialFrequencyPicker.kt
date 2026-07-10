@@ -26,8 +26,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun Ft8DialPresetMenuItems(onSelect: (Long) -> Unit) {
-    Ft8DialPresets.forEach { preset ->
+fun Ft8DialPresetMenuItems(radioModelId: String? = null, onSelect: (Long) -> Unit) {
+    presetsForModel(radioModelId).forEach { preset ->
         DropdownMenuItem(
             text = { Text(preset.menuText) },
             onClick = { onSelect(preset.hz) },
@@ -39,10 +39,11 @@ fun Ft8DialPresetMenuItems(onSelect: (Long) -> Unit) {
 fun DialFrequencyDropdownMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
+    radioModelId: String? = null,
     onSelect: (Long) -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismissRequest) {
-        Ft8DialPresetMenuItems { hz ->
+        Ft8DialPresetMenuItems(radioModelId) { hz ->
             onSelect(hz)
             onDismissRequest()
         }
@@ -58,6 +59,7 @@ fun DialFrequencySelector(
     enabled: Boolean,
     onSelect: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    radioModelId: String? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val label = dialLabelText(rigFreqHz)
@@ -83,6 +85,7 @@ fun DialFrequencySelector(
             DialFrequencyDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
+                radioModelId = radioModelId,
                 onSelect = onSelect,
             )
         }
@@ -95,6 +98,7 @@ fun DialFrequencyBottomSheet(
     onDismissRequest: () -> Unit,
     onSelect: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    radioModelId: String? = null,
 ) {
     ModalBottomSheet(onDismissRequest = onDismissRequest) {
         Column(
@@ -102,7 +106,7 @@ fun DialFrequencyBottomSheet(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text("FT8 dial frequency", style = MaterialTheme.typography.titleMedium)
-            Ft8DialPresets.forEach { preset ->
+            presetsForModel(radioModelId).forEach { preset ->
                 TextButton(
                     onClick = {
                         onSelect(preset.hz)
@@ -124,6 +128,7 @@ fun DialFrequencyDropdownField(
     enabled: Boolean,
     onSelect: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    radioModelId: String? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val matched = dialPresetForFreq(rigFreqHz)
@@ -146,7 +151,7 @@ fun DialFrequencyDropdownField(
             modifier = Modifier.fillMaxWidth().menuAnchor(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            Ft8DialPresetMenuItems { hz ->
+            Ft8DialPresetMenuItems(radioModelId) { hz ->
                 expanded = false
                 onSelect(hz)
             }

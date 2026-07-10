@@ -20,6 +20,7 @@ import net.ft8vc.app.SnackbarEvent
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AbandonedPartners
 import net.ft8vc.core.AnswerPolicy
+import net.ft8vc.core.CallBaseName
 import net.ft8vc.core.DupeLogGuard
 import net.ft8vc.core.AnswerSelector
 import net.ft8vc.core.QsoDecode
@@ -119,9 +120,9 @@ class QsoSessionController(
     val qsoDispatcher: CoroutineDispatcher = executor.asCoroutineDispatcher(),
     private val clock: () -> Long = { System.currentTimeMillis() },
     private val slotClockIntervalMs: Long = 250L,
+    private val abandonedPartners: AbandonedPartners = AbandonedPartners(),
 ) : AutoCloseable {
 
-    private val abandonedPartners = AbandonedPartners()
     private val dupeLogGuard = DupeLogGuard()
     private var qso: QsoMachine? = null
     private var qsoLoopJob: Job? = null
@@ -130,6 +131,15 @@ class QsoSessionController(
     private var operateTxUserEdited: Boolean = false
     /** Set when a completed/abandoned QSO should auto-restart CQ; cleared by manual stop. */
     private var pendingAutoCqResume: Boolean = false
+
+    /**
+     * True when the active session originated from the operator calling CQ (run mode).
+     * Gates auto-resume CQ so S&P sessions (answer/resume) don't leave the operator
+     * running. Set only in [startQsoLoop] from its cqOrigin param; deliberately NOT
+     * reset by [stopQsoInternal] — it holds the most-recently-started session's origin
+     * and is read only in the window right after a session ends.
+     */
+    private var runOriginatedFromCq: Boolean = false
     /** Set when the current QSO has been logged (possibly before the courtesy 73 TX). */
     private var qsoLogged: Boolean = false
 
@@ -199,7 +209,7 @@ class QsoSessionController(
             val machine = newQsoMachine()
             machine.startCq()
             applyOperateTxOverride(machine)
-            startQsoLoop(machine, hearingSlotParity = null)
+            startQsoLoop(machine, hearingSlotParity = null, cqOrigin = true)
         }
     }
 
@@ -217,7 +227,7 @@ class QsoSessionController(
         scope.launch(qsoDispatcher) {
             val machine = newQsoMachine()
             machine.answerCq(cq.call, cq.grid, row.snr)
-            startQsoLoop(machine, hearingSlotParity = row.slotParity)
+            startQsoLoop(machine, hearingSlotParity = row.slotParity, cqOrigin = false)
         }
     }
 
@@ -232,6 +242,7 @@ class QsoSessionController(
             return
         }
         abandonedPartners.allowResume(opp.dxCall)
+        publishBlocklist()
         scope.launch(qsoDispatcher) {
             resumeFromOpportunity(opp, "Resuming QSO with ${opp.dxCall}", row.slotParity)
         }
@@ -239,15 +250,6 @@ class QsoSessionController(
 
     fun stopQso() {
         scope.launch(qsoDispatcher) { stopQsoInternal() }
-    }
-
-    fun abandonQso() {
-        scope.launch(qsoDispatcher) {
-            val dx = qso?.dxCall
-            if (dx != null) abandonedPartners.abandon(dx)
-            stopQsoInternal()
-            notifyFn(dx?.let { "Abandoned QSO with $it" } ?: "QSO stopped", SnackbarEvent.Tag.TRANSIENT)
-        }
     }
 
     fun setOperateTxText(text: String) {
@@ -284,7 +286,35 @@ class QsoSessionController(
 
     fun clearAbandonedPartners() {
         abandonedPartners.clear()
-        notifyFn("Cleared abandoned-station blocklist", SnackbarEvent.Tag.TRANSIENT)
+        publishBlocklist()
+        notifyFn("Cleared blocklist", SnackbarEvent.Tag.TRANSIENT)
+    }
+
+    /** Explicit operator block from a long-press on a decode row. */
+    fun blockStation(callsign: String) {
+        scope.launch(qsoDispatcher) {
+            abandonedPartners.blockUser(callsign)
+            // Blocking the station we are actively working ends the QSO too, so the
+            // block takes real effect instead of the loop transmitting to a blocked call.
+            val dx = qso?.dxCall
+            val endedActive = dx != null && CallBaseName.of(dx) == CallBaseName.of(callsign)
+            if (endedActive) stopQsoInternal()
+            publishBlocklist()
+            notifyFn(
+                if (endedActive) "Blocked $callsign — QSO ended" else "Blocked $callsign",
+                SnackbarEvent.Tag.TRANSIENT,
+            )
+        }
+    }
+
+    /** Remove a station from the user blocklist (manager unblock). */
+    fun unblockStation(callsign: String) {
+        abandonedPartners.allowResume(callsign)
+        publishBlocklist()
+    }
+
+    private fun publishBlocklist() {
+        _slice.update { it.copy(userBlockedCalls = abandonedPartners.userBlockedSnapshot().sorted()) }
     }
 
     fun refreshOperateTxFromStation() {
@@ -341,8 +371,13 @@ class QsoSessionController(
 
     // ── Internal: QSO loop ──────────────────────────────────────────────
 
-    private suspend fun startQsoLoop(machine: QsoMachine, hearingSlotParity: TxSlotParity?) {
+    private suspend fun startQsoLoop(
+        machine: QsoMachine,
+        hearingSlotParity: TxSlotParity?,
+        cqOrigin: Boolean,
+    ) {
         stopQsoInternal()
+        runOriginatedFromCq = cqOrigin
         qso = machine
         qsoTxParity = resolveTxParity(machine, hearingSlotParity)
         publishQsoState()
@@ -445,7 +480,7 @@ class QsoSessionController(
 
     private suspend fun abandonForNoReply() {
         val dx = qso?.dxCall
-        if (dx != null) abandonedPartners.abandon(dx)
+        if (dx != null) abandonedPartners.suppressAuto(dx)
         val message = when {
             dx != null -> "No reply from $dx — QSO abandoned"
             else -> "No answers — stopped calling CQ"
@@ -468,6 +503,7 @@ class QsoSessionController(
      */
     private fun maybeAutoResumeCq(snackbar: String, finishedJob: Job? = null) {
         if (!autoCqResumeEnabled) return
+        if (!runOriginatedFromCq) return
         pendingAutoCqResume = true
         val jobToJoin = finishedJob ?: qsoLoopJob
         scope.launch(qsoDispatcher) {
@@ -482,7 +518,7 @@ class QsoSessionController(
             notifyFn(snackbar, SnackbarEvent.Tag.TRANSIENT)
             val machine = newQsoMachine()
             machine.startCq()
-            startQsoLoop(machine, hearingSlotParity = null)
+            startQsoLoop(machine, hearingSlotParity = null, cqOrigin = true)
         }
     }
 
@@ -517,6 +553,7 @@ class QsoSessionController(
         startQsoLoop(
             machine,
             hearingSlotParity = if (machine.role == QsoRole.Answerer) hearingSlotParity else null,
+            cqOrigin = false,
         )
     }
 
@@ -545,7 +582,7 @@ class QsoSessionController(
         notifyFn("Answering ${cq.call}", SnackbarEvent.Tag.TRANSIENT)
         val machine = newQsoMachine()
         machine.answerCq(cq.call, cq.grid, picked.snr)
-        startQsoLoop(machine, hearingSlotParity = hearingSlotParity)
+        startQsoLoop(machine, hearingSlotParity = hearingSlotParity, cqOrigin = false)
     }
 
     // ── Internal: TX-text derivation ────────────────────────────────────
@@ -701,4 +738,5 @@ data class QsoSlice(
     val isTxSlot: Boolean = false,
     val secondsUntilOurTxSlot: Int = 15,
     val utcClock: String = "00:00:00",
+    val userBlockedCalls: List<String> = emptyList(),
 )

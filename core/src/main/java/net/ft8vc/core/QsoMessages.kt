@@ -95,6 +95,19 @@ object QsoMessages {
         }
     }
 
+    /** The transmitting station's callsign for a parsed message; null when the message has no sender. */
+    fun senderCall(message: String): String? =
+        when (val rx = parse(message)) {
+            is QsoRx.Cq -> rx.call
+            is QsoRx.GridReply -> rx.sender
+            is QsoRx.Report -> rx.sender
+            is QsoRx.RReport -> rx.sender
+            is QsoRx.Roger -> rx.sender
+            is QsoRx.RogerBye -> rx.sender
+            is QsoRx.Bye -> rx.sender
+            QsoRx.Other -> null
+        }
+
     private fun parseCq(tokens: List<String>): QsoRx {
         // CQ {call} {grid}  or  CQ {modifier} {call} {grid}  or  CQ {call}
         val rest = tokens.drop(1)

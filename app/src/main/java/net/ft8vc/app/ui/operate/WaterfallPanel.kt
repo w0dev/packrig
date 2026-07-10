@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
@@ -24,7 +25,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import net.ft8vc.app.OperateViewModel
-import net.ft8vc.app.ui.theme.Ft8Amber
+import net.ft8vc.app.ui.theme.Ft8Red
+
+/** FT8 occupied bandwidth: 8-FSK x 6.25 Hz tone spacing. */
+private const val FT8_SIGNAL_WIDTH_HZ = 50
 
 @Composable
 fun WaterfallPanel(
@@ -65,15 +69,41 @@ fun WaterfallPanel(
                     dstOffset = IntOffset.Zero,
                     dstSize = IntSize(size.width.toInt(), size.height.toInt()),
                 )
-                if (maxFreqHz > 0) {
-                    val markerX = (txFreqHz.toFloat() / maxFreqHz * size.width).coerceIn(0f, size.width)
-                    drawLine(
-                        color = Ft8Amber,
-                        start = Offset(markerX, 0f),
-                        end = Offset(markerX, size.height),
-                        strokeWidth = 2.dp.toPx(),
-                    )
-                }
+                if (maxFreqHz <= 0) return@Canvas
+                val hzToX = { hz: Int -> (hz.toFloat() / maxFreqHz * size.width).coerceIn(0f, size.width) }
+
+                // TX marker, WSJT-X style: light red fill over the 50 Hz FT8
+                // footprint, goalpost caps at top/bottom, and a solid line at
+                // the exact TX tone so the operator can read their footprint
+                // directly against the band traces.
+                val bandStart = hzToX(txFreqHz)
+                val bandEnd = hzToX(txFreqHz + FT8_SIGNAL_WIDTH_HZ)
+                val bandWidth = (bandEnd - bandStart).coerceAtLeast(1f)
+                drawRect(
+                    color = Ft8Red.copy(alpha = 0.18f),
+                    topLeft = Offset(bandStart, 0f),
+                    size = Size(bandWidth, size.height),
+                )
+                val capStroke = 3.dp.toPx()
+                drawLine(
+                    color = Ft8Red,
+                    start = Offset(bandStart, capStroke / 2f),
+                    end = Offset(bandEnd, capStroke / 2f),
+                    strokeWidth = capStroke,
+                )
+                drawLine(
+                    color = Ft8Red,
+                    start = Offset(bandStart, size.height - capStroke / 2f),
+                    end = Offset(bandEnd, size.height - capStroke / 2f),
+                    strokeWidth = capStroke,
+                )
+                // Solid leading edge at the exact TX tone.
+                drawLine(
+                    color = Ft8Red,
+                    start = Offset(bandStart, 0f),
+                    end = Offset(bandStart, size.height),
+                    strokeWidth = 2.5.dp.toPx(),
+                )
             }
         }
         FrequencyAxis(maxFreqHz = maxFreqHz)

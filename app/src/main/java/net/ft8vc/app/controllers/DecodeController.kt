@@ -24,6 +24,7 @@ import net.ft8vc.audio.dsp.SpectrumProcessor
 import net.ft8vc.core.AppInfo
 import net.ft8vc.core.CallsignMatcher
 import net.ft8vc.core.ClockOffsetEstimator
+import net.ft8vc.core.CallsignCountry
 import net.ft8vc.core.DecodeDistance
 import net.ft8vc.core.DecodePassSource
 import net.ft8vc.core.QsoDecode
@@ -58,7 +59,7 @@ import kotlin.system.measureTimeMillis
  * [DecodeSlice.decodeFailureCount]. Phase 6 promotes that counter into the
  * Operate-header "Decodes dropped: N" status chip.
  *
- * Stable DecodeRow ids (`slotStart * 1000 + indexInSlot`) and an
+ * Stable DecodeRow ids ([DecodeRowKey.stableId] hashes) and an
  * ImmutableList slice type are wired here so Compose stability work in
  * Phase 7 has the foundation it needs.
  */
@@ -172,6 +173,16 @@ class DecodeController(
         _slice.update {
             it.copy(levelDbfs = OperateUiState.SILENCE_DBFS, clip = false, clockOffsetSeconds = null)
         }
+    }
+
+    /**
+     * Discard the DT-offset estimator window and clear the published offset.
+     * Called after the operator applies a clock correction so the chip rebuilds
+     * from post-correction slots rather than lingering on stale DTs.
+     */
+    fun realignClockEstimate() {
+        clockOffset.reset()
+        _slice.update { it.copy(clockOffsetSeconds = null) }
     }
 
     fun clearDecodes() {
@@ -317,6 +328,7 @@ class DecodeController(
                     isCq = message.startsWith("CQ"),
                     isToMe = QsoResume.isDirectedToMe(ctx.myCall, message),
                     distanceKm = DecodeDistance.kmFromMessage(ctx.myGrid, message),
+                    countryCode = sender?.let { CallsignCountry.isoFor(it) },
                     slotParity = slotParity,
                     workedBefore = worked,
                     passSource = source,
@@ -399,17 +411,7 @@ class DecodeController(
     }
 
     /** Extract the sender callsign from a parsed FT8 message; null when message has no sender. */
-    private fun senderCallFromMessage(message: String): String? =
-        when (val rx = QsoMessages.parse(message)) {
-            is QsoRx.Cq -> rx.call
-            is QsoRx.GridReply -> rx.sender
-            is QsoRx.Report -> rx.sender
-            is QsoRx.RReport -> rx.sender
-            is QsoRx.Roger -> rx.sender
-            is QsoRx.RogerBye -> rx.sender
-            is QsoRx.Bye -> rx.sender
-            QsoRx.Other -> null
-        }
+    private fun senderCallFromMessage(message: String): String? = QsoMessages.senderCall(message)
 
     override fun close() {
         (decodeDispatcher as? ExecutorCoroutineDispatcher)?.close()

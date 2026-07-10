@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import net.ft8vc.app.controllers.AppRfState
+import net.ft8vc.app.controllers.CaptureWatchdog
 import net.ft8vc.app.controllers.DecodeController
 import net.ft8vc.app.controllers.QsoSessionController
 import net.ft8vc.app.controllers.RigSession
@@ -37,10 +38,13 @@ import net.ft8vc.data.db.Ft8vcDatabase
 import net.ft8vc.data.model.QsoContact
 import net.ft8vc.app.ui.bandLabelForLogging
 import net.ft8vc.ft8native.Ft8Native
-import net.ft8vc.rig.Ft891Cat
+import net.ft8vc.rig.PttMethod
 import net.ft8vc.rig.RigController
+import net.ft8vc.rig.RigRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -56,6 +60,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.util.Locale
+
+/** Map a descriptor's default PTT method onto the app's PTT preference. */
+fun PttMethod.toPreference(): PttPreference = when (this) {
+    PttMethod.AUTO -> PttPreference.AUTO
+    PttMethod.CAT -> PttPreference.CAT
+    PttMethod.RTS -> PttPreference.RTS
+}
 
 /**
  * Thin orchestrator: constructs the five controllers (SettingsBridge,
@@ -99,6 +110,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val txStatus: String? = null,
         val operateStatus: String? = null,
         val contactCount: Int = 0,
+        /** Operator-applied clock correction (ms); mirrored into OperateUiState for the Settings/chip display. */
+        val appliedClockOffsetMs: Long = 0L,
+        /** Capture watchdog gave up after exhausting restarts; drives the retry chip. */
+        val captureFailed: Boolean = false,
     )
 
     private val _viewState = MutableStateFlow(OperateViewState())
@@ -117,6 +132,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private val capture = UsbAudioCapture(app)
     private val captureLifecycle = CaptureLifecycle(capture)
+    private val captureWatchdog = CaptureWatchdog()
     private val playback = UsbAudioPlayback(app)
     private val rig = RigController(app)
     private val rigSession = RigSession(
@@ -124,9 +140,12 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         catControl = rig,
         digirigPresenceProvider = { rig.isDigirigReady },
     )
+    private val clockCorrection = net.ft8vc.core.ClockCorrection()
+
     private val decodeController = DecodeController(
         decoder = Ft8Native,
         scope = viewModelScope,
+        clock = clockCorrection::now,
         workedBeforeLookup = { call ->
             // Synchronous wrapper around the suspending in-memory cache. Safe on
             // the decode dispatcher: first lookup per call hits Room once, every
@@ -143,7 +162,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
     val maxAudioFreqHz: Int = decodeController.maxAudioFreqHz
 
+    private val abandonedPartners = net.ft8vc.core.AbandonedPartners()
+
     private val qsoSession = QsoSessionController(
+        clock = clockCorrection::now,
         scope = viewModelScope,
         transmitFn = ::transmitForQsoLoop,
         transmitIntoCurrentSlotFn = ::transmitIntoCurrentSlotForQsoLoop,
@@ -151,6 +173,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         onQsoComplete = ::onQsoComplete,
         notifyFn = ::notify,
         resumeCaptureIfNeeded = ::resumeCaptureIfNeededForQso,
+        abandonedPartners = abandonedPartners,
     )
 
     private val txOrchestrator = TxOrchestrator(
@@ -158,6 +181,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         playback = playback,
         rigSession = rigSession,
         scope = viewModelScope,
+        clock = clockCorrection::now,
         notifyFn = ::notify,
         outputDeviceIdProvider = { AudioOutputs.firstUsb(getApplication())?.id },
         captureControl = TxCaptureControl(
@@ -233,6 +257,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 lastDialFreqHz = settings.lastDialFreqHz,
                 pttPreference = settings.pttPreference,
                 catBaud = settings.catBaud,
+                radioModelId = settings.radioModelId,
+                catPortOverride = settings.catPortOverride,
                 slotIndex = qso.slotIndex,
                 secondsToNextSlot = qso.secondsToNextSlot,
                 isTxSlot = qso.isTxSlot,
@@ -246,12 +272,15 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 txSafetyHaltActive = tx.txSafetyHaltActive,
                 digirigDisconnected = tx.digirigDisconnected,
                 catUnreachable = rig.catUnreachable,
+                captureFailed = view.captureFailed,
                 decodeFailureRecent = decode.decodeFailureRecent,
                 zeroSampleSlots = decode.zeroSampleSlots,
                 clockOffsetSeconds = decode.clockOffsetSeconds,
+                appliedClockOffsetMs = view.appliedClockOffsetMs,
                 operateStatus = view.operateStatus,
                 contactCount = view.contactCount,
                 lastAdifBackupAtMs = settings.lastAdifBackupAtMs,
+                userBlockedCalls = qso.userBlockedCalls,
             )
         }.distinctUntilChanged().stateIn(
             viewModelScope,
@@ -294,6 +323,9 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         // Settings → controller setters (the only mirror left: settings need to
         // be pushed INTO controllers so their loops see fresh values).
         viewModelScope.launch {
+            // Tracks the last PTT preference actually pushed into the rig, so the
+            // mirror below only reacts to real changes (not every slice emission).
+            var lastAppliedPttPreference: PttPreference? = null
             settingsBridge.slice.collect { s ->
                 lastDialFreqHz = s.lastDialFreqHz
                 decodeController.setInputGain(s.inputGain)
@@ -321,6 +353,41 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 }
+                // Radio-model mirror: resolve the selected id to a descriptor and
+                // apply it to the controller, rebinding like the CAT-baud mirror.
+                // The whole body runs on the CAT dispatcher: setDescriptor closes
+                // a live backend (blocking USB I/O) and contends the controller
+                // monitor with rebind — neither may pin Main (field ANR class,
+                // 2026-07-03). setDescriptor/rebind are idempotent, so a stale
+                // duplicate launch from a rapid settings burst is harmless.
+                val wantModel = s.radioModelId?.let { RigRegistry.byId(it) }
+                if (rig.descriptor?.id != wantModel?.id || rig.catPortOverride != s.catPortOverride) {
+                    viewModelScope.launch(rigSession.catDispatcher) {
+                        rig.setDescriptor(wantModel)
+                        rig.catPortOverride = s.catPortOverride
+                        if (!state.value.isTransmitting) {
+                            rig.rebind()
+                            withContext(Dispatchers.Main) { prepareRig() }
+                        }
+                    }
+                }
+                // PTT preference mirror (phase 2: a model's default PTT method —
+                // and the operator's explicit choice — must actually take effect).
+                // Forced modes are a volatile write; AUTO re-probes CAT off Main.
+                // The picker is TX-guarded, so a mid-TX method flip cannot happen
+                // from the UI (a CAT→RTS flip mid-key would strand TX1 unkeyed).
+                if (lastAppliedPttPreference != s.pttPreference) {
+                    lastAppliedPttPreference = s.pttPreference
+                    when (s.pttPreference) {
+                        PttPreference.CAT -> rig.useCatPtt = true
+                        PttPreference.RTS -> rig.useCatPtt = false
+                        PttPreference.AUTO -> if (rig.isDigirigReady) {
+                            viewModelScope.launch(rigSession.catDispatcher) {
+                                rig.configurePttFromCatProbe()
+                            }
+                        }
+                    }
+                }
             }
         }
         viewModelScope.launch {
@@ -339,6 +406,29 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         notify("Audio device removed — restarting capture", SnackbarEvent.Tag.ERROR)
                         restartCapture()
                     }
+                }
+            }
+        }
+        // Capture heartbeat watchdog: a stalled/dead capture thread stops delivering
+        // frames entirely, so the zero-sample slice watchdog (which needs frames
+        // flowing) can't see it. Poll on a timer instead.
+        viewModelScope.launch {
+            while (isActive) {
+                delay(CAPTURE_WATCHDOG_TICK_MS)
+                val ui = state.value
+                if (!ui.isCapturing) continue
+                val devicePresent = AudioInputs.list(getApplication()).any { it.isUsb }
+                when (captureWatchdog.poll(ui.isCapturing, ui.isTransmitting, devicePresent)) {
+                    CaptureWatchdog.Decision.Recover -> {
+                        notify("Audio stalled — restarting capture", SnackbarEvent.Tag.ERROR)
+                        restartCapture()
+                    }
+                    CaptureWatchdog.Decision.GiveUp -> {
+                        _viewState.update { it.copy(captureFailed = true) }
+                        stopCapture()
+                        notify("Audio capture failed — tap to retry", SnackbarEvent.Tag.ERROR)
+                    }
+                    CaptureWatchdog.Decision.Idle -> {}
                 }
             }
         }
@@ -514,6 +604,23 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settingsRepo.setCatBaud(baud) }
     }
 
+    /** Select the radio model; applies the model's default baud + PTT method. */
+    fun setRadioModel(id: String) {
+        val d = RigRegistry.byId(id) ?: return
+        viewModelScope.launch {
+            settingsRepo.setRadioModel(id)
+            settingsRepo.setCatBaud(d.defaultBaud)
+            settingsRepo.setPttPreference(d.defaultPtt.toPreference())
+        }
+    }
+
+    fun setCatPortOverride(index: Int?) {
+        viewModelScope.launch { settingsRepo.setCatPortOverride(index) }
+    }
+
+    /** Operator-facing names of the attached rig's serial ports (empty when none). */
+    fun serialPortDisplayNames(): List<String> = rig.catPortDisplayNames()
+
     fun acknowledgeLicense() {
         viewModelScope.launch { settingsRepo.setLicenseAcknowledged(true) }
         // Per SAFETY-02: license re-acknowledgment after a USB reconnect is the
@@ -597,8 +704,35 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         if (announce) notify("Transmit halted")
     }
 
+    /**
+     * Apply the operator's PTT preference at rig-ready time: AUTO probes CAT
+     * (blocking ~1 s on timeout — call on the CAT dispatcher), CAT/RTS force
+     * the method without probing. Returns the method label for status display.
+     */
+    private fun applyPttMethod(): String =
+        when (settingsBridge.slice.value.pttPreference) {
+            PttPreference.AUTO -> rig.configurePttFromCatProbe()
+            PttPreference.CAT -> {
+                rig.useCatPtt = true
+                "CAT"
+            }
+            PttPreference.RTS -> {
+                rig.useCatPtt = false
+                "RTS"
+            }
+        }
+
     private fun prepareRig() {
         when (rig.state()) {
+            RigController.State.NoModel -> {
+                _viewState.update {
+                    it.copy(
+                        pttReady = false,
+                        catReady = false,
+                        txStatus = "Select your radio model in Settings",
+                    )
+                }
+            }
             RigController.State.NoDevice -> {
                 val usb = rig.usbDeviceSummary()
                 _viewState.update {
@@ -614,7 +748,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 rigSession.refreshDigirigPresence()
                 onRigReattached()
                 viewModelScope.launch(rigSession.catDispatcher) {
-                    val method = rig.configurePttFromCatProbe()
+                    val method = applyPttMethod()
                     _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
                     onRigReady()
                 }
@@ -632,7 +766,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                     rigSession.refreshDigirigPresence()
                     onRigReattached()
                     viewModelScope.launch(rigSession.catDispatcher) {
-                        val method = rig.configurePttFromCatProbe()
+                        val method = applyPttMethod()
                         _viewState.update { it.copy(pttReady = true, txStatus = "Digirig PTT ready ($method)") }
                         onRigReady()
                     }
@@ -678,7 +812,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setRigDataUsb() {
         if (!rig.isCatReady) return
-        viewModelScope.launch { rigSession.setMode(Ft891Cat.Mode.DATA_USB) }
+        viewModelScope.launch { rigSession.setDataMode() }
     }
 
     fun usbDiagnostics(): String = rig.usbDeviceSummary()
@@ -713,11 +847,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         qsoSession.stopQso()
     }
 
-    fun abandonQso() {
-        playback.stop()
-        rigSession.releasePttAsync()
-        qsoSession.abandonQso()
+    fun blockStation(call: String) {
+        qsoSession.blockStation(call)
     }
+
+    fun unblockStation(call: String) = qsoSession.unblockStation(call)
 
     fun setOperateTxText(text: String) = qsoSession.setOperateTxText(text)
     fun selectOperateTxStep(step: QsoTxStep) = qsoSession.selectOperateTxStep(step)
@@ -834,7 +968,14 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun beginCapture() {
         _viewState.update { it.copy(isCapturing = true) }
-        captureLifecycle.start(state.value.selectedDeviceId, decodeController::onFrames) { t ->
+        captureWatchdog.onCaptureStarted()
+        captureLifecycle.start(
+            state.value.selectedDeviceId,
+            { frames ->
+                captureWatchdog.onFrame()
+                decodeController.onFrames(frames)
+            },
+        ) { t ->
             _viewState.update { it.copy(isCapturing = false, isOperating = false) }
             notify(t.message ?: "Capture failed", SnackbarEvent.Tag.ERROR)
         }
@@ -847,6 +988,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun stopCapture(onStopped: () -> Unit = {}) {
         _viewState.update { it.copy(isCapturing = false) }
+        captureWatchdog.reset()
         captureLifecycle.stop {
             // Runs after the engine actually stopped, so the reset can't race
             // frames still draining from the capture thread.
@@ -869,6 +1011,32 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun retryCat() {
         rigSession.retryCat()
         readRig()
+    }
+
+    /** Operator taps the "Audio capture failed — tap to retry" chip. */
+    fun retryCapture() {
+        _viewState.update { it.copy(captureFailed = false) }
+        captureWatchdog.reset()
+        restartCapture()
+    }
+
+    /**
+     * Apply the currently measured DT residual to the shared slot-timing clock,
+     * shifting RX slot collection, early-decode timing, TX keying, and slot
+     * parity together. No-op when no residual estimate is available yet.
+     */
+    fun alignClock() {
+        val residual = decodeController.slice.value.clockOffsetSeconds ?: return
+        clockCorrection.applyResidualSeconds(residual)
+        decodeController.realignClockEstimate()
+        _viewState.update { it.copy(appliedClockOffsetMs = clockCorrection.appliedOffsetMs) }
+    }
+
+    /** Clear any applied clock correction (Settings "Reset"). */
+    fun resetClockAlignment() {
+        clockCorrection.reset()
+        decodeController.realignClockEstimate()
+        _viewState.update { it.copy(appliedClockOffsetMs = 0L) }
     }
 
     fun clearDecodes() {
@@ -902,5 +1070,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private companion object {
         /** Floor-offset dB used by the spectrum/waterfall renderer at the default brightness (0.6). */
         const val WATERFALL_FLOOR_OFFSET_DB_DEFAULT = 24f - 0.6f * 32f
+        /** Poll interval for the capture-stall watchdog monitor coroutine. */
+        const val CAPTURE_WATCHDOG_TICK_MS = 1_000L
     }
 }

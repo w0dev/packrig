@@ -13,7 +13,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.ft8vc.app.OperateViewModel
@@ -49,16 +51,19 @@ fun SpectrumScreen(vm: OperateViewModel) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 DialFrequencySelector(
                     rigFreqHz = state.rigFreqHz,
                     enabled = state.catReady && !state.catBusy,
                     onSelect = vm::setRigFrequency,
+                    radioModelId = state.radioModelId,
                 )
                 Text(
-                    "Tap or drag to set TX tone",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    "TX ${state.txFreqHz} Hz",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
             WaterfallPanel(

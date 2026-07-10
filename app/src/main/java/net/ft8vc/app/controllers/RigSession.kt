@@ -17,7 +17,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import net.ft8vc.rig.CatControl
-import net.ft8vc.rig.Ft891Cat
 import net.ft8vc.rig.RigBackend
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -84,12 +83,12 @@ class RigSession @OptIn(ExperimentalCoroutinesApi::class) constructor(
 
     private suspend fun readRigImpl(): Long? = runCat("Reading rig…") {
         val freq = catControl.frequencyHz()
-        val mode = catControl.mode()
+        val mode = catControl.modeLabel()
         val both = freq == null && mode == null
         _slice.update {
             it.copy(
                 rigFreqHz = freq ?: it.rigFreqHz,
-                rigMode = mode?.label ?: it.rigMode,
+                rigMode = mode ?: it.rigMode,
                 catStatus = if (both) "No CAT reply" else "Rig in sync",
             )
         }
@@ -114,15 +113,17 @@ class RigSession @OptIn(ExperimentalCoroutinesApi::class) constructor(
         }
     } ?: false
 
-    suspend fun setMode(mode: Ft891Cat.Mode): Boolean {
+    suspend fun setDataMode(): Boolean {
         if (_slice.value.catUnreachable) return false
-        return setModeImpl(mode)
+        return setDataModeImpl()
     }
 
-    private suspend fun setModeImpl(mode: Ft891Cat.Mode): Boolean = runCat("Setting mode…") {
-        if (catControl.setMode(mode)) {
-            val actual = catControl.mode()
-            _slice.update { it.copy(rigMode = actual?.label ?: mode.label, catStatus = "Mode set") }
+    private suspend fun setDataModeImpl(): Boolean = runCat("Setting mode…") {
+        if (catControl.setDataMode()) {
+            val actual = catControl.modeLabel()
+            _slice.update {
+                it.copy(rigMode = actual ?: catControl.dataModeLabel(), catStatus = "Mode set")
+            }
             recordSuccess()
             true
         } else {

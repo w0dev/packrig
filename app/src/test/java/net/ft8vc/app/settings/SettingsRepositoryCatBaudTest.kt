@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.ft8vc.app.controllers.SettingsBridge
-import net.ft8vc.rig.DigirigRigBackend
+import net.ft8vc.rig.RigController
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -42,7 +42,7 @@ class SettingsRepositoryCatBaudTest {
 
     @Test
     fun catBaudDefaultsToRigDefault() {
-        assertEquals(DigirigRigBackend.DEFAULT_CAT_BAUD, StationSettings().catBaud)
+        assertEquals(RigController.DEFAULT_CAT_BAUD, StationSettings().catBaud)
         assertEquals(38_400, StationSettings().catBaud)
     }
 

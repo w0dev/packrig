@@ -98,13 +98,13 @@ required.
 
 ## Operational notes
 
-- Select the Digirig USB input in the Monitor screen device dropdown
-- Level metering and clip detection run in `MonitorViewModel.onFrames`
+- Select the Digirig USB input in the Settings → Audio device dropdown
+- Level metering and clip detection run as frames arrive (`DecodeController.onFrames`, driven by `OperateViewModel`)
 - Capture pauses during TX (half-duplex); resumes after transmission completes
 - USB output for TX is selected via `AudioOutputs.firstUsb()`
 
 ## Related docs
 
 - [HARDWARE.md](HARDWARE.md) — Digirig audio wiring
-- [APP.md](APP.md) — `MonitorViewModel` capture/TX loop
+- [APP.md](APP.md) — `OperateViewModel` capture/TX loop
 - [FT8_NATIVE.md](FT8_NATIVE.md) — decode/encode on 12 kHz PCM

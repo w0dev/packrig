@@ -1,7 +1,8 @@
 package net.ft8vc.app.ui.operate
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,24 +63,28 @@ fun DecodeListPanel(
     onClear: () -> Unit,
     onAnswerCq: (DecodeRow) -> Unit,
     onResume: (DecodeRow) -> Unit,
+    userBlockedCalls: List<String> = emptyList(),
+    onBlockSender: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val visibleDecodes = decodes.filter { row ->
-        row.source is DecodeRowSource.Tx ||
-        MonitorDecodeFilter.visibleForDisplay(
-            message = row.message,
-            isCq = row.isCq,
-            myCall = myCall,
-            freqHz = row.freqHz,
-            txToneHz = txToneHz,
-            viewMode = decodeViewMode,
-            cq73OnlyFilter = cq73OnlyFilter,
-            qsoDx = qsoDx,
-            qsoActive = qsoActive,
-        )
+        !DecodeBlocklist.isSenderBlocked(row.message, row.source, userBlockedCalls) &&
+        (row.source is DecodeRowSource.Tx ||
+            MonitorDecodeFilter.visibleForDisplay(
+                message = row.message,
+                isCq = row.isCq,
+                myCall = myCall,
+                freqHz = row.freqHz,
+                txToneHz = txToneHz,
+                viewMode = decodeViewMode,
+                cq73OnlyFilter = cq73OnlyFilter,
+                qsoDx = qsoDx,
+                qsoActive = qsoActive,
+            ))
     }
     val filterActive = decodeViewMode == DecodeViewMode.OPERATE ||
-        (decodeViewMode == DecodeViewMode.ALL && cq73OnlyFilter)
+        (decodeViewMode == DecodeViewMode.ALL && cq73OnlyFilter) ||
+        visibleDecodes.size != decodes.size
     val decodeCountLabel = if (filterActive) {
         "${visibleDecodes.size}/${decodes.size}"
     } else {
@@ -156,13 +161,19 @@ fun DecodeListPanel(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        // Match the data rows' effective inset: LazyColumn's 6.dp
+                        // plus each DecodeRowItem's own 2.dp horizontal padding.
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    DecodeHeaderCell("UTC")
+                    // Labels are space-padded to the monospace width of the data
+                    // cell below them (time HHmmss=6, snr %+3d=3, dist=4, cc=2,
+                    // freq %4d=4) so each header sits over its own column.
+                    DecodeHeaderCell("UTC   ")
                     DecodeHeaderCell("SNR")
                     DecodeHeaderCell("DIST")
-                    DecodeHeaderCell("Hz")
+                    DecodeHeaderCell("CC")
+                    DecodeHeaderCell("  Hz")
                     Text(
                         text = "MSG",
                         style = MaterialTheme.typography.labelSmall,
@@ -206,6 +217,7 @@ fun DecodeListPanel(
                     reverseLayout = true,
                 ) {
                     items(visibleDecodes, key = { it.id }) { row ->
+                        val blockTarget = DecodeBlocklist.senderToBlock(row.message, row.source)
                         DecodeRowItem(
                             row = row,
                             qsoDx = qsoDx,
@@ -216,6 +228,7 @@ fun DecodeListPanel(
                                 canResume && row.isToMe -> ({ onResume(row) })
                                 else -> null
                             },
+                            onLongClick = blockTarget?.let { call -> { onBlockSender(call) } },
                         )
                     }
                 }
@@ -269,6 +282,7 @@ private fun emptyDecodeMessage(
     else -> "No decodes match filters."
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DecodeRowItem(
     row: DecodeRow,
@@ -276,6 +290,7 @@ private fun DecodeRowItem(
     qsoActive: Boolean,
     decodeColors: DecodeColorScheme,
     onClick: (() -> Unit)?,
+    onLongClick: (() -> Unit)?,
 ) {
     val isTx = row.source is DecodeRowSource.Tx
     val category = DecodeCategoryResolver.resolve(
@@ -312,7 +327,16 @@ private fun DecodeRowItem(
             .heightIn(min = 40.dp)
             .background(rowBackground)
             .testTag("decodeRow_${category.name}")
-            .then(if (onClick != null && !isTx) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(
+                if (!isTx && (onClick != null || onLongClick != null)) {
+                    Modifier.combinedClickable(
+                        onClick = onClick ?: {},
+                        onLongClick = onLongClick,
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .padding(horizontal = 2.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -322,6 +346,12 @@ private fun DecodeRowItem(
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .clip(RoundedCornerShape(3.dp))
+                .background(
+                    MaterialTheme.colorScheme.onSurface
+                        .copy(alpha = slotTintAlpha(row.slotParity)),
+                ),
         )
         Text(
             text = if (isTx) "   " else "%+3d".format(row.snr),
@@ -331,6 +361,12 @@ private fun DecodeRowItem(
         )
         Text(
             text = if (isTx) "    " else DecodeDistance.label(row.distanceKm),
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = if (isTx) "  " else (row.countryCode ?: " —"),
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

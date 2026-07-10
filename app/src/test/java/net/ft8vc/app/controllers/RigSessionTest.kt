@@ -2,7 +2,6 @@ package net.ft8vc.app.controllers
 
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.test.runTest
-import net.ft8vc.rig.Ft891Cat
 import net.ft8vc.rig.fakes.FakeRigBackend
 import net.ft8vc.rig.fakes.PttEdgeKind
 import org.junit.After
@@ -70,11 +69,11 @@ class RigSessionTest {
     }
 
     @Test
-    fun setMode_dataUsb_appliesToFake_andSlice() = runTest {
-        fake.setMode(Ft891Cat.Mode.LSB)
-        val ok = session.setMode(Ft891Cat.Mode.DATA_USB)
+    fun setDataMode_appliesToFake_andSlice() = runTest {
+        fake.configureModeLabel("LSB")
+        val ok = session.setDataMode()
         assertTrue(ok)
-        assertEquals(Ft891Cat.Mode.DATA_USB, fake.currentMode)
+        assertEquals("DATA-U", fake.currentModeLabel)
         assertEquals("DATA-U", session.slice.value.rigMode)
         assertEquals("Mode set", session.slice.value.catStatus)
     }

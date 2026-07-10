@@ -106,6 +106,8 @@ fun OperateScreen(
                 onHaltTx = vm::haltTx,
                 onTxSlotParityChange = vm::setTxSlotParity,
                 onRetryCat = vm::retryCat,
+                onRetryCapture = vm::retryCapture,
+                onAlignClock = vm::alignClock,
                 modifier = Modifier.fillMaxWidth(),
             )
             val stationComplete = StationProfileValidator.isComplete(state.myCall, state.myGrid)
@@ -134,6 +136,8 @@ fun OperateScreen(
                 onClear = vm::clearDecodes,
                 onAnswerCq = { row -> gateOnLicense { vm.answerCq(row) } },
                 onResume = { row -> gateOnLicense { vm.resumeFromDecode(row) } },
+                userBlockedCalls = state.userBlockedCalls,
+                onBlockSender = { call -> vm.blockStation(call) },
                 modifier = Modifier.fillMaxWidth().weight(1f),
             )
             OperateTxSelector(
@@ -155,8 +159,7 @@ fun OperateScreen(
                     }
                 },
                 onStartCq = { gateOnLicense { vm.startCq() } },
-                onStopQso = vm::stopQso,
-                onAbandonQso = vm::abandonQso,
+                onEndQso = vm::stopQso,
             )
         }
     }
@@ -197,6 +200,7 @@ fun OperateScreen(
         DialFrequencyBottomSheet(
             onDismissRequest = { showBandSheet = false },
             onSelect = vm::setRigFrequency,
+            radioModelId = state.radioModelId,
         )
     }
 

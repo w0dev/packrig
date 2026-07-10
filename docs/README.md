@@ -46,6 +46,6 @@ app
  └── ft8-native ──► core
 ```
 
-The `app` module wires everything together in `MonitorViewModel`. Pure logic lives
+The `app` module wires everything together in `OperateViewModel`. Pure logic lives
 in `core`, `rig` (CAT string builders), and `ft8-native` (codec). Android-specific
 I/O lives in `audio` and `rig`.

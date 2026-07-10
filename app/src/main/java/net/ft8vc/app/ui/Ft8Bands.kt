@@ -1,5 +1,7 @@
 package net.ft8vc.app.ui
 
+import net.ft8vc.rig.RigRegistry
+
 /** One FT8 dial preset (band label + VFO frequency). */
 data class Ft8DialPreset(val label: String, val hz: Long) {
     val freqMhz: String get() = "%.3f MHz".format(hz / 1_000_000.0)
@@ -29,7 +31,23 @@ val Ft8DialPresets = listOf(
     Ft8DialPreset("15m", 21_091_000L),
     Ft8DialPreset("12m", 24_915_000L),
     Ft8DialPreset("10m", 28_074_000L),
+    Ft8DialPreset("6m", 50_313_000L),
+    Ft8DialPreset("2m", 144_174_000L),
+    Ft8DialPreset("70cm", 432_174_000L),
 )
+
+/**
+ * Dial presets the selected radio can actually tune, filtered through the
+ * model's CAT protocol — a preset is offered only when the protocol accepts
+ * its frequency (e.g. 2 m/70 cm appear for the FTX-1/FT-991A but not for
+ * HF+6 m rigs like the FT-891). Null or unknown model shows every preset.
+ */
+fun presetsForModel(modelId: String?): List<Ft8DialPreset> {
+    val protocol = modelId
+        ?.let { RigRegistry.byId(it)?.protocolFactory?.invoke() }
+        ?: return Ft8DialPresets
+    return Ft8DialPresets.filter { protocol.setFrequencyCommand(it.hz) != null }
+}
 
 /** @deprecated Use [Ft8DialPresets]. */
 val Ft8DialBands = Ft8DialPresets

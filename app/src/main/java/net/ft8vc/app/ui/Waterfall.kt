@@ -18,7 +18,7 @@ class Waterfall(
 ) {
     /** dB above the estimated noise floor where the color ramp starts (higher = darker). */
     @Volatile
-    var floorOffsetDb: Float = 4f
+    var floorOffsetDb: Float = 8f
 
     /** dB span of the color ramp from floor to full-scale red (smaller = more contrast). */
     @Volatile
@@ -79,17 +79,21 @@ class Waterfall(
         }
     }
 
-    /** Classic waterfall ramp: black -> blue -> cyan -> green -> yellow -> red -> white. */
+    /**
+     * Waterfall ramp biased dark: the bottom ~55% of the range stays
+     * black -> blue (noise), the top half runs cyan -> green -> yellow -> red
+     * (signals). WSJT-X-like contrast so individual FT8 traces separate.
+     */
     private fun colorFor(t: Float): Int {
         val r: Int
         val g: Int
         val b: Int
         when {
-            t < 0.2f -> { val u = t / 0.2f; r = 0; g = 0; b = (128 * u + 60).toInt() }
-            t < 0.4f -> { val u = (t - 0.2f) / 0.2f; r = 0; g = (200 * u).toInt(); b = (188 + 67 * u).toInt() }
-            t < 0.6f -> { val u = (t - 0.4f) / 0.2f; r = 0; g = (200 + 55 * u).toInt(); b = (255 * (1 - u)).toInt() }
-            t < 0.8f -> { val u = (t - 0.6f) / 0.2f; r = (255 * u).toInt(); g = 255; b = 0 }
-            else -> { val u = (t - 0.8f) / 0.2f; r = 255; g = (255 - 155 * u).toInt(); b = (180 * u).toInt() }
+            t < 0.35f -> { val u = t / 0.35f; r = 0; g = 0; b = (170 * u).toInt() }
+            t < 0.55f -> { val u = (t - 0.35f) / 0.2f; r = 0; g = (200 * u).toInt(); b = (170 + 85 * u).toInt() }
+            t < 0.72f -> { val u = (t - 0.55f) / 0.17f; r = 0; g = (200 + 55 * u).toInt(); b = (255 * (1 - u)).toInt() }
+            t < 0.88f -> { val u = (t - 0.72f) / 0.16f; r = (255 * u).toInt(); g = 255; b = 0 }
+            else -> { val u = (t - 0.88f) / 0.12f; r = 255; g = (255 - 155 * u).toInt(); b = 0 }
         }
         return (0xFF shl 24) or (r.coerceIn(0, 255) shl 16) or (g.coerceIn(0, 255) shl 8) or b.coerceIn(0, 255)
     }

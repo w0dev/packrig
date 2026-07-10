@@ -7,7 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * catBaud must default to DigirigRigBackend.DEFAULT_CAT_BAUD so an untouched
+ * catBaud must default to RigController.DEFAULT_CAT_BAUD so an untouched
  * install binds at 38400 exactly as v1.0 did (behavior parity), and must be
  * assignable so a persisted setting applies to the next bind/rebind.
  */
@@ -21,7 +21,7 @@ class RigControllerCatBaudTest {
 
     @Test
     fun catBaudDefaultsToBackendDefault() {
-        assertEquals(DigirigRigBackend.DEFAULT_CAT_BAUD, controller().catBaud)
+        assertEquals(RigController.DEFAULT_CAT_BAUD, controller().catBaud)
     }
 
     @Test

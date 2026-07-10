@@ -137,16 +137,54 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
             }
 
-            SettingsSection("Rig (FT-891 CAT)") {
+            val rigTitle = state.radioModelId
+                ?.let { net.ft8vc.rig.RigRegistry.byId(it)?.displayName }
+                ?.let { "Rig ($it)" }
+                ?: "Radio"
+            SettingsSection(rigTitle) {
                 RadioSettingsSection(
                     state = state,
                     usbDiagnostics = vm.usbDiagnostics(),
+                    serialPortNames = vm.serialPortDisplayNames(),
+                    onSelectRadioModel = vm::setRadioModel,
+                    onSelectCatPort = vm::setCatPortOverride,
                     onSelectDialFrequency = vm::setRigFrequency,
                     onReadRig = vm::readRig,
                     onSetRigDataUsb = vm::setRigDataUsb,
                     onSetCatBaud = vm::setCatBaud,
                     onSetPttPreference = vm::setPttPreference,
                 )
+            }
+
+            SettingsSection("Clock alignment") {
+                val residual = state.clockOffsetSeconds
+                val appliedS = state.appliedClockOffsetMs / 1000f
+                Text(
+                    "Applied correction: %+.1f s".format(java.util.Locale.US, appliedS),
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    if (residual != null) {
+                        "Residual vs band time: %+.1f s".format(java.util.Locale.US, residual)
+                    } else {
+                        "Residual vs band time: not enough decodes yet"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = vm::alignClock,
+                        enabled = residual != null,
+                    ) { Text("Align now") }
+                    OutlinedButton(
+                        onClick = vm::resetClockAlignment,
+                        enabled = state.appliedClockOffsetMs != 0L,
+                    ) { Text("Reset") }
+                }
             }
 
             SettingsSection("TX") {
@@ -198,12 +236,36 @@ fun SettingsScreen(vm: OperateViewModel) {
                     onSelect = vm::setMaxUnansweredTxCycles,
                     enabled = state.txEnabled,
                 )
-                TextButton(
-                    onClick = vm::clearAbandonedPartners,
-                    enabled = state.txEnabled,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Clear abandoned-station blocklist")
+                Text(
+                    "Blocklist",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (state.userBlockedCalls.isEmpty()) {
+                    Text(
+                        "No blocked stations.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    state.userBlockedCalls.forEach { call ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(call, style = MaterialTheme.typography.bodyMedium)
+                            TextButton(onClick = { vm.unblockStation(call) }) {
+                                Text("Unblock")
+                            }
+                        }
+                    }
+                    TextButton(
+                        onClick = vm::clearAbandonedPartners,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Clear all")
+                    }
                 }
                 Text(
                     "Auto behaviors",
@@ -256,7 +318,7 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
                 AutoToggleRow(
                     title = "Resume CQ after QSO",
-                    subtitle = "Keep calling CQ after each logged or abandoned QSO",
+                    subtitle = "After a QSO you started by calling CQ, keep calling CQ",
                     checked = state.autoCqResumeEnabled,
                     onCheckedChange = vm::setAutoCqResumeEnabled,
                     enabled = state.txEnabled,
@@ -305,7 +367,6 @@ fun SettingsScreen(vm: OperateViewModel) {
 
             SettingsSection("About") {
                 Text("${AppInfo.APP_NAME} ${AppInfo.VERSION_NAME}")
-                Text(AppInfo.TAGLINE, style = MaterialTheme.typography.bodySmall)
                 if (state.nativeLoaded) {
                     Text(
                         "Decoder library: loaded v${state.nativeVersion}",
@@ -319,11 +380,6 @@ fun SettingsScreen(vm: OperateViewModel) {
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
-                Text(
-                    "Field setup: Yaesu FT-891 + Digirig Mobile. See docs/HARDWARE.md in the repo.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 if (state.txSafetyHaltActive) {
                     Button(
                         onClick = vm::acknowledgeSafetyHalt,
