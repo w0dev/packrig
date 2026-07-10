@@ -17,7 +17,6 @@ import net.ft8vc.app.ui.Waterfall
 import net.ft8vc.app.ui.bandLabelForFreqLoose
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.app.settings.SettingsRepository
-import net.ft8vc.app.settings.toPreference
 import net.ft8vc.audio.AudioInputs
 import net.ft8vc.audio.AudioOutputs
 import net.ft8vc.audio.CaptureLifecycle
@@ -41,6 +40,7 @@ import net.ft8vc.app.ui.bandLabelForLogging
 import net.ft8vc.ft8native.Ft8Native
 import net.ft8vc.rig.PttMethod
 import net.ft8vc.rig.RigController
+import net.ft8vc.rig.RigProfile
 import net.ft8vc.rig.RigRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -191,6 +191,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private var lastDialFreqHz: Long? = null
 
     init {
+        viewModelScope.launch { settingsRepo.migrateLegacyRadioModel() }
         state = combine(
             kotlinx.coroutines.flow.combine(settingsBridge.slice, _viewState) { s, v -> s to v },
             rigSession.slice,
@@ -253,6 +254,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 catBaud = settings.catBaud,
                 radioModelId = settings.radioModelId,
                 catPortOverride = settings.catPortOverride,
+                rigProfiles = settings.rigProfiles,
+                selectedRigProfileId = settings.selectedRigProfileId,
                 slotIndex = qso.slotIndex,
                 secondsToNextSlot = qso.secondsToNextSlot,
                 isTxSlot = qso.isTxSlot,
@@ -275,7 +278,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 contactCount = view.contactCount,
                 lastAdifBackupAtMs = settings.lastAdifBackupAtMs,
                 userBlockedCalls = qso.userBlockedCalls,
-            )
+            ).let { it.copy(rigHasCat = it.computeRigHasCat()) }
         }.distinctUntilChanged().stateIn(
             viewModelScope,
             SharingStarted.Eagerly,
@@ -598,14 +601,21 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settingsRepo.setCatBaud(baud) }
     }
 
-    /** Select the radio model; applies the model's default baud + PTT method. */
-    fun setRadioModel(id: String) {
-        val d = RigRegistry.byId(id) ?: return
+    @Deprecated("Replaced by rig profiles (Task 9 removes)") fun setRadioModel(id: String) {}
+
+    /** Persist a new/edited rig profile. [onRejected] fires when the cap or name rule blocks it. */
+    fun saveRigProfile(profile: RigProfile, onRejected: () -> Unit = {}) {
         viewModelScope.launch {
-            settingsRepo.setRadioModel(id)
-            settingsRepo.setCatBaud(d.defaultBaud)
-            settingsRepo.setPttPreference(d.defaultPtt.toPreference())
+            if (!settingsRepo.saveRigProfile(profile)) onRejected()
         }
+    }
+
+    fun deleteRigProfile(id: String) {
+        viewModelScope.launch { settingsRepo.deleteRigProfile(id) }
+    }
+
+    fun selectRigProfile(id: String) {
+        viewModelScope.launch { settingsRepo.selectRigProfile(id) }
     }
 
     fun setCatPortOverride(index: Int?) {

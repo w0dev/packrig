@@ -14,6 +14,8 @@ import net.ft8vc.core.QsoForm
 import net.ft8vc.core.QsoTxStep
 import net.ft8vc.core.TxSlotParity
 import net.ft8vc.rig.RigController
+import net.ft8vc.rig.RigProfile
+import net.ft8vc.rig.RigRegistry
 
 @Immutable
 data class DecodeRow(
@@ -131,6 +133,11 @@ data class OperateUiState(
     val radioModelId: String? = null,
     /** Manual CAT-port override index within the model's serial ports, or null for auto. */
     val catPortOverride: Int? = null,
+    /** Saved rig profiles + selection (settings mirror; drives the My rigs UI). */
+    val rigProfiles: List<RigProfile> = emptyList(),
+    val selectedRigProfileId: String? = null,
+    /** False when the selected preset has no CAT (generic-rts): dial is manual. */
+    val rigHasCat: Boolean = true,
 
     // ── Slot (UTC slot timing + parity) ───────────────────────────────────
     val slotIndex: Int = 0,
@@ -174,6 +181,15 @@ data class OperateUiState(
     val lastAdifBackupAtMs: Long? = null,
     val userBlockedCalls: List<String> = emptyList(),
 ) {
+    val selectedRigProfileName: String?
+        get() = rigProfiles.firstOrNull { it.id == selectedRigProfileId }?.name
+
+    /** True unless the selected preset is CAT-less. Unknown/absent model = true (legacy behavior). */
+    fun computeRigHasCat(): Boolean =
+        radioModelId?.let { id ->
+            RigRegistry.byId(id)?.let { it.protocolFactory != null } ?: true
+        } ?: true
+
     companion object {
         const val INPUT_GAIN_MIN = 0.1f
         const val SILENCE_DBFS = -100f
