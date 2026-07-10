@@ -150,7 +150,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     private fun currentBandLabel(): String? =
-        bandLabelForFreqLoose(state.value.rigFreqHz)
+        bandLabelForFreqLoose(state.value.effectiveDialFreqHz)
     val waterfall = Waterfall(bins = decodeController.binCount).also {
         decodeController.spectrumSink = it::addColumn
     }
@@ -814,6 +814,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** No-CAT rigs: the operator picked a band — persist it as the manual dial. */
+    fun setManualDialFrequency(hz: Long) {
+        viewModelScope.launch { settingsRepo.setLastDialFreqHz(hz) }
+    }
+
     fun setRigDataUsb() {
         if (!rig.isCatReady) return
         viewModelScope.launch { rigSession.setDataMode() }
@@ -895,7 +900,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun onQsoComplete(snapshot: QsoSnapshot) {
-        val freq = state.value.rigFreqHz
+        val freq = state.value.effectiveDialFreqHz
         val band = bandLabelForLogging(freq)
         val parks = ActivationProfile.parkRefsForLogging(
             state.value.potaModeEnabled,

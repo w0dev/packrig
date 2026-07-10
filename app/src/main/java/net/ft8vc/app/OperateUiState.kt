@@ -190,6 +190,15 @@ data class OperateUiState(
             RigRegistry.byId(id)?.let { it.protocolFactory != null } ?: true
         } ?: true
 
+    /**
+     * The dial frequency for display and logging: CAT readback when the rig
+     * has CAT; the operator's band-picker choice for a no-CAT (generic-rts)
+     * rig. Never falls back to a stale manual value on a CAT rig — a silent
+     * CAT stays "unknown", exactly as before profiles (parity).
+     */
+    val effectiveDialFreqHz: Long?
+        get() = rigFreqHz ?: lastDialFreqHz.takeIf { !rigHasCat }
+
     companion object {
         const val INPUT_GAIN_MIN = 0.1f
         const val SILENCE_DBFS = -100f

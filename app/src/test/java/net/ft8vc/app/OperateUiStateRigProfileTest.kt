@@ -25,4 +25,22 @@ class OperateUiStateRigProfileTest {
         assertTrue(OperateUiState(radioModelId = null).computeRigHasCat())
         assertTrue(OperateUiState(radioModelId = "unknown-model").computeRigHasCat())
     }
+
+    @Test
+    fun effectiveDialPrefersCatReadbackAndFallsToManualOnlyWithoutCat() {
+        // CAT rig: readback wins; stale manual dial must NOT leak in when CAT is silent.
+        assertEquals(
+            14_074_000L,
+            OperateUiState(rigFreqHz = 14_074_000L, lastDialFreqHz = 7_074_000L, rigHasCat = true).effectiveDialFreqHz,
+        )
+        assertEquals(
+            null,
+            OperateUiState(rigFreqHz = null, lastDialFreqHz = 7_074_000L, rigHasCat = true).effectiveDialFreqHz,
+        )
+        // No-CAT rig: the band-picker value is the dial.
+        assertEquals(
+            7_074_000L,
+            OperateUiState(rigFreqHz = null, lastDialFreqHz = 7_074_000L, rigHasCat = false).effectiveDialFreqHz,
+        )
+    }
 }
