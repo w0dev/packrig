@@ -21,6 +21,12 @@ The multi-rig milestone (spec:
 section) covers two more families beyond Yaesu new-CAT. Neither is
 implemented yet; each gets its own spec + plan when picked up:
 
+- **Phase 2.5 — Rig profiles** (spec:
+  `docs/superpowers/specs/2026-07-10-rig-profiles-design.md`). Named,
+  user-saved rig configurations (max 5) replace the radio-model dropdown;
+  registry models become presets. Adds `generic-yaesu` and `no-cat`
+  (RTS-PTT-only Digirig) presets — the latter resolves the 2026-07-04
+  spec's "Generic Digirig" open item — plus a Test CAT diagnostic.
 - **Phase 3 — Kenwood** (`KenwoodCat`: TS-590SG, TS-890S, …). Small delta:
   Yaesu new-CAT descends from Kenwood's ASCII dialect.
 - **Phase 4 — Icom CI-V** (`IcomCiV`: IC-7300 `0x94`, IC-705 `0xA4`, …).
