@@ -2,6 +2,9 @@ package net.ft8vc.rig
 
 import android.content.Context
 import android.hardware.usb.UsbManager
+import com.hoho.android.usbserial.driver.CdcAcmSerialDriver
+import com.hoho.android.usbserial.driver.UsbSerialDriver
+import com.hoho.android.usbserial.driver.UsbSerialPort
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
@@ -52,5 +55,26 @@ class RigControllerDescriptorTest {
     @Test
     fun catPortOverrideDefaultsToNull() {
         assertEquals(null, controller().catPortOverride)
+    }
+
+    // FTX-1 bench regression (2026-07-09): the stock prober class-probes generic
+    // CDC-ACM devices, so a multi-device rig yields several candidates in hash
+    // order — the rig's aux CDC device must never beat its CP2105 CAT bridge.
+    @Test
+    fun preferVendorBridge_vendorBeatsClassProbedCdc_regardlessOfOrder() {
+        val cdc = CdcAcmSerialDriver(mockk(relaxed = true))
+        val vendor = object : UsbSerialDriver {
+            override fun getDevice(): android.hardware.usb.UsbDevice = mockk(relaxed = true)
+            override fun getPorts(): List<UsbSerialPort> = emptyList()
+        }
+        assertEquals(vendor, RigController.preferVendorBridge(listOf(cdc, vendor)))
+        assertEquals(vendor, RigController.preferVendorBridge(listOf(vendor, cdc)))
+    }
+
+    @Test
+    fun preferVendorBridge_cdcOnlyStillWins_andEmptyIsNull() {
+        val cdc = CdcAcmSerialDriver(mockk(relaxed = true))
+        assertEquals(cdc, RigController.preferVendorBridge(listOf(cdc)))
+        assertNull(RigController.preferVendorBridge(emptyList()))
     }
 }

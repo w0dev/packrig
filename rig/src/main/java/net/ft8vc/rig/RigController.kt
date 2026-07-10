@@ -95,12 +95,17 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     }
 
     private fun findDriver(): UsbSerialDriver? {
-        val fromStock = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager).firstOrNull()
-        if (fromStock != null) return fromStock
+        // The stock prober class-probes generic CDC-ACM devices in addition to
+        // its VID/PID table, so a multi-device rig can yield several candidates
+        // in hash order. Prefer deterministically (FTX-1 bench, 2026-07-09: the
+        // rig's aux "CDC USB Demonstration" device won the coin toss over its
+        // CP2105 CAT bridge and every CAT write failed).
+        val stock = preferVendorBridge(UsbSerialProber.getDefaultProber().findAllDrivers(usbManager))
+        if (stock != null) return stock
         val custom = customProber().findAllDrivers(usbManager).firstOrNull()
         if (custom != null) return custom
-        // Some built-in-USB rigs enumerate as CDC-ACM, which the stock prober
-        // does not match blindly; try it directly against a present device.
+        // Some built-in-USB rigs enumerate only as CDC-ACM; try it directly
+        // against a present device as the last resort.
         val device = usbManager.deviceList.values.firstOrNull() ?: return null
         return runCatching { CdcAcmSerialDriver(device) }.getOrNull()
     }
@@ -312,5 +317,14 @@ class RigController(private val context: Context) : RigBackend, CatControl {
             val wanted = override ?: descriptorIndex
             return if (wanted in 0 until portCount) wanted else null
         }
+
+        /**
+         * Among prober-matched drivers, prefer a vendor-specific bridge (matched
+         * by VID/PID: CP210x, FTDI, CH34x, Prolific) over a class-probed CDC-ACM
+         * driver. Composite rigs (FTX-1) expose auxiliary CDC control devices
+         * that are not the CAT port; the vendor bridge is the CAT bridge.
+         */
+        fun preferVendorBridge(drivers: List<UsbSerialDriver>): UsbSerialDriver? =
+            drivers.firstOrNull { it !is CdcAcmSerialDriver } ?: drivers.firstOrNull()
     }
 }
