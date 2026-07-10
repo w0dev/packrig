@@ -62,4 +62,17 @@ object YaesuModels {
         dataModeCode = 'C',
         modeLabels = NEW_CAT_MODES,
     )
+
+    /**
+     * Generic new-CAT spec for user-configured rigs (the generic presets):
+     * widest published family bounds so the band list never filters a preset.
+     * Data mode and mode table are family-uniform — never user-edited.
+     */
+    val GENERIC = YaesuModelSpec(
+        name = "Generic Yaesu (new CAT)",
+        minFreqHz = 30_000L,
+        maxFreqHz = 470_000_000L,
+        dataModeCode = 'C',
+        modeLabels = NEW_CAT_MODES,
+    )
 }

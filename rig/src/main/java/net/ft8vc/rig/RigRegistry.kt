@@ -1,9 +1,10 @@
 package net.ft8vc.rig
 
 /**
- * The supported radios. No `default` — an unselected model is a real state the
- * app handles (see [RigController.State.NoModel]); the operator must choose.
- * The current family is all Yaesu new-CAT; Phase 3/4 append Kenwood/Icom.
+ * The preset table for rig profiles. No `default` — an unselected model is a
+ * real state the app handles (see [RigController.State.NoModel]); the operator
+ * must choose. The current family is all Yaesu new-CAT; Phase 3/4 append
+ * Kenwood/Icom.
  */
 object RigRegistry {
 
@@ -65,7 +66,47 @@ object RigRegistry {
             // C-Media UAC codec. CAT read/write confirmed at 38400.
             transportVerified = true,
         ),
+        RigDescriptor(
+            id = GENERIC_DIGIRIG,
+            displayName = "Digirig with CAT (generic)",
+            protocolFactory = CatProtocols.byId(CatProtocols.YAESU_NEWCAT)!!.factory,
+            defaultBaud = 38_400,
+            catPortIndex = 0,
+            defaultPtt = PttMethod.RTS,
+            transportVerified = false,
+        ),
+        RigDescriptor(
+            id = GENERIC_CAT,
+            displayName = "USB CAT cable / built-in USB (generic)",
+            protocolFactory = CatProtocols.byId(CatProtocols.YAESU_NEWCAT)!!.factory,
+            defaultBaud = 38_400,
+            catPortIndex = 0,
+            defaultPtt = PttMethod.CAT,
+            transportVerified = false,
+        ),
+        RigDescriptor(
+            id = GENERIC_RTS,
+            displayName = "Audio only — no CAT (generic)",
+            protocolFactory = null,
+            defaultBaud = 38_400,
+            catPortIndex = 0,
+            defaultPtt = PttMethod.RTS,
+            transportVerified = false,
+        ),
     )
+
+    /** Preset ids for the user-configured generics. Persisted — never rename. */
+    const val GENERIC_DIGIRIG = "generic-digirig"
+    const val GENERIC_CAT = "generic-cat"
+    const val GENERIC_RTS = "generic-rts"
+
+    val generics: List<RigDescriptor> get() = all.filter { isGeneric(it.id) }
+
+    fun isGeneric(id: String): Boolean =
+        id == GENERIC_DIGIRIG || id == GENERIC_CAT || id == GENERIC_RTS
+
+    /** Generics whose CAT protocol is a user-facing choice. */
+    fun isCatGeneric(id: String): Boolean = id == GENERIC_DIGIRIG || id == GENERIC_CAT
 
     fun byId(id: String): RigDescriptor? = all.firstOrNull { it.id == id }
 }
