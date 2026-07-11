@@ -97,8 +97,9 @@ fun RigProfileEditorDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Name") },
+                    // Empty name: hint in normal color; only style as an error once typed.
                     isError = name.isNotEmpty() && nameError != null,
-                    supportingText = { nameError?.takeIf { name.isNotEmpty() }?.let { Text(it) } },
+                    supportingText = { nameError?.let { Text(it) } },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -108,6 +109,7 @@ fun RigProfileEditorDialog(
                     }
                     CatBaudPicker(
                         baud = baud ?: preset!!.defaultBaud,
+                        defaultBaud = preset!!.defaultBaud,
                         enabled = true,
                         onSelect = { baud = it },
                     )
@@ -133,7 +135,7 @@ fun RigProfileEditorDialog(
                 } else if (preset != null) {
                     Text(
                         "No CAT for this setup — PTT keys through the serial RTS line, " +
-                            "and you set your dial frequency on the Radio settings screen.",
+                            "and you set your dial frequency in the Radio section of Settings.",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -146,20 +148,31 @@ fun RigProfileEditorDialog(
 @Composable
 private fun PresetPicker(selectedId: String?, onSelect: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    val label = selectedId?.let { RigRegistry.byId(it)?.displayName } ?: "Select your setup"
+    val label = selectedId?.let { RigRegistry.byId(it)?.displayName } ?: "Select your radio"
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
             value = label,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Radio / setup") },
+            label = { Text("Radio model") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             RigRegistry.all.forEach { d ->
                 DropdownMenuItem(
-                    text = { Text(d.displayName) },
+                    text = {
+                        Column {
+                            Text(d.displayName)
+                            if (d.transportVerified) {
+                                Text(
+                                    "Field-verified",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    },
                     onClick = { expanded = false; onSelect(d.id) },
                 )
             }
@@ -167,18 +180,20 @@ private fun PresetPicker(selectedId: String?, onSelect: (String) -> Unit) {
     }
 }
 
-/** One protocol today — visible so the operator knows which dialect is spoken. */
+/** One protocol today — plain text (not a disabled field) so it reads as information, not a broken control. */
 @Composable
 private fun CatProtocolPicker() {
-    OutlinedTextField(
-        value = CatProtocols.all.single().displayName,
-        onValueChange = {},
-        readOnly = true,
-        enabled = false,
-        label = { Text("CAT protocol") },
-        supportingText = { Text("More radio families arrive in later releases") },
-        modifier = Modifier.fillMaxWidth(),
-    )
+    Column {
+        Text(
+            "CAT protocol: ${CatProtocols.all.single().displayName}",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            "Only Yaesu-protocol radios are supported in this release.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -224,6 +239,7 @@ private fun CatPortOverridePicker(
 @Composable
 private fun CatBaudPicker(
     baud: Int,
+    defaultBaud: Int,
     enabled: Boolean,
     onSelect: (Int) -> Unit,
 ) {
@@ -242,7 +258,7 @@ private fun CatBaudPicker(
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             SettingsRepository.CAT_BAUD_OPTIONS.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option.toString()) },
+                    text = { Text(if (option == defaultBaud) "$option (default)" else option.toString()) },
                     onClick = {
                         expanded = false
                         onSelect(option)
@@ -267,7 +283,7 @@ private fun PttPreferencePicker(
             onValueChange = {},
             readOnly = true,
             enabled = enabled,
-            label = { Text("PTT preference") },
+            label = { Text("PTT method") },
             supportingText = { Text(preference.description) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(),

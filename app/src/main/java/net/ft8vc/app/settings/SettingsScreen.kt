@@ -38,6 +38,7 @@ import net.ft8vc.app.OperateViewModel
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.AppInfo
+import net.ft8vc.core.StationProfileValidator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,84 +62,35 @@ fun SettingsScreen(vm: OperateViewModel) {
                     value = state.myCall,
                     onValueChange = vm::setMyCall,
                     label = { Text("My call") },
+                    placeholder = { Text("N0CALL") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
+                    isError = state.myCall.isNotBlank() &&
+                        !StationProfileValidator.isValidCall(state.myCall),
+                    supportingText = {
+                        if (state.myCall.isNotBlank() && !StationProfileValidator.isValidCall(state.myCall)) {
+                            Text("Doesn't look like a callsign")
+                        }
+                    },
                 )
                 OutlinedTextField(
                     value = state.myGrid,
                     onValueChange = vm::setMyGrid,
-                    label = { Text("Grid") },
+                    label = { Text("My grid") },
+                    placeholder = { Text("FN31") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
+                    isError = state.myGrid.isNotBlank() &&
+                        !StationProfileValidator.isValidGrid(state.myGrid),
+                    supportingText = {
+                        if (state.myGrid.isNotBlank() && !StationProfileValidator.isValidGrid(state.myGrid)) {
+                            Text("4- or 6-character Maidenhead grid (e.g. FN31)")
+                        }
+                    },
                 )
             }
 
-            SettingsSection("Activation (POTA)") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("POTA mode", fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "CQ POTA on-air and POTA fields in ADIF export",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(
-                        checked = state.potaModeEnabled,
-                        onCheckedChange = vm::setPotaModeEnabled,
-                    )
-                }
-                if (state.potaModeEnabled) {
-                    OutlinedTextField(
-                        value = state.potaParkRef,
-                        onValueChange = vm::setPotaParkRef,
-                        label = { Text("Park reference") },
-                        placeholder = { Text("US-3315, US-0891") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        isError = state.potaParkRef.isNotBlank() &&
-                            !ActivationProfile.isValidParkRefList(state.potaParkRef),
-                        supportingText = {
-                            Text(
-                                if (state.potaParkRef.isBlank()) "Required to call CQ POTA — comma-separate for two-fers"
-                                else if (!ActivationProfile.isValidParkRefList(state.potaParkRef)) "Format: prefix-number (e.g. US-3315)"
-                                else "Valid park reference",
-                            )
-                        },
-                    )
-                }
-            }
-
-            SettingsSection("Display") {
-                AutoToggleRow(
-                    title = "Dark mode",
-                    subtitle = "Use the dark color scheme across the entire app",
-                    checked = state.useDarkTheme,
-                    onCheckedChange = vm::setUseDarkTheme,
-                    enabled = true,
-                )
-                DecodeColorsSection(
-                    scheme = state.decodeColors,
-                    onPickColor = vm::setDecodeColor,
-                    onReset = vm::resetDecodeColors,
-                )
-            }
-
-            SettingsSection("Audio") {
-                DevicePicker(state = state, onSelect = vm::selectDevice)
-                Text(
-                    "Use a USB audio device (Digirig) for RX/TX. Adjust input level on Operate while monitoring.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            val rigTitle = state.selectedRigProfileName?.let { "Rig ($it)" } ?: "Radio"
-            SettingsSection(rigTitle) {
+            SettingsSection("Radio") {
                 RadioSettingsSection(
                     state = state,
                     usbDiagnostics = vm.usbDiagnostics(),
@@ -154,35 +106,14 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
             }
 
-            SettingsSection("Clock alignment") {
-                val residual = state.clockOffsetSeconds
-                val appliedS = state.appliedClockOffsetMs / 1000f
+            SettingsSection("Audio") {
+                DevicePicker(state = state, onSelect = vm::selectDevice)
                 Text(
-                    "Applied correction: %+.1f s".format(java.util.Locale.US, appliedS),
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    if (residual != null) {
-                        "Residual vs band time: %+.1f s".format(java.util.Locale.US, residual)
-                    } else {
-                        "Residual vs band time: not enough decodes yet"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
+                    "Use a USB audio interface (Digirig or the radio's built-in USB audio) " +
+                        "for RX and TX. Adjust input level on the Operate tab while monitoring.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Button(
-                        onClick = vm::alignClock,
-                        enabled = residual != null,
-                    ) { Text("Align now") }
-                    OutlinedButton(
-                        onClick = vm::resetClockAlignment,
-                        enabled = state.appliedClockOffsetMs != 0L,
-                    ) { Text("Reset") }
-                }
             }
 
             SettingsSection("TX") {
@@ -216,11 +147,24 @@ fun SettingsScreen(vm: OperateViewModel) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (state.txSafetyHaltActive) {
+                    Button(
+                        onClick = vm::acknowledgeSafetyHalt,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Acknowledge TX safety halt")
+                    }
+                    Text(
+                        "PTT was force-released by the watchdog. TX is gated until you acknowledge.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
 
-            SettingsSection("Operating (auto TX)") {
+            SettingsSection("Auto TX") {
                 Text(
-                    "Selection and limits below apply to all auto TX modes, not only CQ hunt.",
+                    "Selection and limits below apply to all auto TX modes.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -271,7 +215,7 @@ fun SettingsScreen(vm: OperateViewModel) {
                     fontWeight = FontWeight.SemiBold,
                 )
                 AutoToggleRow(
-                    title = "Auto Seq",
+                    title = "Auto sequence",
                     subtitle = "Advance an active QSO when the expected reply is decoded",
                     checked = state.autoSeqEnabled,
                     onCheckedChange = vm::setAutoSeqEnabled,
@@ -302,14 +246,14 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
                 AutoToggleRow(
                     title = "Early decode (CQs ~3s sooner)",
-                    subtitle = "Runs an extra decode pass partway through each slot.",
+                    subtitle = "Runs an extra decode pass partway through each slot",
                     checked = state.earlyDecodeEnabled,
                     onCheckedChange = vm::setEarlyDecodeEnabled,
                     enabled = true,
                 )
                 AutoToggleRow(
                     title = "Send RR73 (log on send)",
-                    subtitle = "OFF sends RRR and logs when the partner's 73 arrives",
+                    subtitle = "ON: send RR73 and log immediately. OFF: send RRR and log on the partner's 73",
                     checked = state.sendRr73,
                     onCheckedChange = vm::setSendRr73,
                     enabled = state.txEnabled,
@@ -322,9 +266,101 @@ fun SettingsScreen(vm: OperateViewModel) {
                     enabled = state.txEnabled,
                 )
                 Text(
-                    "Set TX slot (Even/Odd) on Operate when TX is enabled.",
+                    "Set TX slot (Even/Odd) on the Operate tab when TX is enabled.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            SettingsSection("POTA") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("POTA mode", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "CQ POTA on-air and POTA fields in ADIF export",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = state.potaModeEnabled,
+                        onCheckedChange = vm::setPotaModeEnabled,
+                    )
+                }
+                if (state.potaModeEnabled) {
+                    OutlinedTextField(
+                        value = state.potaParkRef,
+                        onValueChange = vm::setPotaParkRef,
+                        label = { Text("Park reference") },
+                        placeholder = { Text("US-3315, US-0891") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = state.potaParkRef.isNotBlank() &&
+                            !ActivationProfile.isValidParkRefList(state.potaParkRef),
+                        supportingText = {
+                            if (state.potaParkRef.isBlank()) {
+                                Text("Required to call CQ POTA — comma-separate for multiple parks")
+                            } else if (!ActivationProfile.isValidParkRefList(state.potaParkRef)) {
+                                Text("Format: prefix-number (e.g. US-3315)")
+                            }
+                        },
+                    )
+                }
+            }
+
+            SettingsSection("Clock alignment") {
+                val residual = state.clockOffsetSeconds
+                val appliedS = state.appliedClockOffsetMs / 1000f
+                Text(
+                    "FT8 needs your clock within about 1 second. Align uses the " +
+                        "timing of decoded signals to correct the phone clock.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "Applied correction: %+.1f s".format(java.util.Locale.US, appliedS),
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    if (residual != null) {
+                        "Offset vs received stations: %+.1f s".format(java.util.Locale.US, residual)
+                    } else {
+                        "Offset vs received stations: not enough decodes yet"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = vm::alignClock,
+                        enabled = residual != null,
+                    ) { Text("Align now") }
+                    OutlinedButton(
+                        onClick = vm::resetClockAlignment,
+                        enabled = state.appliedClockOffsetMs != 0L,
+                    ) { Text("Reset") }
+                }
+            }
+
+            SettingsSection("Display") {
+                AutoToggleRow(
+                    title = "Dark mode",
+                    subtitle = "Use the dark color scheme across the entire app",
+                    checked = state.useDarkTheme,
+                    onCheckedChange = vm::setUseDarkTheme,
+                    enabled = true,
+                )
+                DecodeColorsSection(
+                    scheme = state.decodeColors,
+                    onPickColor = vm::setDecodeColor,
+                    onReset = vm::resetDecodeColors,
                 )
             }
 
@@ -374,19 +410,6 @@ fun SettingsScreen(vm: OperateViewModel) {
                 } else {
                     Text(
                         "Decoder library: FAILED — reinstall app",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                if (state.txSafetyHaltActive) {
-                    Button(
-                        onClick = vm::acknowledgeSafetyHalt,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Acknowledge TX safety halt")
-                    }
-                    Text(
-                        "PTT was force-released by the watchdog. TX is gated until you acknowledge.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -501,7 +524,7 @@ private fun AutoToggleRow(
 }
 
 private fun answerPolicyLabel(policy: AnswerPolicy): String = when (policy) {
-    AnswerPolicy.FIRST -> "First response"
+    AnswerPolicy.FIRST -> "First decoded"
     AnswerPolicy.BEST_SNR -> "Best signal (SNR)"
     AnswerPolicy.FURTHEST -> "Furthest station (grid)"
 }
@@ -538,7 +561,7 @@ private fun MaxUnansweredTxPicker(
             MAX_UNANSWERED_TX_OPTIONS.forEach { option ->
                 DropdownMenuItem(
                     text = {
-                        Text(if (option == 0) "Off (no limit)" else "$option TX cycles")
+                        Text(if (option == 0) "Off (no limit)" else "$option unanswered TX cycles")
                     },
                     onClick = {
                         expanded = false

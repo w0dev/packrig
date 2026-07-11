@@ -43,7 +43,7 @@ object YaesuModels {
 
     /** FTDX101 (D/MP): HF + 50 MHz. */
     val FTDX101 = YaesuModelSpec(
-        name = "Yaesu FTDX101",
+        name = "Yaesu FTDX101D / MP",
         minFreqHz = 30_000L,
         maxFreqHz = 56_000_000L,
         dataModeCode = 'C',

@@ -18,7 +18,7 @@ object CatProtocols {
     val all: List<Entry> = listOf(
         Entry(
             id = YAESU_NEWCAT,
-            displayName = "Yaesu (modern USB CAT)",
+            displayName = "Yaesu CAT",
             factory = { YaesuCat(YaesuModels.GENERIC) },
         ),
     )

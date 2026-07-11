@@ -56,10 +56,10 @@ private data class CategoryRow(
 private val CATEGORY_ROWS = listOf(
     CategoryRow(DecodeCategory.MY_CALL, "My call", "Messages directed at your callsign"),
     CategoryRow(DecodeCategory.PARTNER, "QSO partner", "Messages involving your current QSO partner"),
-    CategoryRow(DecodeCategory.OWN_TX, "My TX", "Rows you transmitted"),
+    CategoryRow(DecodeCategory.OWN_TX, "My TX", "Messages you transmitted"),
     CategoryRow(DecodeCategory.CQ_NEW, "CQ — new", "CQ from a station not yet worked"),
-    CategoryRow(DecodeCategory.CQ_WORKED_OTHER_BAND, "CQ — worked other band", "CQ from a call worked, but not on this band"),
-    CategoryRow(DecodeCategory.CQ_WORKED_THIS_BAND, "CQ — worked this band", "CQ from a call already in the log on this band"),
+    CategoryRow(DecodeCategory.CQ_WORKED_OTHER_BAND, "CQ — worked (other band)", "CQ from a call worked, but not on this band"),
+    CategoryRow(DecodeCategory.CQ_WORKED_THIS_BAND, "CQ — worked (this band)", "CQ from a call already in the log on this band"),
 )
 
 /**
@@ -78,7 +78,7 @@ fun DecodeColorsSection(
     Column {
         TextButton(onClick = { expanded = !expanded }) {
             Text(
-                text = if (expanded) "Hide decode colors" else "Show decode colors",
+                text = "Decode colors",
                 style = MaterialTheme.typography.labelMedium,
             )
             Text(text = if (expanded) " ▴" else " ▾", style = MaterialTheme.typography.labelMedium)

@@ -129,7 +129,7 @@ fun OperateStatusBar(
                     val severe = abs(off) >= ClockOffsetEstimator.SEVERE_S
                     val color = if (severe) Ft8Red else Ft8Amber
                     WithTooltip(
-                        text = "Phone clock differs from FT8 band time — tap to align to the band",
+                        text = "Phone clock is off vs received stations — tap to align",
                     ) {
                         Surface(
                             shape = Ft8Compact.chipShape,

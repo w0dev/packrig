@@ -81,7 +81,7 @@ class RigControllerDescriptorTest {
     @Test
     fun portDisplayNames_cp21xxDualGetsYaesuVocabulary_othersGeneric() {
         assertEquals(
-            listOf("Enhanced port — CAT (default)", "Standard port"),
+            listOf("Enhanced port — CAT", "Standard port"),
             RigController.portDisplayNames(portCount = 2, isCp21xx = true),
         )
         // Generic 1-based names for anything else (0-based is programmer-speak).
