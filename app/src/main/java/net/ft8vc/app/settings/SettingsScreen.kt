@@ -130,8 +130,26 @@ fun SettingsScreen(vm: OperateViewModel) {
 
             SettingsSection("Audio") {
                 DevicePicker(state = state, onSelect = vm::selectDevice)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Start receive when radio connects", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Waterfall and decodes run as soon as USB audio is plugged in",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                    Switch(
+                        checked = state.autoMonitorEnabled,
+                        onCheckedChange = vm::setAutoMonitorEnabled,
+                    )
+                }
                 Text(
-                    "Use a USB audio device (Digirig) for RX/TX. Adjust input level on Operate while monitoring.",
+                    "Use a USB audio interface (Digirig or the radio's built-in USB audio) " +
+                        "for RX and TX. Adjust input level on the Operate tab while monitoring.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
