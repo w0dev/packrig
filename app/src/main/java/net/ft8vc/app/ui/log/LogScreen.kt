@@ -207,7 +207,7 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            } else if (filteredContacts.isEmpty()) {
+            } else if (searchQuery.isNotBlank() && filteredContacts.isEmpty()) {
                 Text(
                     "No QSOs match \"${searchQuery.trim()}\"",
                     modifier = Modifier.padding(16.dp),
