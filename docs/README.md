@@ -14,7 +14,8 @@ Start here for component docs; existing setup guides remain at [SDK_SETUP.md](SD
 | Document | Description |
 |----------|-------------|
 | [SDK_SETUP.md](SDK_SETUP.md) | Android SDK, NDK, and CMake versions to install |
-| [HARDWARE.md](HARDWARE.md) | Yaesu FT-891 + Digirig Mobile field setup |
+| [HARDWARE.md](HARDWARE.md) | Yaesu FT-891 + Digirig Mobile field setup (reference rig) |
+| [RIG_MODELS.md](RIG_MODELS.md) | Supported radio models, presets, and verification status |
 
 ## Architecture modules
 
@@ -24,7 +25,7 @@ Start here for component docs; existing setup guides remain at [SDK_SETUP.md](SD
 | [CORE.md](CORE.md) | `core/` — Slot timing, QSO state machine, activation profile, WAV I/O |
 | [AUDIO.md](AUDIO.md) | `audio/` — USB capture/playback, DSP, waterfall |
 | [FT8_NATIVE.md](FT8_NATIVE.md) | `ft8-native/` — NDK JNI bridge to `kgoba/ft8_lib` |
-| [RIG.md](RIG.md) | `rig/` — Digirig PTT + FT-891 CAT over CP2102 |
+| [RIG.md](RIG.md) | `rig/` — rig profiles, PTT + CAT backends (Yaesu new-CAT), serial transport |
 | [DATA.md](DATA.md) | `data/` — Room logbook + ADIF export (incl. POTA fields) |
 
 ## Testing

@@ -88,8 +88,12 @@ You can also trigger it manually via **Actions → Unstable APK → Run workflow
 
 Run this checklist on **unstable** builds before merging to `main` and tagging.
 
-## Known v1 limitations
+## Known limitations
 
-- FT-891 CAT only (VFO-A, DATA-U)
-- No ADIF import
+- CAT protocol is Yaesu new-CAT only (VFO-A); unlisted rigs use the generic
+  presets (CAT-less rigs are RX + RTS-keyed TX with a manual dial frequency)
 - No split-frequency operation
+- No contest exchange support
+
+The current-limitations list in the [root README](../README.md#current-limitations)
+is the authoritative copy — keep the two in sync.

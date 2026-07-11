@@ -7,12 +7,20 @@
   without one.
 - An Android phone with USB-C **OTG** (USB host) support and enough OTG power
   for the interface — a powered OTG hub may be required.
-- A Digirig-class USB audio + serial interface (CM108-class USB audio plus a
-  CP2102 USB-serial adapter). This is how the phone gets RX/TX audio and PTT/CAT
-  to the rig.
+- A USB audio + serial path to the rig. Two common shapes:
+  - A **Digirig-class interface** (CM108-class USB audio plus a CP2102
+    USB-serial adapter) cabled to the rig's data and CAT ports — the FT-891
+    reference setup works this way.
+  - The **rig's built-in USB port**, where the radio itself exposes a USB
+    audio codec and serial CAT port — the FTX-1 reference setup, and most
+    current Yaesu models.
 - Android 9 (API 28) or newer.
-- A rig. FT8VC's verified reference setup is the Yaesu FT-891 + Digirig Mobile
-  — see [Hardware setup](../HARDWARE.md) for wiring and FT-891 menu values.
+- A rig. FT8VC's verified reference setups are the Yaesu FT-891 + Digirig
+  Mobile and the Yaesu FTX-1 over built-in USB — see
+  [Hardware setup](../HARDWARE.md) for FT-891 wiring and menu values, and
+  [Supported radios](../RIG_MODELS.md) for the full model table. Unlisted
+  radios work through generic presets (see [Add your rig](#radio-add-your-rig)
+  below).
 
 ## Install
 
@@ -29,68 +37,90 @@ builds are produced and signed.
 
 ## Connect the hardware
 
-The signal chain is phone → USB-C OTG cable → Digirig → rig: the Digirig's
-audio jack carries RX/TX audio (and hardware PTT), and its serial jack carries
-CAT control and RTS PTT to the radio. Plug the interface in before or after
-opening the app — USB permission is requested per session, not tied to launch
-order. For the exact cable, jack, and FT-891 menu settings, follow
-[Hardware setup](../HARDWARE.md).
+With a Digirig, the signal chain is phone → USB-C OTG cable → Digirig → rig:
+the Digirig's audio jack carries RX/TX audio, and its serial jack carries CAT
+control and RTS PTT to the radio. With a built-in-USB rig, the phone plugs
+straight into the radio and both audio and serial arrive over the one cable.
+Plug the interface in before or after opening the app — USB permission is
+requested per session, not tied to launch order. For the exact cable, jack,
+and FT-891 menu settings, follow [Hardware setup](../HARDWARE.md).
 
 ## Grant USB permissions
 
 Android needs two things before FT8VC can talk to the interface: the
 `RECORD_AUDIO` permission (for the USB audio input) and USB device permission
-for the Digirig's serial port (for CAT/PTT). The audio permission prompt
-appears the first time you start operating; the USB serial permission prompt
-appears when FT8VC finds a matching device and asks Android to grant access to
-it. Note that this USB prompt covers only the serial port: the Digirig's
+for the serial port (for CAT/PTT). The audio permission prompt appears the
+first time capture starts; the USB serial permission prompt appears when
+FT8VC finds a device matching your rig profile and asks Android to grant
+access to it. Note that this USB prompt covers only the serial port: the
 audio side is a standard USB audio device that Android's audio framework
 handles on its own, with no per-app USB permission needed.
 
 If you decline USB permission, or no matching device is present, FT8VC falls
 back to a no-op rig backend: PTT and CAT become inert (keying and frequency
-reads do nothing), and the **Rig (FT-891 CAT)** section in Settings reports
-CAT as unavailable. Audio capture is independent of this — RX still works over
-USB audio even without CAT/PTT permission. Re-granting permission (or
+reads do nothing), and the **Radio** section in Settings reports CAT as
+unavailable. Audio capture is independent of this — RX still works over USB
+audio even without CAT/PTT permission. Re-granting permission (or
 reconnecting the interface) lets FT8VC bind to it without restarting the app.
 
 ## Configure, in order
 
 Open the **Settings** tab and work through these sections before your first
-session.
+session. The [Settings reference](settings.md) documents every control; this
+is the minimum path.
 
 ### Station
 
 Enter **My call** and **Grid** in the **Station** section. A grid locator can
 be 4 or 6 characters. If you operate from a POTA park, turn on **POTA mode**
-under **Activation (POTA)** and enter a **Park reference**; comma-separate
+in the **POTA** section and enter a **Park reference**; comma-separate
 multiple references for a two-fer.
+
+### Radio: add your rig
+
+In the **Radio** section, tap **Add rig**. The editor asks for:
+
+- **Radio model** — pick your radio if it's listed (FT-891, FT-991A, FTDX10,
+  FT-710, FTDX101D/MP, FTX-1), or one of three generic presets for anything
+  else: **Digirig — CAT + RTS PTT**, **USB CAT cable / built-in USB — CAT
+  PTT**, or **Serial PTT only (RTS), no CAT**. Presets prefill the CAT baud,
+  serial port, and PTT method; you can override any of them.
+- **CAT baud rate** — must match the CAT rate menu setting on the radio
+  itself (the FT-891 reference setup uses 38400).
+- **CAT port** and **PTT method** — leave on the preset values unless you
+  know your wiring differs.
+
+Tap **Test CAT** before saving: it probes the radio and reports, in plain
+language, whether CAT is in sync, answering with wrong-baud garbage, or
+silent. Fix baud/port until it syncs, then **Save**. You can store up to five
+rigs and switch between them with the **My rig** dropdown.
+
+Once CAT is up, the section shows the dial frequency and mode. **Read rig**
+re-queries the radio; if the mode isn't FT8's data mode, tap **Set FT8 mode
+(DATA-U)** to switch it over CAT.
+
+If you chose the no-CAT preset, you instead pick your **dial frequency**
+manually here (and keep the radio's dial on it) so the display and your log
+entries stay correct.
 
 ### Audio
 
 The **Audio input** picker lists whatever input devices Android reports.
-When the Digirig is attached, FT8VC selects its USB audio device
-automatically — you normally only need to confirm the Digirig is the one
-shown, not pick it yourself. The picker matters when more than one input is
-available (say, a headset alongside the Digirig), or for rig-free testing:
-select the phone's built-in microphone to decode FT8 audio played from a
-nearby speaker.
+When a USB audio interface is attached, FT8VC selects it automatically — you
+normally only need to confirm it's the one shown, not pick it yourself. The
+picker matters when more than one input is available (say, a headset
+alongside the Digirig), or for rig-free testing: select the phone's built-in
+microphone to decode FT8 audio played from a nearby speaker.
+
+**Start receive when radio connects** (on by default) starts audio capture —
+waterfall and decodes — as soon as USB audio is plugged in, before you touch
+the Operate tab. A **Monitoring** chip on the Operate tab shows when RX is
+running this way.
 
 The picker is disabled while audio capture or transmit is running; stop
-operating on the Operate tab before switching inputs.
-
-Once you start operating, tap the volume icon on the Operate tab's status
-bar to open an input-gain slider; watch the adjacent level meter to confirm
-audio levels are healthy.
-
-### Rig
-
-In the **Rig (FT-891 CAT)** section, once CAT is available, use **Read rig**
-to confirm FT8VC can query the radio's frequency and mode. If the mode isn't
-already FT8's data mode, tap **Set DATA-U (FT8 mode)** to switch the rig over
-CAT. If CAT isn't available yet, this section shows "CAT unavailable — connect
-Digirig serial and grant USB permission" instead of the frequency/mode
-controls.
+operating (and monitoring) before switching inputs. Once audio is running,
+tap the volume icon on the Operate tab's status bar to open an input-gain
+slider; watch the adjacent level meter to confirm levels are healthy.
 
 ### Enable transmit
 
@@ -105,17 +135,19 @@ first time.
 
 ## Your first receive session
 
-Go to the **Operate** tab and tap **Start**. FT8VC opens the USB audio input,
-and the level meter next to the volume icon starts moving with band noise —
-that's your first sign audio is flowing. A progress bar and UTC clock track
-your position in the current 15-second slot.
+If **Start receive when radio connects** is on, decodes may already be
+flowing the moment you plug in — the Operate tab shows a **Monitoring** chip.
+Otherwise go to the **Operate** tab and tap **Start**. Either way, FT8VC
+opens the USB audio input and the level meter next to the volume icon starts
+moving with band noise — that's your first sign audio is flowing. A progress
+bar and UTC clock track your position in the current 15-second slot.
 
 Decodes appear as soon as a 15-second slot's window closes and the decode
 pass finishes — you'll see your first batch within one slot of starting. If
 nothing decodes after a couple of slots, check the level meter isn't pinned at
-zero or clipping, and confirm the rig is tuned to an active FT8 sub-band.
+zero or clipping, and confirm the rig is tuned to an active FT8 sub-band. The
+[Troubleshooting](troubleshooting.md) chapter walks the no-decodes case
+step by step.
 
-From here, the [feature overview in the project
-README](../../README.md#features) summarizes the decode list, calling and
-answering, and QSO automation until the Operating chapter of this manual is
-written.
+From here, the [Operating](operating.md) chapter covers the decode list,
+calling and answering, and QSO automation.
