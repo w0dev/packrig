@@ -7,6 +7,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Park
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,14 +32,21 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +72,8 @@ import java.util.TimeZone
 @Composable
 fun LogScreen(vm: LogViewModel = viewModel()) {
     val contacts by vm.contacts.collectAsStateWithLifecycle()
+    val filteredContacts by vm.filteredContacts.collectAsStateWithLifecycle()
+    val searchQuery by vm.searchQuery.collectAsStateWithLifecycle()
     val activations by vm.activations.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -74,6 +85,8 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
     var showSetParksDialog by remember { mutableStateOf(false) }
     var parksDraft by remember { mutableStateOf("") }
     val selectionActive = selectedIds.isNotEmpty()
+    var searchActive by remember { mutableStateOf(vm.searchQuery.value.isNotBlank()) }
+    val searchFocus = remember { FocusRequester() }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -82,6 +95,30 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
                 title = {
                     if (selectionActive) {
                         Text("${selectedIds.size} selected")
+                    } else if (searchActive) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextField(
+                                value = searchQuery,
+                                onValueChange = { vm.setSearchQuery(it.uppercase()) },
+                                placeholder = { Text("Call sign") },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .focusRequester(searchFocus),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                ),
+                            )
+                            if (searchQuery.isNotBlank()) {
+                                Text(
+                                    "${filteredContacts.size}/${contacts.size}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        LaunchedEffect(Unit) { searchFocus.requestFocus() }
                     } else {
                         Column {
                             Text("Log (${contacts.size})")
@@ -116,7 +153,20 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
                         IconButton(onClick = { selectedIds = emptySet() }) {
                             Icon(Icons.Filled.Close, contentDescription = "Cancel selection")
                         }
+                    } else if (searchActive) {
+                        IconButton(onClick = {
+                            vm.setSearchQuery("")
+                            searchActive = false
+                        }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Close search")
+                        }
                     } else {
+                        IconButton(
+                            onClick = { searchActive = true },
+                            enabled = contacts.isNotEmpty(),
+                        ) {
+                            Icon(Icons.Filled.Search, contentDescription = "Search call sign")
+                        }
                         IconButton(
                             onClick = { showActivations = true },
                             enabled = activations.isNotEmpty(),
@@ -157,9 +207,16 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            } else if (filteredContacts.isEmpty()) {
+                Text(
+                    "No QSOs match \"${searchQuery.trim()}\"",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-                    items(contacts, key = { it.id }) { contact ->
+                    items(filteredContacts, key = { it.id }) { contact ->
                         LogRow(
                             contact = contact,
                             selected = contact.id in selectedIds,
