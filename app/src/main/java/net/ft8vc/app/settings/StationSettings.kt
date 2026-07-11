@@ -32,6 +32,8 @@ data class StationSettings(
     val autoAnswerCqEnabled: Boolean = false,
     val lateStartTxEnabled: Boolean = true,
     val earlyDecodeEnabled: Boolean = true,
+    /** Auto-start RX monitor (waterfall + decodes) when a radio's USB audio is connected (spec 2026-07-11-auto-rx-monitor-design). */
+    val autoMonitorEnabled: Boolean = true,
     val sendRr73: Boolean = true,
     val autoCqResumeEnabled: Boolean = false,
     val answerPolicy: AnswerPolicy = AnswerPolicy.FIRST,
