@@ -4,11 +4,15 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.ft8vc.app.settings.SettingsRepository
+import net.ft8vc.app.ui.log.filterByCall
 import net.ft8vc.core.ActivationProfile
 import net.ft8vc.core.AppInfo
 import net.ft8vc.data.Activation
@@ -30,6 +34,18 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _activations = MutableStateFlow<List<Activation>>(emptyList())
     val activations: StateFlow<List<Activation>> = _activations.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    /** Contacts narrowed by the call sign search. Display-only: export/clear use [contacts]. */
+    val filteredContacts: StateFlow<List<QsoContact>> =
+        combine(_contacts, _searchQuery) { list, query -> filterByCall(list, query) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
 
     init {
         viewModelScope.launch {
