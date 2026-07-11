@@ -168,7 +168,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
         val port = driver.ports[index]
         val candidate = SerialRigBackend(
             transport = UsbSerialTransport(usbManager, port, catBaud),
-            protocol = d.protocolFactory(),
+            protocol = d.protocolFactory?.invoke(),
         )
         return if (candidate.open()) {
             backend = candidate
@@ -192,6 +192,39 @@ class RigController(private val context: Context) : RigBackend, CatControl {
         backend?.close()
         backend = null
         return bindIfPermitted()
+    }
+
+    /**
+     * Test CAT for a draft profile's descriptor without adopting it: close any
+     * live backend, open the candidate at [baud], query once, close, and
+     * re-bind the selected configuration. Blocking serial I/O — call on the
+     * CAT dispatcher, and only when not transmitting (caller-guarded).
+     */
+    @Synchronized
+    fun probe(d: RigDescriptor, baud: Int): ProbeResult {
+        val factory = d.protocolFactory ?: return ProbeResult.NoCat
+        val driver = findDriver() ?: return ProbeResult.NoDevice
+        if (!usbManager.hasPermission(driver.device)) return ProbeResult.NoPermission
+        val index = resolveCatPortIndex(driver.ports.size, null, d.catPortIndex)
+            ?: return ProbeResult.NoDevice
+        val hadBackend = backend != null
+        backend?.close()
+        backend = null
+        val candidate = SerialRigBackend(
+            transport = UsbSerialTransport(usbManager, driver.ports[index], baud),
+            protocol = factory(),
+        )
+        val result = if (!candidate.open()) {
+            ProbeResult.Silence
+        } else {
+            try {
+                candidate.probeFrequency()
+            } finally {
+                candidate.close()
+            }
+        }
+        if (hadBackend) bindIfPermitted()
+        return result
     }
 
     /**
@@ -293,7 +326,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
 
     override fun dataModeLabel(): String =
         backend?.dataModeLabel()
-            ?: descriptor?.protocolFactory()?.dataModeLabel
+            ?: descriptor?.protocolFactory?.invoke()?.dataModeLabel
             ?: "DATA-U"
 
     override fun catPtt(on: Boolean): Boolean = backend?.catPtt(on) ?: false

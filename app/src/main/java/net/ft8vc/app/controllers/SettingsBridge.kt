@@ -8,6 +8,7 @@ import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.TxSlotParity
 import net.ft8vc.rig.RigController
+import net.ft8vc.rig.RigProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,6 +62,8 @@ class SettingsBridge(
         catBaud = catBaud,
         radioModelId = radioModelId,
         catPortOverride = catPortOverride,
+        rigProfiles = rigProfiles,
+        selectedRigProfileId = selectedRigProfileId,
         licenseAcknowledged = licenseAcknowledged,
         txEnabledInSettings = txEnabledInSettings,
         lateStartTxEnabled = lateStartTxEnabled,
@@ -95,6 +98,8 @@ data class SettingsSlice(
     val catBaud: Int = RigController.DEFAULT_CAT_BAUD,
     val radioModelId: String? = null,
     val catPortOverride: Int? = null,
+    val rigProfiles: List<RigProfile> = emptyList(),
+    val selectedRigProfileId: String? = null,
     val licenseAcknowledged: Boolean = false,
     val txEnabledInSettings: Boolean = false,
     val lateStartTxEnabled: Boolean = true,

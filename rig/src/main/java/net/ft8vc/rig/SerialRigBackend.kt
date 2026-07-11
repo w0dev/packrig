@@ -9,11 +9,13 @@ import android.util.Log
  * [RtsPttStrategy]; CAT PTT is the protocol's PTT command. CAT exchanges are
  * serialized on [catLock] and blocking — call off the main thread.
  *
+ * @param protocol null for CAT-less presets (generic-rts): RTS PTT still
+ *   works, every CAT method answers a fast null/false with no I/O.
  * @param nowMs injectable clock for the reply deadline (tests).
  */
 class SerialRigBackend(
     private val transport: SerialTransport,
-    private val protocol: CatProtocol,
+    private val protocol: CatProtocol?,
     private val nowMs: () -> Long = System::currentTimeMillis,
 ) : RigBackend, CatControl {
 
@@ -43,23 +45,56 @@ class SerialRigBackend(
         if (!rtsPtt.release()) Log.e(TAG, "releasePtt: RTS de-assert failed")
     }
 
-    override fun frequencyHz(): Long? =
-        catExchange(protocol.readFrequencyCommand())?.let(protocol::parseFrequency)
+    override fun frequencyHz(): Long? {
+        val p = protocol ?: return null
+        return catExchange(p.readFrequencyCommand(), p.replyTerminator)?.let(p::parseFrequency)
+    }
+
+    /**
+     * One-shot diagnostic: send a frequency query and classify what comes
+     * back, keeping partial bytes (unlike [readReply]) so a wrong-baud rig
+     * reads as [ProbeResult.Garbage] rather than a timeout.
+     */
+    fun probeFrequency(): ProbeResult = synchronized(catLock) {
+        val p = protocol ?: return ProbeResult.NoCat
+        if (!transport.write(p.readFrequencyCommand(), CAT_TIMEOUT_MS)) return ProbeResult.Silence
+        val buffer = ByteArray(READ_BUFFER_SIZE)
+        var collected = ByteArray(0)
+        val deadline = nowMs() + CAT_REPLY_DEADLINE_MS
+        while (nowMs() < deadline) {
+            val n = transport.read(buffer, CAT_TIMEOUT_MS)
+            if (n < 0) break
+            if (n > 0) {
+                collected += buffer.copyOfRange(0, n)
+                val end = collected.indexOfFirst { it == p.replyTerminator }
+                if (end >= 0) {
+                    val frame = collected.copyOfRange(0, end + 1)
+                    return p.parseFrequency(frame)?.let { ProbeResult.Sync(it) } ?: ProbeResult.Garbage
+                }
+            }
+        }
+        return if (collected.isEmpty()) ProbeResult.Silence else ProbeResult.Garbage
+    }
 
     override fun setFrequencyHz(hz: Long): Boolean {
-        val command = protocol.setFrequencyCommand(hz) ?: return false
+        val command = protocol?.setFrequencyCommand(hz) ?: return false
         return catWrite(command)
     }
 
-    override fun modeLabel(): String? =
-        catExchange(protocol.readModeCommand())?.let(protocol::parseModeLabel)
+    override fun modeLabel(): String? {
+        val p = protocol ?: return null
+        return catExchange(p.readModeCommand(), p.replyTerminator)?.let(p::parseModeLabel)
+    }
 
-    override fun setDataMode(): Boolean = catWrite(protocol.setDataModeCommand())
+    override fun setDataMode(): Boolean {
+        val command = protocol?.setDataModeCommand() ?: return false
+        return catWrite(command)
+    }
 
-    override fun dataModeLabel(): String = protocol.dataModeLabel
+    override fun dataModeLabel(): String = protocol?.dataModeLabel ?: "No CAT"
 
     override fun catPtt(on: Boolean): Boolean {
-        val command = protocol.pttCommand(on) ?: return false
+        val command = protocol?.pttCommand(on) ?: return false
         val ok = catWrite(command)
         Log.i(TAG, "catPtt(on=$on) sent=$ok")
         return ok
@@ -73,12 +108,12 @@ class SerialRigBackend(
     }
 
     /** Send a CAT query and read the terminated reply, or null on timeout. */
-    private fun catExchange(command: ByteArray): ByteArray? = synchronized(catLock) {
+    private fun catExchange(command: ByteArray, terminator: Byte): ByteArray? = synchronized(catLock) {
         if (!transport.write(command, CAT_TIMEOUT_MS)) {
             Log.e(TAG, "CAT write \"${command.ascii()}\" failed")
             return null
         }
-        val reply = readReply()
+        val reply = readReply(terminator)
         Log.i(
             TAG,
             "CAT exchange \"${command.ascii()}\" -> " +
@@ -87,8 +122,8 @@ class SerialRigBackend(
         reply
     }
 
-    /** Accumulate reads until [CatProtocol.replyTerminator] or the deadline. */
-    private fun readReply(): ByteArray? {
+    /** Accumulate reads until [terminator] or the deadline. */
+    private fun readReply(terminator: Byte): ByteArray? {
         val buffer = ByteArray(READ_BUFFER_SIZE)
         var collected = ByteArray(0)
         val deadline = nowMs() + CAT_REPLY_DEADLINE_MS
@@ -100,7 +135,7 @@ class SerialRigBackend(
             }
             if (n > 0) {
                 collected += buffer.copyOfRange(0, n)
-                val end = collected.indexOfFirst { it == protocol.replyTerminator }
+                val end = collected.indexOfFirst { it == terminator }
                 if (end >= 0) return collected.copyOfRange(0, end + 1)
             }
         }

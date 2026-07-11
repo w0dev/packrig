@@ -103,7 +103,7 @@ fun OperateStatusBar(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val freqLabel = state.rigFreqHz?.let { "%.3f".format(it / 1_000_000.0) } ?: "—"
+            val freqLabel = state.effectiveDialFreqHz?.let { "%.3f".format(it / 1_000_000.0) } ?: "—"
             Text(
                 text = "$freqLabel MHz",
                 style = MaterialTheme.typography.labelMedium,

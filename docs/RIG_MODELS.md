@@ -12,7 +12,22 @@ CAT manual + cross-checked against FT8CN, transport fields (PID/port) best-guess
 | FTDX10   | ftdx10  | built-in USB (CP2105) | CAT from manual   |
 | FT-710   | ft710   | built-in USB          | CAT from manual   |
 | FTDX101  | ftdx101 | built-in USB (CP2105) | CAT from manual   |
-| FTX-1    | ftx1    | built-in USB (hub: CP2105 `10c4:ea70` + aux CDC + C-Media codec) | CAT verified on hardware 2026-07-09 (read/write @ 38400, port 0 = Enhanced; rig covers VHF/UHF — observed at 444.0925 MHz). TX keying + audio decode pending |
+| FTX-1    | ftx1    | built-in USB (hub: CP2105 `10c4:ea70` + aux CDC + C-Media codec) | Verified on owner hardware 2026-07-09 (second reference rig): CAT read/write @ 38400 on port 0 = Enhanced, TX + audio field-checked; covers VHF/UHF (observed at 444.0925 MHz) |
+
+## Rig profiles (Phase 2.5 — implemented)
+
+Operators save up to 5 named profiles (Settings → Radio → Add rig); the
+model dropdown is gone and registry entries are presets that prefill the
+form. Generic presets for unlisted hardware: `generic-digirig` (CAT + RTS
+PTT through a Digirig), `generic-cat` (rig's own USB CAT), `generic-rts`
+(audio-only, RTS keying, dial frequency set from the band picker and used
+for logging). CAT protocol is a knob inside the CAT generics
+(`CatProtocols`, Yaesu new-CAT only today) — Kenwood/Icom join that
+dropdown in Phases 3/4; no new generic presets are ever added per family.
+The profile form's Test CAT button reports sync / wrong-baud garbage /
+silence in plain language; `transportVerified` stays a preset-table
+concept — user profiles are self-verified via Test CAT. Legacy
+`RADIO_MODEL` installs migrate to a single selected profile on first run.
 
 ## Roadmap: other radio families
 

@@ -14,9 +14,19 @@ import kotlin.math.roundToInt
  *
  * For each decoded candidate at audio frequency [freqHz], signal power is the
  * mean of the eight 8-FSK tone-bin powers (`f0 + k·6.25 Hz`) measured by a
- * Goertzel detector over the whole slot; the noise floor is the median bin power
- * across the band (200–3000 Hz). `SNR = 10·log10(signal / noise) + CALIBRATION_DB`,
- * clamped to WSJT-X's `[-24, +24]` range.
+ * Goertzel detector; the noise floor is the median bin power across the band
+ * (200–3000 Hz). `SNR = 10·log10(signal / noise) + CALIBRATION_DB`, clamped to
+ * WSJT-X's `[-24, +24]` range.
+ *
+ * All measurements are windowed to `[0.5 s, 12 s]` of the buffer (clamped to
+ * the buffer end) rather than the whole buffer: the early decode pass runs on
+ * a ~12 s snapshot of the slot while the full pass sees all 15 s, and Goertzel
+ * power over differing buffer lengths gave the two passes different SNRs for
+ * the same decode (field report 2026-07-04). With the shared window the usual
+ * 12 s snapshot and the full slot produce identical estimates by construction,
+ * and slot-tail energy after FT8's 13.1 s signal extent cannot skew the full
+ * pass. Verified against WSJT-X ground truth on `210703_133430.wav`: mean
+ * error 0.0 dB with the existing [CALIBRATION_DB], slope unchanged (≈0.80).
  *
  * The method is alignment-free (no time offset needed) and gain-invariant (the
  * signal/noise ratio cancels overall level). It is directionally correct and
@@ -34,6 +44,13 @@ object SnrEstimator {
     // so 100 Hz (28 bins) tracks 50 Hz within noise while halving the per-slot
     // Goertzel cost.
     private const val NOISE_STEP_HZ = 100
+
+    // Analysis window, seconds from slot start: skip the 0.5 s pre-signal gap,
+    // stop at 12 s — the largest extent both the early snapshot and the full
+    // slot buffer are guaranteed to share. Signal and noise must use the same
+    // window or their Goertzel powers scale differently with length.
+    private const val WINDOW_START_S = 0.5
+    private const val WINDOW_END_S = 12.0
 
     /**
      * dB correction folding the 2500 Hz-bandwidth reference (POTACAT's
@@ -68,13 +85,16 @@ object SnrEstimator {
     fun estimate(samples: ShortArray, sampleRate: Int, freqHz: Float): Int =
         estimate(samples, sampleRate, freqHz, noiseFloorPower(samples, sampleRate))
 
-    /** Goertzel power of the whole [samples] buffer at [freq]. */
+    /** Goertzel power at [freq] over the shared analysis window of [samples]. */
     private fun goertzelPower(samples: ShortArray, freq: Double, sampleRate: Int): Double {
+        val to = minOf(samples.size, (WINDOW_END_S * sampleRate).toInt())
+        val start = (WINDOW_START_S * sampleRate).toInt()
+        val from = if (start < to) start else 0
         val w = 2.0 * PI * freq / sampleRate
         val coeff = 2.0 * cos(w)
         var s1 = 0.0
         var s2 = 0.0
-        for (n in samples.indices) {
+        for (n in from until to) {
             val s0 = samples[n].toDouble() + coeff * s1 - s2
             s2 = s1
             s1 = s0

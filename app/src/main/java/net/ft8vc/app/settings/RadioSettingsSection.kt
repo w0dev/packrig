@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -23,17 +24,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.ft8vc.app.OperateUiState
 import net.ft8vc.app.ui.DialFrequencyDropdownField
 import net.ft8vc.app.ui.theme.Ft8Green
-import net.ft8vc.rig.RigRegistry
+import net.ft8vc.rig.RigProfile
 
 /**
- * Radio (rig + serial link) settings: dial frequency, mode, DATA-U, CAT baud,
- * PTT preference, and USB diagnostics. Extracted from SettingsScreen so the
- * monolithic settings view stops growing (spec 2026-07-04-radio-settings).
+ * Radio (rig + serial link) settings: My rigs list (add/edit/delete/select),
+ * dial frequency, mode, DATA-U, and USB diagnostics. Extracted from
+ * SettingsScreen so the monolithic settings view stops growing (spec
+ * 2026-07-04-radio-settings; reworked to rig profiles spec 2026-07-10).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,33 +42,31 @@ fun RadioSettingsSection(
     state: OperateUiState,
     usbDiagnostics: String,
     serialPortNames: List<String>,
-    onSelectRadioModel: (String) -> Unit,
-    onSelectCatPort: (Int?) -> Unit,
+    onSelectRigProfile: (String) -> Unit,
+    onSaveRigProfile: (RigProfile) -> Unit,
+    onDeleteRigProfile: (String) -> Unit,
+    onTestCat: (RigProfile, (String) -> Unit) -> Unit,
     onSelectDialFrequency: (Long) -> Unit,
+    onSetManualDialFrequency: (Long) -> Unit,
     onReadRig: () -> Unit,
     onSetRigDataUsb: () -> Unit,
-    onSetCatBaud: (Int) -> Unit,
-    onSetPttPreference: (PttPreference) -> Unit,
 ) {
+    var editorTarget by remember { mutableStateOf<RigProfile?>(null) }
+    var editorOpen by remember { mutableStateOf(false) }
+    var deleteTarget by remember { mutableStateOf<RigProfile?>(null) }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        RadioModelPicker(
-            selectedId = state.radioModelId,
+        MyRigsBlock(
+            profiles = state.rigProfiles,
+            selectedId = state.selectedRigProfileId,
             enabled = !state.catBusy && !state.isTransmitting,
-            onSelect = onSelectRadioModel,
+            onSelect = onSelectRigProfile,
+            onAdd = { editorTarget = null; editorOpen = true },
+            onEdit = { editorTarget = it; editorOpen = true },
+            onDelete = { deleteTarget = it },
         )
-        if (serialPortNames.size > 1) {
-            CatPortOverridePicker(
-                override = state.catPortOverride,
-                portNames = serialPortNames,
-                enabled = !state.catBusy && !state.isTransmitting,
-                onSelect = onSelectCatPort,
-            )
-        }
-        if (state.radioModelId == null) {
-            Text(
-                "Select your radio model to enable CAT and PTT.",
-                style = MaterialTheme.typography.bodySmall,
-            )
+        if (state.rigProfiles.isEmpty()) {
+            Text("Add your rig to enable CAT and PTT.", style = MaterialTheme.typography.bodySmall)
         }
         if (state.catReady) {
             DialFrequencyDropdownField(
@@ -97,173 +96,90 @@ fun RadioSettingsSection(
             state.catStatus?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             }
-        } else if (state.radioModelId != null) {
+        } else if (state.selectedRigProfileId != null && !state.rigHasCat) {
+            Text(
+                "No CAT (manual) — keep the radio's dial on the selected frequency.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            DialFrequencyDropdownField(
+                rigFreqHz = state.lastDialFreqHz,
+                enabled = true,
+                onSelect = onSetManualDialFrequency,
+                radioModelId = state.radioModelId,
+            )
+        } else if (state.selectedRigProfileId != null) {
             Text(
                 "CAT unavailable — connect the radio's serial link and grant USB permission.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        CatBaudPicker(
-            baud = state.catBaud,
-            enabled = !state.catBusy && !state.isTransmitting,
-            onSelect = onSetCatBaud,
-        )
-        PttPreferencePicker(
-            preference = state.pttPreference,
-            // TX-guarded: flipping the PTT method mid-transmit could strand a
-            // CAT-keyed rig (TX1; sent, TX0; never sent on the new path).
-            enabled = !state.catBusy && !state.isTransmitting,
-            onSelect = onSetPttPreference,
-        )
         UsbDiagnosticsExpandable(diagnostics = usbDiagnostics)
+    }
+
+    if (editorOpen) {
+        RigProfileEditorDialog(
+            existing = editorTarget,
+            allProfiles = state.rigProfiles,
+            serialPortNames = serialPortNames,
+            onTestCat = onTestCat,
+            onSave = { editorOpen = false; onSaveRigProfile(it) },
+            onDismiss = { editorOpen = false },
+        )
+    }
+    deleteTarget?.let { doomed ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Delete ${doomed.name}?") },
+            text = { Text("This removes the saved configuration. Your log is not affected.") },
+            confirmButton = {
+                TextButton(onClick = { deleteTarget = null; onDeleteRigProfile(doomed.id) }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } },
+        )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RadioModelPicker(
+private fun MyRigsBlock(
+    profiles: List<RigProfile>,
     selectedId: String?,
     enabled: Boolean,
     onSelect: (String) -> Unit,
+    onAdd: () -> Unit,
+    onEdit: (RigProfile) -> Unit,
+    onDelete: (RigProfile) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedName = selectedId
-        ?.let { id -> RigRegistry.byId(id)?.displayName }
-        ?: "Select your radio model"
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
-        OutlinedTextField(
-            value = selectedName,
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = { Text("Radio model") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            RigRegistry.all.forEach { d ->
-                DropdownMenuItem(
-                    text = { Text(d.displayName) },
-                    onClick = {
-                        expanded = false
-                        onSelect(d.id)
-                    },
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CatPortOverridePicker(
-    override: Int?,
-    portNames: List<String>,
-    enabled: Boolean,
-    onSelect: (Int?) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val label = override?.let { portNames.getOrNull(it) ?: "Serial port ${it + 1}" }
-        ?: "Automatic (recommended)"
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
-        OutlinedTextField(
-            value = label,
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = { Text("CAT port") },
-            supportingText = {
-                Text("Which of the radio's serial channels carries CAT control. Automatic uses your radio model's default.")
-            },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Automatic (recommended)") },
-                onClick = { expanded = false; onSelect(null) },
+    val selected = profiles.firstOrNull { it.id == selectedId }
+    if (profiles.isNotEmpty()) {
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
+            OutlinedTextField(
+                value = selected?.name ?: "Select a rig",
+                onValueChange = {},
+                readOnly = true,
+                enabled = enabled,
+                label = { Text("My rig") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(),
             )
-            portNames.forEachIndexed { i, name ->
-                DropdownMenuItem(
-                    text = { Text(name) },
-                    onClick = { expanded = false; onSelect(i) },
-                )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                profiles.forEach { p ->
+                    DropdownMenuItem(
+                        text = { Text(p.name) },
+                        onClick = { expanded = false; onSelect(p.id) },
+                    )
+                }
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CatBaudPicker(
-    baud: Int,
-    enabled: Boolean,
-    onSelect: (Int) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
-        OutlinedTextField(
-            value = baud.toString(),
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = { Text("CAT baud rate") },
-            supportingText = { Text("Must match FT-891 menu 05-06 (CAT RATE)") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            SettingsRepository.CAT_BAUD_OPTIONS.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.toString()) },
-                    onClick = {
-                        expanded = false
-                        onSelect(option)
-                    },
-                )
-            }
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (profiles.size < RigProfileList.MAX) {
+            TextButton(onClick = onAdd, enabled = enabled) { Text("Add rig") }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PttPreferencePicker(
-    preference: PttPreference,
-    enabled: Boolean,
-    onSelect: (PttPreference) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
-        OutlinedTextField(
-            value = preference.displayName,
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = { Text("PTT preference") },
-            supportingText = { Text(preference.description) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            PttPreference.entries.forEach { pref ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(pref.displayName, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                pref.description,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
-                    onClick = {
-                        expanded = false
-                        onSelect(pref)
-                    },
-                )
-            }
+        selected?.let {
+            TextButton(onClick = { onEdit(it) }, enabled = enabled) { Text("Edit") }
+            TextButton(onClick = { onDelete(it) }, enabled = enabled) { Text("Delete") }
         }
     }
 }

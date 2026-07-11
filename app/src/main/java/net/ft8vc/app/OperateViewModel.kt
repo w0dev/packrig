@@ -40,7 +40,10 @@ import net.ft8vc.data.model.QsoContact
 import net.ft8vc.app.ui.bandLabelForLogging
 import net.ft8vc.ft8native.Ft8Native
 import net.ft8vc.rig.PttMethod
+import net.ft8vc.rig.ProbeResult
 import net.ft8vc.rig.RigController
+import net.ft8vc.rig.RigProfile
+import net.ft8vc.rig.RigProfiles
 import net.ft8vc.rig.RigRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -61,13 +64,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.util.Locale
-
-/** Map a descriptor's default PTT method onto the app's PTT preference. */
-fun PttMethod.toPreference(): PttPreference = when (this) {
-    PttMethod.AUTO -> PttPreference.AUTO
-    PttMethod.CAT -> PttPreference.CAT
-    PttMethod.RTS -> PttPreference.RTS
-}
 
 /**
  * Thin orchestrator: constructs the five controllers (SettingsBridge,
@@ -157,7 +153,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     private fun currentBandLabel(): String? =
-        bandLabelForFreqLoose(state.value.rigFreqHz)
+        bandLabelForFreqLoose(state.value.effectiveDialFreqHz)
     val waterfall = Waterfall(bins = decodeController.binCount).also {
         decodeController.spectrumSink = it::addColumn
     }
@@ -203,6 +199,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private var settingsLoaded = false
 
     init {
+        viewModelScope.launch { settingsRepo.migrateLegacyRadioModel() }
         state = combine(
             kotlinx.coroutines.flow.combine(settingsBridge.slice, _viewState) { s, v -> s to v },
             rigSession.slice,
@@ -266,6 +263,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 catBaud = settings.catBaud,
                 radioModelId = settings.radioModelId,
                 catPortOverride = settings.catPortOverride,
+                rigProfiles = settings.rigProfiles,
+                selectedRigProfileId = settings.selectedRigProfileId,
                 slotIndex = qso.slotIndex,
                 secondsToNextSlot = qso.secondsToNextSlot,
                 isTxSlot = qso.isTxSlot,
@@ -288,7 +287,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 contactCount = view.contactCount,
                 lastAdifBackupAtMs = settings.lastAdifBackupAtMs,
                 userBlockedCalls = qso.userBlockedCalls,
-            )
+            ).let { it.copy(rigHasCat = it.computeRigHasCat()) }
         }.distinctUntilChanged().stateIn(
             viewModelScope,
             SharingStarted.Eagerly,
@@ -671,14 +670,19 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settingsRepo.setCatBaud(baud) }
     }
 
-    /** Select the radio model; applies the model's default baud + PTT method. */
-    fun setRadioModel(id: String) {
-        val d = RigRegistry.byId(id) ?: return
+    /** Persist a new/edited rig profile. [onRejected] fires when the cap or name rule blocks it. */
+    fun saveRigProfile(profile: RigProfile, onRejected: () -> Unit = {}) {
         viewModelScope.launch {
-            settingsRepo.setRadioModel(id)
-            settingsRepo.setCatBaud(d.defaultBaud)
-            settingsRepo.setPttPreference(d.defaultPtt.toPreference())
+            if (!settingsRepo.saveRigProfile(profile)) onRejected()
         }
+    }
+
+    fun deleteRigProfile(id: String) {
+        viewModelScope.launch { settingsRepo.deleteRigProfile(id) }
+    }
+
+    fun selectRigProfile(id: String) {
+        viewModelScope.launch { settingsRepo.selectRigProfile(id) }
     }
 
     fun setCatPortOverride(index: Int?) {
@@ -883,6 +887,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** No-CAT rigs: the operator picked a band — persist it as the manual dial. */
+    fun setManualDialFrequency(hz: Long) {
+        viewModelScope.launch { settingsRepo.setLastDialFreqHz(hz) }
+    }
+
     fun setRigDataUsb() {
         if (!rig.isCatReady) return
         viewModelScope.launch { rigSession.setDataMode() }
@@ -964,7 +973,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun onQsoComplete(snapshot: QsoSnapshot) {
-        val freq = state.value.rigFreqHz
+        val freq = state.value.effectiveDialFreqHz
         val band = bandLabelForLogging(freq)
         val parks = ActivationProfile.parkRefsForLogging(
             state.value.potaModeEnabled,
@@ -1116,6 +1125,23 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         decodeController.clearDecodes()
     }
 
+    /** Test CAT from the profile editor. TX-guarded; runs on the CAT dispatcher. */
+    fun testCatProfile(draft: RigProfile, onResult: (String) -> Unit) {
+        if (state.value.isTransmitting) {
+            onResult("Can't test while transmitting")
+            return
+        }
+        viewModelScope.launch(rigSession.catDispatcher) {
+            val descriptor = RigProfiles.resolve(draft)
+            val result = if (descriptor == null) {
+                ProbeResult.NoCat
+            } else {
+                rig.probe(descriptor, draft.baud ?: descriptor.defaultBaud)
+            }
+            withContext(Dispatchers.Main) { onResult(probeResultText(result)) }
+        }
+    }
+
     override fun onCleared() {
         runCatching { getApplication<Application>().unregisterReceiver(usbDetachReceiver) }
         runCatching {
@@ -1146,4 +1172,14 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         /** Poll interval for the capture-stall watchdog monitor coroutine. */
         const val CAPTURE_WATCHDOG_TICK_MS = 1_000L
     }
+}
+
+/** Plain-language copy for Test CAT outcomes (spec: Diagnostics section). */
+fun probeResultText(result: ProbeResult): String = when (result) {
+    is ProbeResult.Sync -> "Sync OK — rig reports %.3f MHz".format(Locale.ROOT, result.freqHz / 1_000_000.0)
+    ProbeResult.Garbage -> "Received data but couldn't understand it — likely a wrong baud rate"
+    ProbeResult.Silence -> "No response — check the CAT port, cable, and the rig's CAT menu"
+    ProbeResult.NoDevice -> "No USB serial device attached"
+    ProbeResult.NoPermission -> "USB permission not granted — connect the rig and allow access"
+    ProbeResult.NoCat -> "This rig setup has no CAT to test"
 }

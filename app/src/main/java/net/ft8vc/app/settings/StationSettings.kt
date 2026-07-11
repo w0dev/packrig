@@ -3,13 +3,29 @@ package net.ft8vc.app.settings
 import net.ft8vc.core.AnswerPolicy
 import net.ft8vc.core.DecodeViewMode
 import net.ft8vc.core.TxSlotParity
+import net.ft8vc.rig.PttMethod
 import net.ft8vc.rig.RigController
+import net.ft8vc.rig.RigProfile
+import net.ft8vc.rig.RigRegistry
 
 /** PTT keying strategy for the Digirig serial port. */
 enum class PttPreference(val displayName: String, val description: String) {
     AUTO("Auto", "CAT if the rig answers, RTS fallback otherwise"),
     CAT("CAT (TX1/TX0)", "Software keying over serial — rig must respond to CAT"),
     RTS("RTS only", "Hardware keying via the Digirig serial RTS line"),
+}
+
+/** Map a descriptor's default PTT method onto the app's PTT preference. */
+fun PttMethod.toPreference(): PttPreference = when (this) {
+    PttMethod.AUTO -> PttPreference.AUTO
+    PttMethod.CAT -> PttPreference.CAT
+    PttMethod.RTS -> PttPreference.RTS
+}
+
+fun PttPreference.toPttMethod(): PttMethod = when (this) {
+    PttPreference.AUTO -> PttMethod.AUTO
+    PttPreference.CAT -> PttMethod.CAT
+    PttPreference.RTS -> PttMethod.RTS
 }
 
 /** Persisted station and operating preferences. */
@@ -25,6 +41,10 @@ data class StationSettings(
     val radioModelId: String? = null,
     /** Operator override for the CAT serial port index; null = descriptor default. */
     val catPortOverride: Int? = null,
+    /** Saved rig profiles (spec 2026-07-10-rig-profiles-design). Max 5 — see RigProfileList. */
+    val rigProfiles: List<RigProfile> = emptyList(),
+    /** Selected profile id; null until the operator adds/selects a rig. */
+    val selectedRigProfileId: String? = null,
     val licenseAcknowledged: Boolean = false,
     val txEnabledInSettings: Boolean = false,
     val autoSeqEnabled: Boolean = true,
@@ -54,4 +74,26 @@ data class StationSettings(
     val decodeColors: DecodeColorScheme = DecodeColorScheme.DEFAULT,
     /** Phase 7: epoch ms of the most recent successful ADIF auto-backup, or null if none yet. */
     val lastAdifBackupAtMs: Long? = null,
-)
+) {
+    val selectedRigProfile: RigProfile? get() = rigProfiles.firstOrNull { it.id == selectedRigProfileId }
+}
+
+/**
+ * Project the selected rig profile onto the legacy rig fields so every
+ * downstream consumer (OperateViewModel mirrors, RigController) is untouched:
+ * radioModelId = the profile's preset, catBaud/catPortOverride/pttPreference =
+ * profile knobs with preset-default fallback. No selection = passthrough
+ * (pre-migration behavior).
+ */
+fun StationSettings.withRigProfileApplied(): StationSettings {
+    val profile = selectedRigProfile ?: return this
+    val preset = RigRegistry.byId(profile.presetId)
+    return copy(
+        radioModelId = profile.presetId,
+        catBaud = SettingsRepository.coerceCatBaud(
+            profile.baud ?: preset?.defaultBaud ?: catBaud,
+        ),
+        catPortOverride = profile.catPortIndex,
+        pttPreference = (profile.pttMethod ?: preset?.defaultPtt)?.toPreference() ?: pttPreference,
+    )
+}

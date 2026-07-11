@@ -26,7 +26,7 @@
 
 **Files:** none (git setup)
 
-This feature lands on its own branch off `multi-rig` (NOT stacked on `rig-profiles`). The spec commit `57967a8` currently lives on `rig-profiles` and must be cherry-picked.
+This feature lands on its own branch off `multi-rig` (NOT stacked on `rig-profiles`). The spec commit `57967a8` and plan commit `425aa03` currently live on `rig-profiles` and must be cherry-picked.
 
 - [ ] **Step 1: Create the worktree and branch**
 
@@ -38,14 +38,14 @@ cp local.properties .claude/worktrees/auto-rx-monitor/local.properties
 
 (Fresh worktrees need `local.properties` copied from the main checkout — known project gotcha.)
 
-- [ ] **Step 2: Cherry-pick the spec commit**
+- [ ] **Step 2: Cherry-pick the spec and plan commits**
 
 ```bash
 cd .claude/worktrees/auto-rx-monitor
-git cherry-pick 57967a8
+git cherry-pick 57967a8 425aa03
 ```
 
-Expected: clean cherry-pick adding `docs/superpowers/specs/2026-07-11-auto-rx-monitor-design.md`.
+Expected: two clean cherry-picks adding `docs/superpowers/specs/2026-07-11-auto-rx-monitor-design.md` and `docs/superpowers/plans/2026-07-11-auto-rx-monitor.md`.
 
 - [ ] **Step 3: Sanity build**
 

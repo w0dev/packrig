@@ -16,7 +16,9 @@ package net.ft8vc.rig
 data class RigDescriptor(
     val id: String,
     val displayName: String,
-    val protocolFactory: () -> CatProtocol,
+    /** Builds the CAT protocol, or null for CAT-less presets (generic-rts):
+     *  PTT keys via RTS, every CAT read/write is a fast no-op. */
+    val protocolFactory: (() -> CatProtocol)?,
     val defaultBaud: Int,
     val catPortIndex: Int,
     val defaultPtt: PttMethod,
