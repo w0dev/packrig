@@ -116,6 +116,9 @@ fun OperateStatusBar(
                     Modifier
                 },
             )
+            if (state.isCapturing && !state.isOperating) {
+                CompactChip(text = "Monitoring", emphasized = true)
+            }
             Text(
                 text = state.rigMode ?: "—",
                 style = MaterialTheme.typography.labelSmall,
