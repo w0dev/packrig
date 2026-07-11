@@ -50,6 +50,32 @@ class SerialRigBackend(
         return catExchange(p.readFrequencyCommand(), p.replyTerminator)?.let(p::parseFrequency)
     }
 
+    /**
+     * One-shot diagnostic: send a frequency query and classify what comes
+     * back, keeping partial bytes (unlike [readReply]) so a wrong-baud rig
+     * reads as [ProbeResult.Garbage] rather than a timeout.
+     */
+    fun probeFrequency(): ProbeResult = synchronized(catLock) {
+        val p = protocol ?: return ProbeResult.NoCat
+        if (!transport.write(p.readFrequencyCommand(), CAT_TIMEOUT_MS)) return ProbeResult.Silence
+        val buffer = ByteArray(READ_BUFFER_SIZE)
+        var collected = ByteArray(0)
+        val deadline = nowMs() + CAT_REPLY_DEADLINE_MS
+        while (nowMs() < deadline) {
+            val n = transport.read(buffer, CAT_TIMEOUT_MS)
+            if (n < 0) break
+            if (n > 0) {
+                collected += buffer.copyOfRange(0, n)
+                val end = collected.indexOfFirst { it == p.replyTerminator }
+                if (end >= 0) {
+                    val frame = collected.copyOfRange(0, end + 1)
+                    return p.parseFrequency(frame)?.let { ProbeResult.Sync(it) } ?: ProbeResult.Garbage
+                }
+            }
+        }
+        return if (collected.isEmpty()) ProbeResult.Silence else ProbeResult.Garbage
+    }
+
     override fun setFrequencyHz(hz: Long): Boolean {
         val command = protocol?.setFrequencyCommand(hz) ?: return false
         return catWrite(command)

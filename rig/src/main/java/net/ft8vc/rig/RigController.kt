@@ -195,6 +195,39 @@ class RigController(private val context: Context) : RigBackend, CatControl {
     }
 
     /**
+     * Test CAT for a draft profile's descriptor without adopting it: close any
+     * live backend, open the candidate at [baud], query once, close, and
+     * re-bind the selected configuration. Blocking serial I/O — call on the
+     * CAT dispatcher, and only when not transmitting (caller-guarded).
+     */
+    @Synchronized
+    fun probe(d: RigDescriptor, baud: Int): ProbeResult {
+        val factory = d.protocolFactory ?: return ProbeResult.NoCat
+        val driver = findDriver() ?: return ProbeResult.NoDevice
+        if (!usbManager.hasPermission(driver.device)) return ProbeResult.NoPermission
+        val index = resolveCatPortIndex(driver.ports.size, null, d.catPortIndex)
+            ?: return ProbeResult.NoDevice
+        val hadBackend = backend != null
+        backend?.close()
+        backend = null
+        val candidate = SerialRigBackend(
+            transport = UsbSerialTransport(usbManager, driver.ports[index], baud),
+            protocol = factory(),
+        )
+        val result = if (!candidate.open()) {
+            ProbeResult.Silence
+        } else {
+            try {
+                candidate.probeFrequency()
+            } finally {
+                candidate.close()
+            }
+        }
+        if (hadBackend) bindIfPermitted()
+        return result
+    }
+
+    /**
      * Ensure PTT is wired. If a device is present but unpermitted, prompts the
      * user for USB permission and binds on grant. [onResult] reports readiness.
      */
