@@ -375,7 +375,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
          */
         fun portDisplayNames(portCount: Int, isCp21xx: Boolean): List<String> =
             if (isCp21xx && portCount == 2) {
-                listOf("Enhanced port — CAT (default)", "Standard port")
+                listOf("Enhanced port — CAT", "Standard port")
             } else {
                 (1..portCount).map { "Serial port $it" }
             }

@@ -47,7 +47,7 @@ object RigRegistry {
         ),
         RigDescriptor(
             id = "ftdx101",
-            displayName = "Yaesu FTDX101",
+            displayName = "Yaesu FTDX101D / MP",
             protocolFactory = { YaesuCat(YaesuModels.FTDX101) },
             defaultBaud = 38_400,
             catPortIndex = 0,
@@ -68,7 +68,7 @@ object RigRegistry {
         ),
         RigDescriptor(
             id = GENERIC_DIGIRIG,
-            displayName = "Digirig with CAT (generic)",
+            displayName = "Digirig — CAT + RTS PTT (generic)",
             protocolFactory = CatProtocols.byId(CatProtocols.YAESU_NEWCAT)!!.factory,
             defaultBaud = 38_400,
             catPortIndex = 0,
@@ -77,7 +77,7 @@ object RigRegistry {
         ),
         RigDescriptor(
             id = GENERIC_CAT,
-            displayName = "USB CAT cable / built-in USB (generic)",
+            displayName = "USB CAT cable / built-in USB — CAT PTT (generic)",
             protocolFactory = CatProtocols.byId(CatProtocols.YAESU_NEWCAT)!!.factory,
             defaultBaud = 38_400,
             catPortIndex = 0,
@@ -86,7 +86,7 @@ object RigRegistry {
         ),
         RigDescriptor(
             id = GENERIC_RTS,
-            displayName = "Audio only — no CAT (generic)",
+            displayName = "Serial PTT only (RTS), no CAT (generic)",
             protocolFactory = null,
             defaultBaud = 38_400,
             catPortIndex = 0,

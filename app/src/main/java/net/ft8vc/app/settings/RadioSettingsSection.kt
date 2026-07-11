@@ -66,7 +66,10 @@ fun RadioSettingsSection(
             onDelete = { deleteTarget = it },
         )
         if (state.rigProfiles.isEmpty()) {
-            Text("Add your rig to enable CAT and PTT.", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "Add your rig to enable rig control (CAT) and transmit keying (PTT).",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         if (state.catReady) {
             DialFrequencyDropdownField(
@@ -91,7 +94,7 @@ fun RadioSettingsSection(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Ft8Green, contentColor = androidx.compose.ui.graphics.Color.Black),
             ) {
-                Text("Set DATA-U (FT8 mode)")
+                Text("Set FT8 mode (DATA-U)")
             }
             state.catStatus?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
@@ -173,14 +176,20 @@ private fun MyRigsBlock(
             }
         }
     }
+    val atCap = profiles.size >= RigProfileList.MAX
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (profiles.size < RigProfileList.MAX) {
-            TextButton(onClick = onAdd, enabled = enabled) { Text("Add rig") }
-        }
+        TextButton(onClick = onAdd, enabled = enabled && !atCap) { Text("Add rig") }
         selected?.let {
             TextButton(onClick = { onEdit(it) }, enabled = enabled) { Text("Edit") }
             TextButton(onClick = { onDelete(it) }, enabled = enabled) { Text("Delete") }
         }
+    }
+    if (atCap) {
+        Text(
+            "Maximum of ${RigProfileList.MAX} rigs.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -193,7 +202,7 @@ private fun UsbDiagnosticsExpandable(diagnostics: String) {
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
-                text = if (expanded) "Hide USB diagnostics" else "Show USB diagnostics",
+                text = "USB diagnostics",
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.labelMedium,
             )

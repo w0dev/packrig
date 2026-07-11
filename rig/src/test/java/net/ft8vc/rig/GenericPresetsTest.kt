@@ -11,7 +11,7 @@ class GenericPresetsTest {
     @Test
     fun genericDigirigSpeaksYaesuWithRtsPttOnPortZero() {
         val d = RigRegistry.byId(RigRegistry.GENERIC_DIGIRIG)!!
-        assertEquals("Digirig with CAT (generic)", d.displayName)
+        assertEquals("Digirig — CAT + RTS PTT (generic)", d.displayName)
         assertEquals(38_400, d.defaultBaud)
         assertEquals(0, d.catPortIndex)
         assertEquals(PttMethod.RTS, d.defaultPtt)
@@ -21,7 +21,7 @@ class GenericPresetsTest {
     @Test
     fun genericCatDefaultsToCatPtt() {
         val d = RigRegistry.byId(RigRegistry.GENERIC_CAT)!!
-        assertEquals("USB CAT cable / built-in USB (generic)", d.displayName)
+        assertEquals("USB CAT cable / built-in USB — CAT PTT (generic)", d.displayName)
         assertEquals(PttMethod.CAT, d.defaultPtt)
         assertNotNull(d.protocolFactory)
     }
@@ -29,7 +29,7 @@ class GenericPresetsTest {
     @Test
     fun genericRtsHasNoCat() {
         val d = RigRegistry.byId(RigRegistry.GENERIC_RTS)!!
-        assertEquals("Audio only — no CAT (generic)", d.displayName)
+        assertEquals("Serial PTT only (RTS), no CAT (generic)", d.displayName)
         assertEquals(PttMethod.RTS, d.defaultPtt)
         assertNull(d.protocolFactory)
     }

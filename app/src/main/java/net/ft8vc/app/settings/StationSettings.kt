@@ -8,11 +8,11 @@ import net.ft8vc.rig.RigController
 import net.ft8vc.rig.RigProfile
 import net.ft8vc.rig.RigRegistry
 
-/** PTT keying strategy for the Digirig serial port. */
+/** PTT keying strategy for the rig's serial link. */
 enum class PttPreference(val displayName: String, val description: String) {
     AUTO("Auto", "CAT if the rig answers, RTS fallback otherwise"),
-    CAT("CAT (TX1/TX0)", "Software keying over serial — rig must respond to CAT"),
-    RTS("RTS only", "Hardware keying via the Digirig serial RTS line"),
+    CAT("CAT command", "Software keying over serial — rig must respond to CAT"),
+    RTS("RTS only", "Hardware keying via the serial RTS line"),
 }
 
 /** Map a descriptor's default PTT method onto the app's PTT preference. */
