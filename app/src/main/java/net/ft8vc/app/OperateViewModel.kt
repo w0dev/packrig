@@ -554,6 +554,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
             appInForeground = appInForeground,
             usbAudioInputPresent = _viewState.value.devices.any { it.isUsb },
             recordAudioGranted = granted,
+            // Intentional read of the async combined state: isTransmitting lives on
+            // the TxOrchestrator slice, not _viewState. A stale isCapturing here can
+            // at worst double-call beginCapture(), which UsbAudioCapture.start()
+            // absorbs (if (running) return).
             isCapturing = state.value.isCapturing,
             isTransmitting = state.value.isTransmitting,
         )
