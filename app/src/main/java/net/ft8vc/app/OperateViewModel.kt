@@ -1178,7 +1178,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 fun probeResultText(result: ProbeResult): String = when (result) {
     is ProbeResult.Sync -> "Sync OK — rig reports %.3f MHz".format(Locale.ROOT, result.freqHz / 1_000_000.0)
     ProbeResult.Garbage -> "Received data but couldn't understand it — likely a wrong baud rate"
-    ProbeResult.Silence -> "No response — check the CAT port, cable, and the rig's CAT menu"
+    // Baud leads: on Yaesu rigs a baud mismatch reads as silence, not garbage —
+    // the rig never parses the corrupted query, so it never replies (field-
+    // verified on the FT-891, 2026-07-11).
+    ProbeResult.Silence -> "No response — check the baud rate, CAT port, cable, and the rig's CAT menu"
     ProbeResult.NoDevice -> "No USB serial device attached"
     ProbeResult.NoPermission -> "USB permission not granted — connect the rig and allow access"
     ProbeResult.NoCat -> "This rig setup has no CAT to test"

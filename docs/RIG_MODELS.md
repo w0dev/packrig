@@ -24,10 +24,17 @@ PTT through a Digirig), `generic-cat` (rig's own USB CAT), `generic-rts`
 for logging). CAT protocol is a knob inside the CAT generics
 (`CatProtocols`, Yaesu new-CAT only today) — Kenwood/Icom join that
 dropdown in Phases 3/4; no new generic presets are ever added per family.
-The profile form's Test CAT button reports sync / wrong-baud garbage /
-silence in plain language; `transportVerified` stays a preset-table
-concept — user profiles are self-verified via Test CAT. Legacy
-`RADIO_MODEL` installs migrate to a single selected profile on first run.
+The profile form's Test CAT button reports sync / garbage / silence in
+plain language; field checks (2026-07-11) showed a Yaesu baud mismatch
+reads as **silence**, not garbage — the rig never parses the corrupted
+query — so the silence copy leads with the baud rate. The CAT port
+override is exposed for **every** CAT-capable preset on a multi-port
+bridge (widened from generic-cat-only, owner decision 2026-07-11);
+presets still ship their defaults. `transportVerified` stays a
+preset-table concept — user profiles are self-verified via Test CAT.
+Legacy `RADIO_MODEL` installs migrate to a single selected profile on
+first run. All four Phase 2.5 field gates (migration, FTX-1 preset,
+generic-rts QSO, Test CAT spot-checks) verified 2026-07-11.
 
 ## Roadmap: other radio families
 

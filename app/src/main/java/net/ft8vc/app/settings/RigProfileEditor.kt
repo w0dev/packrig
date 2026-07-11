@@ -29,9 +29,10 @@ import net.ft8vc.rig.RigRegistry
 import java.util.UUID
 
 /**
- * Add/Edit dialog for one rig profile. Exposes exactly the spec's form-field
- * table: name always; CAT protocol + baud for CAT setups; CAT port only for
- * generic-cat; PTT for CAT setups (generic-rts is fixed RTS). Everything else
+ * Add/Edit dialog for one rig profile. Exposes the spec's form-field table:
+ * name always; CAT protocol + baud for CAT setups; CAT port for any CAT setup
+ * on a multi-port bridge (widened from generic-cat-only — owner decision
+ * 2026-07-11); PTT for CAT setups (generic-rts is fixed RTS). Everything else
  * keeps preset defaults and never appears (spec 2026-07-10, Settings UX).
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,7 +114,7 @@ fun RigProfileEditorDialog(
                         enabled = true,
                         onSelect = { baud = it },
                     )
-                    if (presetId == RigRegistry.GENERIC_CAT && serialPortNames.size > 1) {
+                    if (RigProfileForm.showsCatPortPicker(presetId, serialPortNames.size)) {
                         CatPortOverridePicker(
                             override = catPortIndex,
                             portNames = serialPortNames,
