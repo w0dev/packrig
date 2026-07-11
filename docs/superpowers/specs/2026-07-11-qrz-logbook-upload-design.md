@@ -32,15 +32,38 @@ returns. This is the app's first network feature.
 
 - New **"QRZ Logbook"** section in Settings:
   - Toggle: *Upload QSOs to QRZ*.
-  - Text field: *API key* (QRZ Logbook API key, format `XXXX-XXXX-XXXX-XXXX`).
+  - Text field: *API key* (QRZ Logbook API key, format `XXXX-XXXX-XXXX-XXXX`),
+    masked (`PasswordVisualTransformation`) with a show/hide toggle.
   - Button: **Test connection** — calls `ACTION=STATUS`; on success shows the
     logbook callsign and QSO count QRZ returns, on failure shows QRZ's reason
     string inline. A successful test also triggers a queue flush.
 - Section header shows ⚠ when: upload enabled **and** last attempt failed
   **and** pending QSOs exist. Cleared by the next successful upload or test.
-- Persistence: `qrzUploadEnabled: Boolean`, `qrzApiKey: String`, and
-  `qrzLastError: String?` in DataStore via `SettingsRepository` (last error
-  persisted so the warning survives restart).
+- Persistence: `qrzUploadEnabled: Boolean` and `qrzLastError: String?` in
+  DataStore via `SettingsRepository` (last error persisted so the warning
+  survives restart). The API key is **not** stored in plaintext — see
+  *API key security* below.
+
+### API key security
+
+DataStore Preferences is a plaintext file, so the key gets platform
+encryption with no new dependencies:
+
+- A dedicated AES-256-GCM key is generated in the **Android Keystore**
+  (`AndroidKeyStore` provider, alias `qrz_api_key`). Keystore keys are
+  hardware-backed where available and are non-exportable.
+- The QRZ API key is encrypted with that key; DataStore stores only
+  Base64(IV + ciphertext) under `qrzApiKeyEncrypted`.
+- A small `KeystoreCipher` helper (app module) wraps generate/encrypt/decrypt;
+  decryption happens on demand when building a QRZ request or rendering the
+  masked settings field.
+- Failure to decrypt (e.g., app data restored onto a different device via
+  cloud backup — Keystore keys never leave the original device) is treated as
+  "no key configured": upload disables quietly and the Settings field shows
+  empty. This makes `allowBackup="true"` safe: backed-up ciphertext is useless
+  off-device.
+- The key is never logged, never included in error strings, and never sent
+  anywhere except `logbook.qrz.com` over HTTPS.
 
 ### Data layer (`data` module)
 
@@ -106,6 +129,9 @@ accepts it or reports it duplicate.
   order, stop-on-first-failure, duplicate-as-success, state-flow transitions,
   mutex serialization of concurrent flush calls).
 - Room migration test for the new column/default.
+- Instrumented test for `KeystoreCipher` (AndroidKeyStore is unavailable in
+  JVM tests): encrypt/decrypt round-trip, and garbage ciphertext decrypts to
+  null rather than throwing.
 - Manual verification: real API key — Test button success + failure paths,
   QSO upload appears in QRZ logbook, airplane-mode QSO flushes on reconnect
   and the ⚠ clears.
