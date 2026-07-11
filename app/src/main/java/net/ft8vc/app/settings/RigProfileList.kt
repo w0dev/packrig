@@ -18,11 +18,12 @@ object RigProfileList {
     /** Add or replace by id. Null when the cap or name rule rejects the save. */
     fun upsert(profiles: List<RigProfile>, profile: RigProfile): List<RigProfile>? {
         if (nameError(profile.name, profiles, profile.id) != null) return null
-        val index = profiles.indexOfFirst { it.id == profile.id }
+        val trimmed = profile.copy(name = profile.name.trim())
+        val index = profiles.indexOfFirst { it.id == trimmed.id }
         return when {
-            index >= 0 -> profiles.toMutableList().also { it[index] = profile }
+            index >= 0 -> profiles.toMutableList().also { it[index] = trimmed }
             profiles.size >= MAX -> null
-            else -> profiles + profile
+            else -> profiles + trimmed
         }
     }
 

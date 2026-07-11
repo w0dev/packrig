@@ -40,6 +40,13 @@ class RigProfileJsonTest {
         assertTrue(RigProfileJson.decode("not json").isEmpty())
         assertTrue(RigProfileJson.decode("""{"v":1,"profiles":[{"name":"missing id"}]}""").isEmpty())
         assertTrue(RigProfileJson.decode("""{"v":99,"profiles":[]}""").isEmpty())
+        assertTrue(
+            RigProfileJson.decode(
+                """{"v":1,"profiles":[{"id":"x","name":"n","preset":"ft891","baud":"fast"}]}""",
+            ).isEmpty(),
+        )
+        assertTrue(RigProfileJson.decode("""{"v":1,"profiles":"nope"}""").isEmpty())
+        assertTrue(RigProfileJson.decode("""{"v":1,"profiles":[42]}""").isEmpty())
     }
 
     @Test

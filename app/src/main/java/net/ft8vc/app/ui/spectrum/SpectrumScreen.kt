@@ -54,9 +54,10 @@ fun SpectrumScreen(vm: OperateViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 DialFrequencySelector(
-                    rigFreqHz = state.rigFreqHz,
-                    enabled = state.catReady && !state.catBusy,
-                    onSelect = vm::setRigFrequency,
+                    rigFreqHz = state.effectiveDialFreqHz,
+                    enabled = (state.catReady && !state.catBusy) ||
+                        (state.rigHasCat.not() && state.selectedRigProfileId != null),
+                    onSelect = if (state.catReady) vm::setRigFrequency else vm::setManualDialFrequency,
                     radioModelId = state.radioModelId,
                 )
                 Text(
