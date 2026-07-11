@@ -137,22 +137,20 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
             }
 
-            val rigTitle = state.radioModelId
-                ?.let { net.ft8vc.rig.RigRegistry.byId(it)?.displayName }
-                ?.let { "Rig ($it)" }
-                ?: "Radio"
+            val rigTitle = state.selectedRigProfileName?.let { "Rig ($it)" } ?: "Radio"
             SettingsSection(rigTitle) {
                 RadioSettingsSection(
                     state = state,
                     usbDiagnostics = vm.usbDiagnostics(),
                     serialPortNames = vm.serialPortDisplayNames(),
-                    onSelectRadioModel = vm::setRadioModel,
-                    onSelectCatPort = vm::setCatPortOverride,
+                    onSelectRigProfile = vm::selectRigProfile,
+                    onSaveRigProfile = { p -> vm.saveRigProfile(p) },
+                    onDeleteRigProfile = vm::deleteRigProfile,
+                    onTestCat = vm::testCatProfile,
                     onSelectDialFrequency = vm::setRigFrequency,
+                    onSetManualDialFrequency = vm::setManualDialFrequency,
                     onReadRig = vm::readRig,
                     onSetRigDataUsb = vm::setRigDataUsb,
-                    onSetCatBaud = vm::setCatBaud,
-                    onSetPttPreference = vm::setPttPreference,
                 )
             }
 

@@ -603,8 +603,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settingsRepo.setCatBaud(baud) }
     }
 
-    @Deprecated("Replaced by rig profiles (Task 9 removes)") fun setRadioModel(id: String) {}
-
     /** Persist a new/edited rig profile. [onRejected] fires when the cap or name rule blocks it. */
     fun saveRigProfile(profile: RigProfile, onRejected: () -> Unit = {}) {
         viewModelScope.launch {
