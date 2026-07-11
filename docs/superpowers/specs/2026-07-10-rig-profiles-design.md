@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-10
 **Milestone:** multi-rig (extends `docs/superpowers/specs/2026-07-04-multi-rig-support-design.md`)
-**Status:** Approved design, pre-plan
+**Status:** Implemented on unstable (this document is the design of record).
 
 ## Problem
 
