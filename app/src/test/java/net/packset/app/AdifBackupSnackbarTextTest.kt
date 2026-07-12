@@ -8,7 +8,7 @@ class AdifBackupSnackbarTextTest {
     @Test
     fun namesDocumentsDir_whenMirrorSucceeded() {
         assertEquals(
-            "ADIF backup written to Documents/ft8vc",
+            "ADIF backup written to Documents/packset",
             AdifAutoBackup.backupSnackbarText(mirrored = true),
         )
     }

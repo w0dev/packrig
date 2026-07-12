@@ -10,23 +10,23 @@ import android.util.Log
 
 /**
  * Best-effort mirror of the ADIF backup into shared storage
- * (Documents/ft8vc/ft8vc-logbook.adi) so a copy survives uninstall — the
+ * (Documents/packset/packset-logbook.adi) so a copy survives uninstall — the
  * app-private backup in getExternalFilesDir dies with the app (logbook loss,
  * 2026-07-04 field report). MediaStore-only, so no storage permissions.
  *
  * After a reinstall the previous install's file is no longer ours to write;
  * inserting the same display name makes MediaStore create a uniquified
- * sibling (e.g. "ft8vc-logbook (1).adi") and the stale copy remains as
+ * sibling (e.g. "packset-logbook (1).adi") and the stale copy remains as
  * history. Failures are logged and swallowed: the mirror must never break
  * the private backup (spec 2026-07-04-durable-adif-backup).
  */
 object DocumentsAdifMirror {
 
     private const val TAG = "DocumentsAdifMirror"
-    private const val DISPLAY_NAME = "ft8vc-logbook.adi"
-    private const val RELATIVE_PATH = "Documents/ft8vc/"
+    private const val DISPLAY_NAME = "packset-logbook.adi"
+    private const val RELATIVE_PATH = "Documents/packset/"
 
-    /** Write [adif] to Documents/ft8vc. Returns false on any failure. No-op below API 29. */
+    /** Write [adif] to Documents/packset. Returns false on any failure. No-op below API 29. */
     fun write(context: Context, adif: String): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
         return try {

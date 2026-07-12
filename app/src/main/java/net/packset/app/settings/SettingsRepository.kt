@@ -21,7 +21,7 @@ import net.packset.rig.RigProfile
 import net.packset.rig.RigRegistry
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "ft8vc_settings",
+    name = "packset_settings",
 )
 
 class SettingsRepository(context: Context) {

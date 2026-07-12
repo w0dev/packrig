@@ -26,21 +26,21 @@ import java.io.File
  * destruction (e.g. process pause mid-write).
  *
  * The destination is the app-private external dir (no permission needed), plus
- * a best-effort mirror in Documents/ft8vc via [DocumentsAdifMirror] — the
+ * a best-effort mirror in Documents/packset via [DocumentsAdifMirror] — the
  * private copy is deleted on uninstall; the mirror survives it.
  */
 object AdifAutoBackup {
 
     private const val TAG = "AdifAutoBackup"
-    private const val FILE_NAME = "ft8vc-logbook.adi"
-    private const val TMP_NAME = "ft8vc-logbook.adi.tmp"
+    private const val FILE_NAME = "packset-logbook.adi"
+    private const val TMP_NAME = "packset-logbook.adi.tmp"
 
     /** Result of [backupNow]: where the private copy lives, and whether the Documents mirror succeeded. */
     data class Outcome(val privateFile: File, val mirrored: Boolean)
 
-    /** Success snackbar copy — only claims Documents/ft8vc when the durable mirror was written. */
+    /** Success snackbar copy — only claims Documents/packset when the durable mirror was written. */
     fun backupSnackbarText(mirrored: Boolean): String =
-        if (mirrored) "ADIF backup written to Documents/ft8vc"
+        if (mirrored) "ADIF backup written to Documents/packset"
         else "ADIF backup written (app-private storage only)"
 
     /** Application-scoped scope. Survives any single ViewModel lifecycle. */

@@ -218,7 +218,7 @@ fun LogScreen(
                                     Column {
                                         Text(lastBackupLabel(lastAdifBackupAtMs, System.currentTimeMillis()))
                                         Text(
-                                            "Auto-exports after every QSO to Documents/ft8vc",
+                                            "Auto-exports after every QSO to Documents/packset",
                                             style = MaterialTheme.typography.labelSmall,
                                         )
                                     }

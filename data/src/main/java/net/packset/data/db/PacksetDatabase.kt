@@ -35,7 +35,7 @@ abstract class PacksetDatabase : RoomDatabase() {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     PacksetDatabase::class.java,
-                    "ft8vc_logbook.db",
+                    "packset_logbook.db",
                 ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
             }
     }

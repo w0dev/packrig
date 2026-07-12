@@ -25,7 +25,7 @@ class AdifWriterTest {
     fun exportsValidatedHeaderAndRecordFields() {
         val adif = AdifWriter.export(listOf(contact))
         assertTrue(adif.contains("<ADIF_VER:5>3.1.4"))
-        assertTrue(adif.contains("<PROGRAMID:5>FT8VC"))
+        assertTrue(adif.contains("<PROGRAMID:7>Packset"))
         assertTrue(adif.contains("<EOH>"))
         assertTrue(adif.contains("<CALL:5>K1ABC"))
         assertTrue(adif.contains("<MODE:3>FT8"))

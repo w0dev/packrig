@@ -12,7 +12,7 @@ enum class BuildPhase(val label: String) {
 
 /** App-wide constants surfaced in the UI and logs. */
 object AppInfo {
-    const val APP_NAME = "FT8VC"
+    const val APP_NAME = "Packset"
     const val TAGLINE = "FT8, vibe-coded"
     const val VERSION_NAME = "1.0.0"
 
