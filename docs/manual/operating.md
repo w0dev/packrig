@@ -27,7 +27,7 @@ The compact status bar packs the session state into three rows:
   and retune the rig to a preset FT8 dial frequency; the band list adapts to
   the selected radio model (6 m / 2 m / 70 cm appear where the rig covers
   them). With a no-CAT rig this shows the manual dial frequency from
-  Settings → Radio.
+  Settings → Rigs.
 - **Mode** — the rig's current mode. If it isn't `DATA-U`, a warning banner
   offers one-tap **Set DATA-U**.
 - **TX tone** — your audio offset in Hz, set on the Spectrum tab.
@@ -50,11 +50,11 @@ Status chips appear in the bar when something needs attention:
 | Chip | Meaning |
 |------|---------|
 | **Monitoring** | RX is running receive-only (not a full operating session), after a tap on **Audio capture failed — tap to retry** |
-| **Clock +N.Ns** | Phone clock is off vs received stations — tap to align (see Settings → Clock alignment) |
+| **Clock +N.Ns** | Phone clock is off vs received stations — tap to align (see Settings → General → Clock alignment) |
 | **Digirig disconnected — RX only** | The serial device vanished; PTT/CAT inert until it returns |
 | **CAT unreachable — tap to retry** | CAT reads are timing out; tap to re-probe |
 | **Audio capture failed — tap to retry** | The capture watchdog exhausted its automatic restarts |
-| **TX safety halt — see Settings** | PTT was force-released by the watchdog; TX is gated until acknowledged in Settings → TX |
+| **TX safety halt — see Settings** | PTT was force-released by the watchdog; TX is gated until acknowledged in Settings → General → TX |
 | **Decodes dropped: N** | Decode passes were skipped (e.g. the device fell behind) |
 
 ## The decode list
@@ -89,7 +89,7 @@ list.
   app restarted mid-contact.
 - **Long-press any row** to block its sender. Blocked stations disappear
   from the decode list and are excluded from auto-answer; manage them under
-  **Settings → Auto TX → Blocklist**.
+  **Settings → General → Auto TX → Blocklist**.
 
 The first TX-causing tap shows the one-time license acknowledgment dialog
 (see [Getting started](getting-started.md#enable-transmit)).
@@ -114,7 +114,7 @@ When TX is disabled it reads "RX only — enable TX in Settings."
 FT8VC runs a standard FT8 sequence: CQ → grid exchange → signal reports →
 RRR/RR73 → 73, advancing automatically when the expected reply is decoded
 (**Auto sequence**, on by default). The automation toggles live in
-**Settings → Auto TX**:
+**Settings → General → Auto TX**:
 
 - **Answer when called** — someone calling you (grid, report, …) starts or
   resumes a QSO even when you're idle.
@@ -151,7 +151,7 @@ the Operate tab.
 - **HALT** cancels a transmission mid-slot.
 - A PTT **watchdog** guards against a stuck key. If it ever has to
   force-release PTT, a **TX safety halt** latches: TX stays gated until you
-  acknowledge the halt in **Settings → TX**.
+  acknowledge the halt in **Settings → General → TX**.
 - A capture **watchdog** restarts USB audio automatically if the RX thread
   goes silent; if retries are exhausted, the **Audio capture failed — tap to
   retry** chip appears.

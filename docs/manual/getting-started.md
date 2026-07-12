@@ -19,7 +19,7 @@
   Mobile and the Yaesu FTX-1 over built-in USB — see
   [Hardware setup](../HARDWARE.md) for FT-891 wiring and menu values, and
   [Supported radios](../RIG_MODELS.md) for the full model table. Unlisted
-  radios work through generic presets (see [Add your rig](#radio-add-your-rig)
+  radios work through generic presets (see [Add your rig](#rigs-add-your-rig)
   below).
 
 ## Install
@@ -58,7 +58,7 @@ handles on its own, with no per-app USB permission needed.
 
 If you decline USB permission, or no matching device is present, FT8VC falls
 back to a no-op rig backend: PTT and CAT become inert (keying and frequency
-reads do nothing), and the **Radio** section in Settings reports CAT as
+reads do nothing), and the **Rigs** tab in Settings reports CAT as
 unavailable. Audio capture is independent of this — RX still works over USB
 audio even without CAT/PTT permission. Re-granting permission (or
 reconnecting the interface) lets FT8VC bind to it without restarting the app.
@@ -66,19 +66,20 @@ reconnecting the interface) lets FT8VC bind to it without restarting the app.
 ## Configure, in order
 
 Open the **Settings** tab and work through these sections before your first
-session. The [Settings reference](settings.md) documents every control; this
-is the minimum path.
+session. Settings are split across four sub-tabs — **General**, **Rigs**,
+**Display**, and **Integrations**. The [Settings reference](settings.md)
+documents every control; this is the minimum path.
 
 ### Station
 
-Enter **My call** and **Grid** in the **Station** section. A grid locator can
-be 4 or 6 characters. If you operate from a POTA park, turn on **POTA mode**
-in the **POTA** section and enter a **Park reference**; comma-separate
-multiple references for a two-fer.
+Enter **Callsign** and **Grid** in the **Station** section of the **General**
+tab. A grid locator can be 4 or 6 characters. If you operate from a POTA
+park, turn on **POTA mode** in the **POTA** section (same tab) and enter a
+**Park reference**; comma-separate multiple references for a two-fer.
 
-### Radio: add your rig
+### Rigs: add your rig
 
-In the **Radio** section, tap **Add rig**. The editor asks for:
+On the **Rigs** tab, tap **+ Add Rig**. The editor asks for:
 
 - **Radio model** — pick your radio if it's listed (FT-891, FT-991A, FTDX10,
   FT-710, FTDX101D/MP, FTX-1), or one of three generic presets for anything
@@ -93,7 +94,8 @@ In the **Radio** section, tap **Add rig**. The editor asks for:
 Tap **Test CAT** before saving: it probes the radio and reports, in plain
 language, whether CAT is in sync, answering with wrong-baud garbage, or
 silent. Fix baud/port until it syncs, then **Save**. You can store up to five
-rigs and switch between them with the **My rig** dropdown.
+rigs; each shows as a card, and tapping a card switches to that rig. The
+**None** card deselects rig control entirely (e.g. antenna-only RX).
 
 Once CAT is up, the section shows the dial frequency and mode. **Read rig**
 re-queries the radio; if the mode isn't FT8's data mode, tap **Set FT8 mode
@@ -105,7 +107,8 @@ entries stay correct.
 
 ### Audio
 
-The **Audio input** picker lists whatever input devices Android reports.
+The **Audio input** picker (General tab, **Audio** section) lists whatever
+input devices Android reports.
 When a USB audio interface is attached, FT8VC selects it automatically — you
 normally only need to confirm it's the one shown, not pick it yourself. The
 picker matters when more than one input is available (say, a headset
@@ -125,7 +128,8 @@ adjacent level meter to confirm levels are healthy.
 ### Enable transmit
 
 FT8VC is receive-only until you turn it on. Flip **Enable transmit** in the
-**TX** section to allow the app to key the radio. The first time you actually
+**TX** section of the **General** tab to allow the app to key the radio.
+The first time you actually
 try to transmit — starting a CQ, or tapping a decode row to answer or resume a
 QSO on the Operate tab — FT8VC shows a one-time "Confirm before transmitting"
 dialog reminding you that transmitting requires a valid license and that you

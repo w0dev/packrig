@@ -3,20 +3,24 @@
 ## What gets logged, and when
 
 Completed QSOs log automatically — there is no manual "log it" step. The
-moment of logging follows the **Send RR73** setting (Settings → Auto TX):
+moment of logging follows the **Send RR73** setting
+(Settings → General → Auto TX):
 with it on (default), the contact logs when you send RR73; with it off, when
 the partner's 73 arrives after your RRR. Each entry records the partner's
 call and grid, the signal reports, UTC time, band/dial frequency, mode (FT8),
 and — when POTA mode is on — your park reference(s).
 
 The dial frequency comes from CAT when available; with a no-CAT rig profile
-it uses the manual dial frequency from Settings → Radio, so keep that
+it uses the manual dial frequency from Settings → Rigs, so keep that
 accurate.
 
 ## The Log tab
 
 The tab header shows the total count. Each row shows the partner, date and
-time (UTC), band, grid, and RST sent/received.
+time (UTC), band, grid, and RST sent/received. The header also holds the
+call sign **search** (magnifier icon) to filter the list, the export and
+clear actions, and the **⋮** (Logbook tools) menu with **Backup now** and
+**Import ADIF…**.
 
 - **Tap** a row (once selection is active) to add or remove it from the
   selection; **long-press** a row to start selecting.
@@ -51,13 +55,14 @@ The **POTA activations** section of the Log tab groups POTA contacts into
 After every logged QSO, FT8VC writes an ADIF backup to two places:
 app-private storage and the shared **`Documents/ft8vc`** folder. The
 `Documents/ft8vc` copy survives app uninstall and is readable by any file
-manager. **Settings → Logbook** shows the last-backup time and a **Backup
-now** button to force one — for example right before running Clear log or
-reinstalling.
+manager. The Log tab's **⋮** (Logbook tools) menu shows the last-backup time
+and a **Backup now** entry to force one — for example right before running
+Clear log or reinstalling.
 
 ## Importing
 
-**Settings → Logbook → Import ADIF…** merges an existing ADIF file into the
+**Import ADIF…** (in the Log tab's **⋮** Logbook tools menu, or offered
+directly when the log is empty) merges an existing ADIF file into the
 logbook — use it to restore a backup or carry over history from another
 logger. Android's file picker shows all file types because `.adi` has no
 registered MIME type; FT8VC validates the content on read.

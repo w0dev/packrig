@@ -8,18 +8,19 @@ Operate tab — start from the chip if you have one.
 Work down the audio chain:
 
 1. **Is audio flowing?** The level meter next to the volume icon should move
-   with band noise. Pinned at zero: wrong input selected (Settings → Audio),
+   with band noise. Pinned at zero: wrong input selected
+   (Settings → General → Audio),
    a charge-only USB cable, or the rig's audio output level at zero.
    Showing **CLIP** or solid red: back off the input gain (volume icon) or
    the rig's output level.
 2. **Right input?** With a USB interface attached it's auto-selected, but a
-   connected headset can win — check Settings → Audio.
+   connected headset can win — check Settings → General → Audio.
 3. **Right frequency and mode?** Confirm the dial is on an active FT8
    sub-band and the rig is in its data mode (the Operate tab warns and
    offers **Set DATA-U** when CAT can see the wrong mode).
 4. **Clock.** FT8 needs your clock within about a second. If decodes show up
    but nobody answers you, or a **Clock ±Ns** chip appears, tap the chip (or
-   Settings → Clock alignment → **Align now**).
+   Settings → General → Clock alignment → **Align now**).
 5. **Rig-free sanity check.** Select the phone microphone as input and play
    FT8 audio from another receiver or a recording near the phone — if that
    decodes, the app is fine and the problem is in the USB audio path.
@@ -51,7 +52,7 @@ hub).
   non-Yaesu-protocol device on the selected port.
 - **CAT unreachable — tap to retry** chip mid-session: the radio stopped
   answering (band change on the rig menu, cable bump). Tap to re-probe.
-- **USB diagnostics** (Settings → Radio) lists every attached USB device —
+- **USB diagnostics** (Settings → Rigs) lists every attached USB device —
   if your serial bridge isn't in the list, Android isn't seeing it at all:
   suspect the cable, OTG adapter, or hub.
 
@@ -71,8 +72,8 @@ hub).
 ## "TX safety halt — see Settings"
 
 The PTT watchdog had to force-release a transmission (stuck key
-protection). TX is deliberately gated until you go to **Settings → TX** and
-tap **Acknowledge TX safety halt**. If it recurs, suspect the serial link
+protection). TX is deliberately gated until you go to
+**Settings → General → TX** and tap **Acknowledge TX safety halt**. If it recurs, suspect the serial link
 dropping mid-TX — cable, hub power, or RTS wiring.
 
 ## "Digirig disconnected — RX only"
@@ -92,20 +93,21 @@ that row** to resume the QSO from the right step in the sequence.
 
 - **ADIF export failed / "Invalid park list"**: POTA mode is on with a
   missing or malformed park reference. Exports fail closed rather than
-  produce a bad file — fix the reference in Settings → POTA (format
-  `US-3315`, comma-separated).
+  produce a bad file — fix the reference in Settings → General → POTA
+  (format `US-3315`, comma-separated).
 - **Lost the log?** Check `Documents/ft8vc` — an ADIF backup is written
-  there after every QSO and survives uninstall. Re-import it via
-  Settings → Logbook → **Import ADIF…**.
+  there after every QSO and survives uninstall. Re-import it via the Log
+  tab's **⋮** (Logbook tools) menu → **Import ADIF…**.
 
 ## "Decoder library: FAILED — reinstall app"
 
-Shown in Settings → About when the native FT8 decoder didn't load — the
+Shown in Settings → General → About when the native FT8 decoder didn't load — the
 install is broken (wrong-ABI or corrupted APK). Reinstall from a fresh
 download.
 
 ## Still stuck?
 
-Grab the **USB diagnostics** text (Settings → Radio), note the app version
-(Settings → About) and channel (stable vs unstable), and open an issue on
+Grab the **USB diagnostics** text (Settings → Rigs), note the app version
+(Settings → General → About) and channel (stable vs unstable), and open an
+issue on
 GitHub with the symptom and what you've ruled out.
