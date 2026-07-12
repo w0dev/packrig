@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "net.ft8vc.data"
+    namespace = "net.packset.data"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

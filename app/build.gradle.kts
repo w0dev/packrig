@@ -10,11 +10,11 @@ fun resolveReleaseKeystore(): java.io.File? {
 }
 
 android {
-    namespace = "net.ft8vc.app"
+    namespace = "net.packset.app"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "net.ft8vc"
+        applicationId = "net.packset"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = System.getenv("FT8VC_VERSION_CODE")?.toIntOrNull() ?: 100

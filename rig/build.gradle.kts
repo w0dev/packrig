@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "net.ft8vc.rig"
+    namespace = "net.packset.rig"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

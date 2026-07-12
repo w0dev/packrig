@@ -196,14 +196,14 @@ static void synth_gfsk(const uint8_t* symbols, int n_sym, int offset_symbols,
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_net_ft8vc_ft8native_Ft8Native_nativeVersion(JNIEnv* env, jobject) {
+Java_net_packset_ft8native_Ft8Native_nativeVersion(JNIEnv* env, jobject) {
     // FT8LIB_SHORT_HASH comes from FT8LIB_COMMIT in CMakeLists.txt — see
     // docs/FT8_LIB_UPGRADE.md. Only the ft8vc-native version is bumped here.
     return env->NewStringUTF("ft8vc-native 0.3.0 (ft8_lib " FT8LIB_SHORT_HASH ")");
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL
-Java_net_ft8vc_ft8native_Ft8Native_nativeDecode(
+Java_net_packset_ft8native_Ft8Native_nativeDecode(
         JNIEnv* env, jobject, jshortArray samples, jint sampleRate) {
 
     std::lock_guard<std::mutex> guard(g_decodeMutex);
@@ -278,7 +278,7 @@ Java_net_ft8vc_ft8native_Ft8Native_nativeDecode(
 
         DecodeOut out;
         out.text = text;
-        // SNR is computed in Kotlin (net.ft8vc.core.SnrEstimator); ft8_lib's
+        // SNR is computed in Kotlin (net.packset.core.SnrEstimator); ft8_lib's
         // score*0.5 is a sync metric, not dB. Emit 0 so nothing downstream
         // mistakes this field for a real SNR.
         out.snr = 0;
@@ -307,7 +307,7 @@ Java_net_ft8vc_ft8native_Ft8Native_nativeDecode(
 }
 
 extern "C" JNIEXPORT jshortArray JNICALL
-Java_net_ft8vc_ft8native_Ft8Native_nativeEncode(
+Java_net_packset_ft8native_Ft8Native_nativeEncode(
         JNIEnv* env, jobject, jstring message, jfloat freqHz, jint sampleRate, jint offsetSymbols) {
 
     std::lock_guard<std::mutex> guard(g_decodeMutex);
@@ -386,7 +386,7 @@ Java_net_ft8vc_ft8native_Ft8Native_nativeEncode(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_net_ft8vc_ft8native_Ft8Native_nativeClearCallsignTable(JNIEnv*, jobject) {
+Java_net_packset_ft8native_Ft8Native_nativeClearCallsignTable(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> guard(g_decodeMutex);
     hashtable_init();
     g_lastHashCleanupMs = 0;
