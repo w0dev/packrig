@@ -40,10 +40,14 @@ class RigProfileListTest {
     }
 
     @Test
-    fun selectionFallsBackToFirstRemainingThenNull() {
+    fun selectionClearsWhenSelectedRigDeleted() {
         val remaining = RigProfileList.delete(four, "1")
-        assertEquals("2", RigProfileList.selectionAfterDelete(remaining, deletedId = "1", currentSelection = "1"))
+        // Deleting the selected rig deselects (None) — owner decision 2026-07-12.
+        assertNull(RigProfileList.selectionAfterDelete(remaining, deletedId = "1", currentSelection = "1"))
+        // Deleting an unrelated rig keeps the current selection.
         assertEquals("3", RigProfileList.selectionAfterDelete(remaining, deletedId = "9", currentSelection = "3"))
+        // Nothing selected stays nothing.
+        assertNull(RigProfileList.selectionAfterDelete(remaining, deletedId = "1", currentSelection = null))
         assertNull(RigProfileList.selectionAfterDelete(emptyList(), deletedId = "1", currentSelection = "1"))
     }
 }

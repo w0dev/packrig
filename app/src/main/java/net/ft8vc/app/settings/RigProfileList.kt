@@ -30,17 +30,13 @@ object RigProfileList {
     fun delete(profiles: List<RigProfile>, id: String): List<RigProfile> =
         profiles.filterNot { it.id == id }
 
-    /** New selection after a delete: keep current if it survives, else first remaining. */
+    /** New selection after a delete: keep current if it survives, else None (null). */
     fun selectionAfterDelete(
         remaining: List<RigProfile>,
         deletedId: String,
         currentSelection: String?,
     ): String? =
-        if (currentSelection != null && currentSelection != deletedId &&
-            remaining.any { it.id == currentSelection }
-        ) {
-            currentSelection
-        } else {
-            remaining.firstOrNull()?.id
+        currentSelection?.takeIf { sel ->
+            sel != deletedId && remaining.any { it.id == sel }
         }
 }
