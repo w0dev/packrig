@@ -139,8 +139,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     // The combine() flow assembly is declared further down, after all
     // controllers are constructed (Kotlin's forward-reference rules).
-    lateinit var state: StateFlow<OperateUiState>
-        private set
+    val state: StateFlow<OperateUiState>
 
     private val _events = MutableSharedFlow<SnackbarEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<SnackbarEvent> = _events.asSharedFlow()

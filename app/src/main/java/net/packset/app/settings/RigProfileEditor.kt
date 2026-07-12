@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
@@ -109,8 +110,8 @@ fun RigProfileEditorDialog(
                         CatProtocolPicker() // single option today, preselected + read-only
                     }
                     CatBaudPicker(
-                        baud = baud ?: preset!!.defaultBaud,
-                        defaultBaud = preset!!.defaultBaud,
+                        baud = baud ?: preset.defaultBaud,
+                        defaultBaud = preset.defaultBaud,
                         enabled = true,
                         onSelect = { baud = it },
                     )
@@ -123,7 +124,7 @@ fun RigProfileEditorDialog(
                         )
                     }
                     PttPreferencePicker(
-                        preference = (pttMethod ?: preset!!.defaultPtt).toPreference(),
+                        preference = (pttMethod ?: preset.defaultPtt).toPreference(),
                         enabled = true,
                         onSelect = { pttMethod = it.toPttMethod() },
                     )
@@ -157,7 +158,7 @@ private fun PresetPicker(selectedId: String?, onSelect: (String) -> Unit) {
             readOnly = true,
             label = { Text("Radio model") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             RigRegistry.all.forEach { d ->
@@ -219,7 +220,7 @@ private fun CatPortOverridePicker(
                 Text("Which of the radio's serial channels carries CAT control. Automatic uses your radio model's default.")
             },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
@@ -254,7 +255,7 @@ private fun CatBaudPicker(
             label = { Text("CAT baud rate") },
             supportingText = { Text("Must match your rig's CAT rate menu setting") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             SettingsRepository.CAT_BAUD_OPTIONS.forEach { option ->
@@ -287,7 +288,7 @@ private fun PttPreferencePicker(
             label = { Text("PTT method") },
             supportingText = { Text(preference.description) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             PttPreference.entries.forEach { pref ->

@@ -137,7 +137,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
         return devices.joinToString("; ") { dev ->
             val vid = dev.vendorId.toString(16).padStart(4, '0')
             val pid = dev.productId.toString(16).padStart(4, '0')
-            val name = dev.productName?.toString()?.ifBlank { null } ?: dev.deviceName
+            val name = dev.productName?.ifBlank { null } ?: dev.deviceName
             "$vid:$pid $name"
         }
     }

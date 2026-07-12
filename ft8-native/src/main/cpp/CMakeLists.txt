@@ -45,6 +45,11 @@ add_library(packset SHARED
 # Root include dir so "ft8/...", "fft/...", "common/..." style includes resolve.
 target_include_directories(packset PRIVATE ${FT8_DIR})
 
+# Upstream ft8_lib logs uint64_t with %llx, which -Wformat flags on LP64
+# Android (uint64_t is unsigned long there). Pinned third-party source we
+# don't patch — silence the warning for that one file only.
+set_source_files_properties(${FT8_DIR}/ft8/message.c PROPERTIES COMPILE_OPTIONS "-Wno-format")
+
 # bionic provides stpcpy; tell ft8_lib not to define its own.
 target_compile_definitions(packset PRIVATE
         HAVE_STPCPY
