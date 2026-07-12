@@ -48,7 +48,7 @@ git cherry-pick ed79fc2 fc5b7e4   # QRZ spec + Keystore amendment
 
 QRZ's Logbook API (`https://logbook.qrz.com/api`) speaks `&`-delimited `KEY=VALUE` in both directions. Responses look like `RESULT=OK&LOGID=123&COUNT=1`, `RESULT=FAIL&REASON=Unable to add QSO to database: duplicate`, `RESULT=AUTH&REASON=invalid api key`. Values may contain URL-escapes.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```kotlin
 package net.ft8vc.data.qrz
@@ -122,12 +122,12 @@ class QrzWireTest {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `./gradlew :data:testDebugUnitTest --tests "net.ft8vc.data.qrz.QrzWireTest"`
 Expected: compilation failure — `QrzWire` unresolved.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```kotlin
 package net.ft8vc.data.qrz
@@ -167,12 +167,12 @@ object QrzWire {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `./gradlew :data:testDebugUnitTest --tests "net.ft8vc.data.qrz.QrzWireTest"`
 Expected: BUILD SUCCESSFUL, 8 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add data/src/main/java/net/ft8vc/data/qrz/QrzWire.kt data/src/test/java/net/ft8vc/data/qrz/QrzWireTest.kt
@@ -198,7 +198,7 @@ git commit -m "feat(data): QRZ logbook API wire format parse/encode"
 
 The interpretation logic is pure and unit-tested; the HTTP shell is deliberately thin (verified on device by the owner via the Test button).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```kotlin
 package net.ft8vc.data.qrz
@@ -252,12 +252,12 @@ class QrzOutcomeTest {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `./gradlew :data:testDebugUnitTest --tests "net.ft8vc.data.qrz.QrzOutcomeTest"`
 Expected: compilation failure — `interpretResponse` / `QrzOutcome` unresolved.
 
-- [ ] **Step 3: Write `QrzClient.kt`**
+- [x] **Step 3: Write `QrzClient.kt`**
 
 ```kotlin
 package net.ft8vc.data.qrz
@@ -287,7 +287,7 @@ fun interpretResponse(fields: Map<String, String>): QrzOutcome {
 }
 ```
 
-- [ ] **Step 4: Write `HttpQrzClient.kt`**
+- [x] **Step 4: Write `HttpQrzClient.kt`**
 
 ```kotlin
 package net.ft8vc.data.qrz
@@ -347,12 +347,12 @@ class HttpQrzClient(
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `./gradlew :data:testDebugUnitTest --tests "net.ft8vc.data.qrz.QrzOutcomeTest"`
 Expected: BUILD SUCCESSFUL, 7 tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add data/src/main/java/net/ft8vc/data/qrz/QrzClient.kt data/src/main/java/net/ft8vc/data/qrz/HttpQrzClient.kt data/src/test/java/net/ft8vc/data/qrz/QrzOutcomeTest.kt
@@ -380,7 +380,7 @@ git commit -m "feat(data): QrzClient interface + HttpURLConnection implementatio
   - `Logbook.log(contact: QsoContact, qrzPending: Boolean = false): Long`
   - `Ft8vcDatabase.MIGRATION_2_3`, `@Database(version = 3)`
 
-- [ ] **Step 1: Add the migration test (device-run later, but written first)**
+- [x] **Step 1: Add the migration test (device-run later, but written first)**
 
 Append to `data/src/androidTest/java/net/ft8vc/data/db/MigrationTest.kt` inside the class:
 
@@ -404,7 +404,7 @@ Append to `data/src/androidTest/java/net/ft8vc/data/db/MigrationTest.kt` inside 
     }
 ```
 
-- [ ] **Step 2: Entity + upload-state constants**
+- [x] **Step 2: Entity + upload-state constants**
 
 In `QsoEntity.kt`, add below the imports and add the field to the data class:
 
@@ -424,7 +424,7 @@ and in the `QsoEntity` constructor after `potaParkRefs`:
     val qrzUploadState: String = QrzUploadState.NOT_QUEUED,
 ```
 
-- [ ] **Step 3: Database version + migration**
+- [x] **Step 3: Database version + migration**
 
 In `Ft8vcDatabase.kt`: change `version = 2` to `version = 3`; add after `MIGRATION_1_2`:
 
@@ -441,7 +441,7 @@ In `Ft8vcDatabase.kt`: change `version = 2` to `version = 3`; add after `MIGRATI
 
 and change the builder line to `.addMigrations(MIGRATION_1_2, MIGRATION_2_3)`.
 
-- [ ] **Step 4: DAO queries**
+- [x] **Step 4: DAO queries**
 
 Append to `QsoDao`:
 
@@ -456,7 +456,7 @@ Append to `QsoDao`:
     suspend fun markQrzUploaded(id: Long)
 ```
 
-- [ ] **Step 5: `Logbook.log` gains `qrzPending`**
+- [x] **Step 5: `Logbook.log` gains `qrzPending`**
 
 In `Logbook.kt`:
 - Interface: `suspend fun log(contact: QsoContact, qrzPending: Boolean = false): Long`
@@ -495,12 +495,12 @@ fun QsoEntity.toContact() = QsoContact(
 
 (`toEntity()` stays private inside `RoomLogbook`; `importContacts` continues to insert with the entity default `NOT_QUEUED` — imports are historical data.)
 
-- [ ] **Step 6: Build + run data unit tests**
+- [x] **Step 6: Build + run data unit tests**
 
 Run: `./gradlew :data:testDebugUnitTest :app:compileDebugKotlin`
 Expected: BUILD SUCCESSFUL (Room KSP regenerates schema `3.json`; existing tests still pass; the `OperateViewModel` call site compiles unchanged thanks to the default parameter).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add data/src/main data/src/androidTest data/schemas
@@ -527,7 +527,7 @@ git commit -m "feat(data): qrzUploadState column, v3 migration, pending-at-inser
 
 Queue rules (all tested): flush is mutex-serialized; uploads oldest-first; each success marks the row uploaded and decrements pending; first `Failure` stops the pass and records `lastError`; a fully successful pass clears `lastError`; blank key is a no-op.
 
-- [ ] **Step 1: Add the test dependency**
+- [x] **Step 1: Add the test dependency**
 
 In `data/build.gradle.kts` dependencies block, after `testImplementation(libs.junit)`:
 
@@ -535,7 +535,7 @@ In `data/build.gradle.kts` dependencies block, after `testImplementation(libs.ju
     testImplementation(libs.kotlinx.coroutines.test)
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```kotlin
 package net.ft8vc.data.qrz
@@ -654,12 +654,12 @@ class QrzUploadQueueTest {
 }
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `./gradlew :data:testDebugUnitTest --tests "net.ft8vc.data.qrz.QrzUploadQueueTest"`
 Expected: compilation failure — `QrzQueueStore` / `QrzUploadQueue` unresolved.
 
-- [ ] **Step 4: Write `QrzQueueStore.kt`**
+- [x] **Step 4: Write `QrzQueueStore.kt`**
 
 ```kotlin
 package net.ft8vc.data.qrz
@@ -683,7 +683,7 @@ class RoomQrzQueueStore(private val dao: QsoDao) : QrzQueueStore {
 }
 ```
 
-- [ ] **Step 5: Write `QrzUploadQueue.kt`**
+- [x] **Step 5: Write `QrzUploadQueue.kt`**
 
 ```kotlin
 package net.ft8vc.data.qrz
@@ -753,12 +753,12 @@ class QrzUploadQueue(
 }
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `./gradlew :data:testDebugUnitTest --tests "net.ft8vc.data.qrz.QrzUploadQueueTest"`
 Expected: BUILD SUCCESSFUL, 7 tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add data/src/main/java/net/ft8vc/data/qrz data/src/test/java/net/ft8vc/data/qrz/QrzUploadQueueTest.kt data/build.gradle.kts
@@ -779,7 +779,7 @@ git commit -m "feat(data): QrzUploadQueue — mutex-serialized oldest-first flus
   - `interface QrzKeyCipher { fun encrypt(plaintext: String): String?; fun decrypt(encoded: String): String? }` (seam for JVM tests of the controller)
   - `object KeystoreCipher : QrzKeyCipher` — AES-256-GCM under alias `qrz_api_key`; stores `Base64(iv + ciphertext)`; every failure path returns null (spec: decrypt failure = "no key configured").
 
-- [ ] **Step 1: Write the instrumented test (run later on device)**
+- [x] **Step 1: Write the instrumented test (run later on device)**
 
 ```kotlin
 package net.ft8vc.app.settings
@@ -815,7 +815,7 @@ class KeystoreCipherTest {
 }
 ```
 
-- [ ] **Step 2: Write the implementation**
+- [x] **Step 2: Write the implementation**
 
 ```kotlin
 package net.ft8vc.app.settings
@@ -891,12 +891,12 @@ object KeystoreCipher : QrzKeyCipher {
 }
 ```
 
-- [ ] **Step 3: Compile check**
+- [x] **Step 3: Compile check**
 
 Run: `./gradlew :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin`
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/KeystoreCipher.kt app/src/androidTest/java/net/ft8vc/app/settings/KeystoreCipherTest.kt
@@ -919,7 +919,7 @@ git commit -m "feat(app): AndroidKeyStore AES-GCM cipher for the QRZ API key"
   - `SettingsRepository.setQrzApiKey(plaintext: String)` — trims; blank removes the pref; otherwise stores `KeystoreCipher.encrypt(...)` (a null encrypt result also removes — quiet degradation)
   - `SettingsRepository.setQrzLastError(message: String?)`
 
-- [ ] **Step 1: StationSettings fields** — add after `lastAdifBackupAtMs`:
+- [x] **Step 1: StationSettings fields** — add after `lastAdifBackupAtMs`:
 
 ```kotlin
     /** Auto-upload logged QSOs to QRZ.com (spec 2026-07-11-qrz-logbook-upload). */
@@ -930,7 +930,7 @@ git commit -m "feat(app): AndroidKeyStore AES-GCM cipher for the QRZ API key"
     val qrzLastError: String? = null,
 ```
 
-- [ ] **Step 2: Repository keys, mapping, setters**
+- [x] **Step 2: Repository keys, mapping, setters**
 
 In `SettingsRepository.Keys` add:
 
@@ -972,12 +972,12 @@ New setters (near `setLastAdifBackupAtMs`):
     }
 ```
 
-- [ ] **Step 3: Compile + full app unit tests**
+- [x] **Step 3: Compile + full app unit tests**
 
 Run: `./gradlew :app:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL (pattern-following persistence code; behavior covered via controller tests in Task 7).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/SettingsRepository.kt app/src/main/java/net/ft8vc/app/settings/StationSettings.kt
@@ -1043,7 +1043,7 @@ Behavior:
 - All flushes are `scope.launch { queue.flush(currentKey) }` — quiet, no exceptions escape (queue never throws).
 - Warning rule: `enabled && lastError != null && pendingCount > 0` (per spec).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```kotlin
 package net.ft8vc.app.controllers
@@ -1238,12 +1238,12 @@ class QrzUploadControllerTest {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.controllers.QrzUploadControllerTest"`
 Expected: compilation failure — `QrzUploadController` unresolved. (If `libs.kotlinx.coroutines.test` is missing from `app/build.gradle.kts` testImplementation, add it — it is already in the version catalog.)
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```kotlin
 package net.ft8vc.app.controllers
@@ -1409,12 +1409,12 @@ class QrzUploadController(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.controllers.QrzUploadControllerTest"`
 Expected: BUILD SUCCESSFUL, 9 tests pass. Iterate on the controller (not the tests) if transitions misbehave.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/controllers/QrzUploadController.kt app/src/test/java/net/ft8vc/app/controllers/QrzUploadControllerTest.kt
@@ -1434,7 +1434,7 @@ git commit -m "feat(app): QrzUploadController — triggers, warning state, test 
 - Consumes: `QrzUploadController`, `QrzSlice` (Task 7); `QrzUploadQueue`, `RoomQrzQueueStore`, `HttpQrzClient` (Tasks 2/4); `Logbook.log(contact, qrzPending)` (Task 3); repository setters (Task 6).
 - Produces: `OperateUiState.qrz: QrzSlice = QrzSlice()`; VM pass-throughs `setQrzUploadEnabled`, `setQrzApiKey`, `testQrzConnection` for the Settings screen.
 
-- [ ] **Step 1: Manifest permissions** — next to `RECORD_AUDIO`:
+- [x] **Step 1: Manifest permissions** — next to `RECORD_AUDIO`:
 
 ```xml
     <uses-permission android:name="android.permission.INTERNET" />
@@ -1443,14 +1443,14 @@ git commit -m "feat(app): QrzUploadController — triggers, warning state, test 
 
 (`ACCESS_NETWORK_STATE` is required by `registerDefaultNetworkCallback`; both are install-time normal permissions.)
 
-- [ ] **Step 2: UI state** — add to `OperateUiState` (import `net.ft8vc.app.controllers.QrzSlice`):
+- [x] **Step 2: UI state** — add to `OperateUiState` (import `net.ft8vc.app.controllers.QrzSlice`):
 
 ```kotlin
     /** QRZ auto-upload settings-section state (spec 2026-07-11-qrz-logbook-upload). */
     val qrz: QrzSlice = QrzSlice(),
 ```
 
-- [ ] **Step 3: ViewModel construction** — in `OperateViewModel`, near the `logbook` property:
+- [x] **Step 3: ViewModel construction** — in `OperateViewModel`, near the `logbook` property:
 
 ```kotlin
     private val qrzClient = HttpQrzClient()
@@ -1490,7 +1490,7 @@ with the registrar helper (near other private helpers):
 
 Imports: `android.content.Context`, `android.net.ConnectivityManager`, `android.net.Network`, `net.ft8vc.app.controllers.QrzUploadController`, `net.ft8vc.app.settings.KeystoreCipher`, `net.ft8vc.data.qrz.HttpQrzClient`, `net.ft8vc.data.qrz.QrzUploadQueue`, `net.ft8vc.data.qrz.RoomQrzQueueStore`.
 
-- [ ] **Step 4: Feed the slice into `OperateUiState`**
+- [x] **Step 4: Feed the slice into `OperateUiState`**
 
 The state `combine` at `OperateViewModel.kt:~203` is already at coroutines' 5-flow overload limit; nest the new flow like the existing settings/view pairing:
 
@@ -1506,14 +1506,14 @@ The state `combine` at `OperateViewModel.kt:~203` is already at coroutines' 5-fl
 
 then inside the `OperateUiState(...)` construction add `qrz = qrz,` and update the remaining references from `qso.` (unchanged — only the destructuring tuple shape changes).
 
-- [ ] **Step 5: Mark QSOs pending + trigger flush** — in `onQsoComplete` replace the log line:
+- [x] **Step 5: Mark QSOs pending + trigger flush** — in `onQsoComplete` replace the log line:
 
 ```kotlin
         withContext(Dispatchers.IO) { logbook.log(contact, qrzPending = qrzController.isEnabled) }
         qrzController.onQsoLogged()
 ```
 
-- [ ] **Step 6: VM pass-throughs** — near `backupAdifNow()`:
+- [x] **Step 6: VM pass-throughs** — near `backupAdifNow()`:
 
 ```kotlin
     fun setQrzUploadEnabled(enabled: Boolean) = qrzController.setEnabled(enabled)
@@ -1521,12 +1521,12 @@ then inside the `OperateUiState(...)` construction add `qrz = qrz,` and update t
     fun testQrzConnection() = qrzController.testConnection()
 ```
 
-- [ ] **Step 7: Compile + full unit tests**
+- [x] **Step 7: Compile + full unit tests**
 
 Run: `./gradlew :app:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL, all existing + new tests pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add app/src/main/AndroidManifest.xml app/src/main/java/net/ft8vc/app/OperateUiState.kt app/src/main/java/net/ft8vc/app/OperateViewModel.kt
@@ -1545,7 +1545,7 @@ git commit -m "feat(app): wire QRZ upload controller into OperateViewModel + man
 - Consumes: `QrzSlice`, `QrzTestStatus` (Task 7); VM pass-throughs (Task 8); private `SettingsSection` composable in `SettingsScreen.kt`.
 - Produces: `@Composable fun QrzSettingsSection(qrz: QrzSlice, onSetEnabled: (Boolean) -> Unit, onSetApiKey: (String) -> Unit, onTest: () -> Unit)`.
 
-- [ ] **Step 1: Extend `SettingsSection` with an optional title badge**
+- [x] **Step 1: Extend `SettingsSection` with an optional title badge**
 
 In `SettingsScreen.kt`, change the private composable (currently `SettingsScreen.kt:431`) to:
 
@@ -1560,7 +1560,7 @@ private fun SettingsSection(
 
 and render `titleBadge` in a `Row(verticalAlignment = Alignment.CenterVertically)` next to the existing title `Text` (keep current typography/colors; existing call sites compile unchanged).
 
-- [ ] **Step 2: Write `QrzSettingsSection.kt`**
+- [x] **Step 2: Write `QrzSettingsSection.kt`**
 
 ```kotlin
 package net.ft8vc.app.settings
@@ -1674,7 +1674,7 @@ fun QrzSettingsSection(
 
 (Add `import androidx.compose.ui.unit.dp`.)
 
-- [ ] **Step 3: Insert the section in `SettingsScreen`**
+- [x] **Step 3: Insert the section in `SettingsScreen`**
 
 Between the `SettingsSection("Logbook")` and `SettingsSection("About")` blocks:
 
@@ -1702,12 +1702,12 @@ Between the `SettingsSection("Logbook")` and `SettingsSection("About")` blocks:
 
 (Add imports `androidx.compose.material.icons.filled.Warning`, `androidx.compose.material3.Icon` as needed.)
 
-- [ ] **Step 4: Compile + full unit tests + debug build**
+- [x] **Step 4: Compile + full unit tests + debug build**
 
 Run: `./gradlew :app:testDebugUnitTest :app:assembleDebug`
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/QrzSettingsSection.kt app/src/main/java/net/ft8vc/app/settings/SettingsScreen.kt
@@ -1721,22 +1721,22 @@ git commit -m "feat(app): QRZ Logbook settings section — toggle, masked key, t
 **Files:**
 - Modify: `docs/superpowers/plans/2026-07-11-qrz-logbook-upload.md` (check boxes)
 
-- [ ] **Step 1: Full JVM test suite across all modules**
+- [x] **Step 1: Full JVM test suite across all modules**
 
 Run: `./gradlew testDebugUnitTest`
 Expected: BUILD SUCCESSFUL. (`DecodeControllerTest.reset_clearsLevelMeter` is a known pre-existing flake — re-run once before suspecting the branch.)
 
-- [ ] **Step 2: Release-shape compile check**
+- [x] **Step 2: Release-shape compile check**
 
 Run: `./gradlew :app:assembleDebug`
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 3: Verify no key leakage**
+- [x] **Step 3: Verify no key leakage**
 
 Run: `grep -rn "apiKey" app/src/main data/src/main | grep -i "log\|println\|Log\."`
 Expected: no matches (the API key never reaches any log or message string).
 
-- [ ] **Step 4: Check all plan boxes, commit**
+- [x] **Step 4: Check all plan boxes, commit**
 
 ```bash
 git add docs/superpowers/plans/2026-07-11-qrz-logbook-upload.md
