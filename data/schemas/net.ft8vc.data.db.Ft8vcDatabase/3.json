@@ -1,0 +1,115 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "df10c551ac5669bf930a793cd2e64fd9",
+    "entities": [
+      {
+        "tableName": "qso_contacts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `utcMillis` INTEGER NOT NULL, `myCall` TEXT NOT NULL, `myGrid` TEXT NOT NULL, `dxCall` TEXT NOT NULL, `dxGrid` TEXT, `rstSent` INTEGER, `rstRcvd` INTEGER, `freqHz` INTEGER, `mode` TEXT NOT NULL, `band` TEXT, `notes` TEXT NOT NULL, `potaParkRefs` TEXT, `qrzUploadState` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "utcMillis",
+            "columnName": "utcMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "myCall",
+            "columnName": "myCall",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "myGrid",
+            "columnName": "myGrid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dxCall",
+            "columnName": "dxCall",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dxGrid",
+            "columnName": "dxGrid",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rstSent",
+            "columnName": "rstSent",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "rstRcvd",
+            "columnName": "rstRcvd",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "freqHz",
+            "columnName": "freqHz",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "band",
+            "columnName": "band",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "potaParkRefs",
+            "columnName": "potaParkRefs",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "qrzUploadState",
+            "columnName": "qrzUploadState",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_qso_contacts_dxCall_utcMillis",
+            "unique": true,
+            "columnNames": [
+              "dxCall",
+              "utcMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_qso_contacts_dxCall_utcMillis` ON `${TABLE_NAME}` (`dxCall`, `utcMillis`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'df10c551ac5669bf930a793cd2e64fd9')"
+    ]
+  }
+}

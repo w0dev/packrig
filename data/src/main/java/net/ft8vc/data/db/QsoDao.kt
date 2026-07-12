@@ -34,4 +34,13 @@ interface QsoDao {
 
     @Query("UPDATE qso_contacts SET potaParkRefs = :potaParkRefs WHERE id IN (:ids)")
     suspend fun updateParkRefs(ids: List<Long>, potaParkRefs: String?)
+
+    @Query("SELECT * FROM qso_contacts WHERE qrzUploadState = 'PENDING' ORDER BY utcMillis ASC")
+    suspend fun qrzPending(): List<QsoEntity>
+
+    @Query("SELECT COUNT(*) FROM qso_contacts WHERE qrzUploadState = 'PENDING'")
+    suspend fun qrzPendingCount(): Int
+
+    @Query("UPDATE qso_contacts SET qrzUploadState = 'UPLOADED' WHERE id = :id")
+    suspend fun markQrzUploaded(id: Long)
 }

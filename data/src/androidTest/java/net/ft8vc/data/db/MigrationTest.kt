@@ -36,6 +36,24 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate2To3_existingRowsBecomeNotQueued() {
+        helper.createDatabase(DB_NAME, 2).use { db ->
+            db.execSQL(
+                "INSERT INTO qso_contacts " +
+                    "(utcMillis, myCall, myGrid, dxCall, dxGrid, rstSent, rstRcvd, freqHz, mode, band, notes, potaParkRefs) " +
+                    "VALUES (1700000000000, 'W0DEV', 'EM26', 'K1ABC', 'FN42', -8, -15, 14074000, 'FT8', '20m', '', NULL)",
+            )
+        }
+        helper.runMigrationsAndValidate(DB_NAME, 3, true, Ft8vcDatabase.MIGRATION_2_3).use { db ->
+            db.query("SELECT dxCall, qrzUploadState FROM qso_contacts").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("K1ABC", cursor.getString(0))
+                assertEquals("NOT_QUEUED", cursor.getString(1))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test.db"
     }

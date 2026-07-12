@@ -4,6 +4,7 @@ import net.ft8vc.data.adif.AdifExportContext
 import net.ft8vc.data.adif.AdifImportMerge
 import net.ft8vc.data.adif.AdifWriter
 import net.ft8vc.data.db.Ft8vcDatabase
+import net.ft8vc.data.db.QrzUploadState
 import net.ft8vc.data.db.QsoEntity
 import net.ft8vc.data.model.QsoContact
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +14,7 @@ import kotlinx.coroutines.flow.map
 data class ImportResult(val imported: Int, val duplicates: Int)
 
 interface Logbook {
-    suspend fun log(contact: QsoContact): Long
+    suspend fun log(contact: QsoContact, qrzPending: Boolean = false): Long
     fun contacts(): Flow<List<QsoContact>>
     suspend fun exportAdif(context: AdifExportContext = AdifExportContext()): String
     fun contactCount(): Flow<Int>
@@ -28,8 +29,12 @@ interface Logbook {
 class RoomLogbook(db: Ft8vcDatabase) : Logbook {
     private val dao = db.qsoDao()
 
-    override suspend fun log(contact: QsoContact): Long =
-        dao.insert(contact.toEntity())
+    override suspend fun log(contact: QsoContact, qrzPending: Boolean): Long =
+        dao.insert(
+            contact.toEntity().copy(
+                qrzUploadState = if (qrzPending) QrzUploadState.PENDING else QrzUploadState.NOT_QUEUED,
+            ),
+        )
 
     override fun contacts(): Flow<List<QsoContact>> =
         dao.observeAll().map { list -> list.map { it.toContact() } }
@@ -79,19 +84,21 @@ class RoomLogbook(db: Ft8vcDatabase) : Logbook {
         potaParkRefs = potaParkRefs,
     )
 
-    private fun QsoEntity.toContact() = QsoContact(
-        id = id,
-        utcMillis = utcMillis,
-        myCall = myCall,
-        myGrid = myGrid,
-        dxCall = dxCall,
-        dxGrid = dxGrid,
-        rstSent = rstSent,
-        rstRcvd = rstRcvd,
-        freqHz = freqHz,
-        mode = mode,
-        band = band,
-        notes = notes,
-        potaParkRefs = potaParkRefs,
-    )
 }
+
+/** Room entity → domain model (shared with the QRZ queue store). */
+fun QsoEntity.toContact() = QsoContact(
+    id = id,
+    utcMillis = utcMillis,
+    myCall = myCall,
+    myGrid = myGrid,
+    dxCall = dxCall,
+    dxGrid = dxGrid,
+    rstSent = rstSent,
+    rstRcvd = rstRcvd,
+    freqHz = freqHz,
+    mode = mode,
+    band = band,
+    notes = notes,
+    potaParkRefs = potaParkRefs,
+)
