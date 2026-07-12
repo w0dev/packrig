@@ -5,6 +5,18 @@ designed to drive a rig through a USB audio + serial interface (e.g. the
 [Digirig Mobile](https://digirig.net/)) or the rig's own USB port, directly from
 your phone — no laptop in the field.
 
+## Install
+
+**[Download the latest APK](https://github.com/w0dev/ft8vc/releases/latest)**,
+open it on your phone, and tap **Install**. That's it — the app is signed with a
+stable key, so future versions upgrade in place.
+
+- Android 9 or newer. Allow installs from your browser/file manager if prompted.
+- Receive-only out of the box: a valid amateur radio license is required to
+  transmit, and TX stays off until you enable it in Settings.
+- Bleeding edge? The `net.ft8vc.unstable` artifact from a recent **Unstable APK**
+  workflow run installs side by side with the release app.
+
 > **Status:** v1.0.0 from tagged commits on `main`. Day-to-day development and field
 > testing happen on **`unstable`** with CI-built APKs. See [docs/RELEASE.md](docs/RELEASE.md).
 
@@ -14,19 +26,6 @@ FT8VC aims for a clean, focused operating UI with a reliable decoder, distribute
 signed APKs from GitHub Releases. The verified reference setups are a **Yaesu FT-891 +
 Digirig Mobile** and a **Yaesu FTX-1 over its built-in USB port**, both via USB-C OTG —
 and anything that exposes a USB audio device will get you on the air for RX.
-
-## Install
-
-1. Open the [Releases page](https://github.com/w0dev/ft8vc/releases) and download
-   the latest `net.ft8vc-*.apk`.
-2. Allow installs from unknown sources for your browser/file manager when prompted.
-3. Tap the APK to install. The app is signed with a stable key, so future versions
-   upgrade in place.
-4. Want the bleeding edge? Grab the `net.ft8vc.unstable` artifact from a recent
-   **Unstable APK** workflow run. Unstable and stable install side by side.
-
-A valid amateur radio license is required to transmit. The app boots into
-**receive-only** and will not key the rig until you enable TX in Settings.
 
 ## Documentation
 
@@ -51,21 +50,21 @@ The quick start below is the condensed version.
    OTG hub is sometimes needed.
 2. **Grant USB permission** when Android prompts for the interface's audio and
    serial devices.
-3. **Set up Station** (Settings → Station) — enter your callsign and 4- or 6-char
-   Maidenhead grid. POTA activators can flip on **POTA mode** (Settings → POTA)
+3. **Set up your station** (Settings → General) — enter your callsign and 4- or
+   6-char Maidenhead grid. POTA activators can flip on **POTA mode** (same tab)
    and enter park reference(s); CQs become `CQ POTA <call> <grid>` and ADIF
    exports add the `MY_SIG` / `MY_SIG_INFO` fields.
-4. **Add your rig** (Settings → Radio → **Add rig**) — pick your radio model or a
-   generic preset, confirm the CAT baud, and hit **Test CAT** to verify the link.
-   Then **Read rig** should show frequency and mode; tap **Set FT8 mode (DATA-U)**
-   if you are not already in the data mode.
-5. **Check audio** (Settings → Audio) — the USB audio device is selected
-   automatically when attached; receive even starts on its own when the radio
-   connects (toggleable).
+4. **Add your rig** (Settings → Rigs → **+ Add Rig**) — pick your radio model or
+   a generic preset, confirm the CAT baud, and hit **Test CAT** to verify the
+   link. Then **Read rig** should show frequency and mode; tap
+   **Set FT8 mode (DATA-U)** if you are not already in the data mode.
+5. **Check audio** (Settings → General → Audio) — the USB audio device is picked
+   automatically when attached; select one manually only if routing chooses the
+   wrong device.
 6. **Acknowledge the license** and enable transmit when you are ready to call.
-7. **Operate tab → Start** — decodes appear within one 15 s slot. Tap a CQ to
-   answer, or **Start CQ** to call. Completed QSOs auto-log to the Log tab; ADIF
-   also auto-exports to `Documents/ft8vc` after every contact.
+7. **Operate tab → Start decoding** — decodes appear within one 15 s slot. Tap a
+   CQ to answer, or **Start CQ** to call. Completed QSOs auto-log to the Log tab;
+   ADIF also auto-exports to `Documents/ft8vc` after every contact.
 
 See [docs/HARDWARE.md](docs/HARDWARE.md) for the FT-891 menu values that the
 reference setup uses, and [docs/RIG_MODELS.md](docs/RIG_MODELS.md) for the full
@@ -78,14 +77,12 @@ portable FT8 session.
 
 ### Operate
 
-- USB audio RX (12 kHz, UTC slot-aligned decode); capture **auto-starts when the
-  radio is plugged in** and a **Monitoring** chip shows when RX runs before you
-  hit Start
+- USB audio RX (12 kHz, UTC slot-aligned decode)
 - Compact 3-row status bar: dial MHz (tap to retune via CAT), mode, **TX tone**
   chip, POTA chip, **HALT** button; slot progress, UTC countdown, **Even/Odd**
   TX slot chips with a **TX Ns** countdown to your next TX period. A **clock
   offset chip** appears when the device clock drifts from band time — tap it to
-  align to the decoded slot (see Settings → Clock alignment)
+  align to the decoded slot (see Settings → General → Clock alignment)
 - Decode list: CQ highlighted, traffic directed to you in amber; QSO partner in
   bold; **distance (km)** shown when a 4-char grid is in the message; a two-letter
   **country (CC)** column; the UTC cell is tinted by slot parity so Even/Odd slots
@@ -111,8 +108,9 @@ portable FT8 session.
 
 ### Rig control (multi-rig)
 
-- **Rig profiles**: save up to 5 named rigs (Settings → Radio → **Add rig**) and
-  switch between them. Model presets prefill baud, CAT port, and PTT method:
+- **Rig profiles**: save up to 5 named rigs (Settings → Rigs → **+ Add Rig**) and
+  switch between them on a card list (or select **None** to disconnect). Model
+  presets prefill baud, CAT port, and PTT method:
   - **Yaesu FT-891** — verified reference rig (Digirig / CP2102)
   - **Yaesu FTX-1** — verified second reference (built-in USB, covers VHF/UHF)
   - **Yaesu FT-991A, FTDX10, FT-710, FTDX101D/MP** — CAT tables authored from
@@ -124,7 +122,7 @@ portable FT8 session.
 - CAT: read band/mode, set dial frequency, one-tap **Set FT8 mode (DATA-U)**
 - No-CAT rigs: set a **manual dial frequency** so the display and log stay right
 - PTT via serial RTS or CAT commands (`TX1;`/`TX0;`), per profile
-- USB diagnostics expandable in Settings → Radio for cable/permission debugging
+- USB diagnostics expandable in Settings → Rigs for cable/permission debugging
 
 ### TX and QSO automation
 
@@ -133,7 +131,7 @@ portable FT8 session.
 - **Answer when called** auto-resumes when someone calls you; **Auto answer CQ**
   hunts CQs when idle; **Resume CQ after QSO** keeps calling CQ once a contact you
   started by calling CQ wraps up (Search & Pounce QSOs do not auto-resume).
-  Independent toggles in Settings → Auto TX
+  Independent toggles in Settings → General → Auto TX
 - Answer selection policy: **First**, **Best SNR**, or **Furthest** (great-circle
   km from your grid)
 - **Abandon after N unanswered TX cycles** auto-drops the non-responder from
@@ -144,7 +142,7 @@ portable FT8 session.
 - **Send RR73** option: log on send, or send RRR and log on the partner's 73
 - Single **End QSO** button ends the active contact; long-press a decode to block
   a sender outright. Blocked stations are hidden from the decode list and managed
-  in **Settings → Auto TX → Blocklist** (per-call **Unblock** or **Clear all**)
+  in **Settings → General → Auto TX** (per-call **Unblock** or **Clear all**)
 - License acknowledgment gates the first TX; a **TX safety halt** latches if the
   watchdog ever has to force-release PTT, and TX stays gated until you
   acknowledge it in Settings
@@ -166,6 +164,8 @@ portable FT8 session.
   `Documents/ft8vc` (survives uninstall), plus a manual **Backup now** button
 - **Export ADIF** (3.1, validated) via Android share intent
 - **Import ADIF** to merge an existing log
+- **QRZ Logbook upload** (Settings → Integrations): completed QSOs upload
+  automatically with a quiet retry queue; the API key is stored encrypted
 - Log management: multi-select delete, set park references on logged QSOs,
   clear log
 - Persisted station profile: call, grid, rig profiles, TX tone, theme and decode
