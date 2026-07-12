@@ -82,7 +82,8 @@ Repository secrets (Settings → Secrets and variables → Actions):
 
 Push to **`unstable`**. The [CI workflow](../.github/workflows/ci.yml) `unstable-apk` job runs the unit tests, then builds a signed release APK and uploads it as a workflow artifact (not a GitHub Release). Open the Actions run → **Artifacts** → `packset-unstable-<run>`.
 
-You can also trigger it manually via **Actions → Unstable APK → Run workflow**.
+You can also trigger it manually via **Actions → CI → Run workflow** (on the
+`unstable` branch).
 
 ## Field smoke checklist (pre-stable-release)
 
