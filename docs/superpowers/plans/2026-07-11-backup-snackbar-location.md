@@ -30,7 +30,7 @@
 - Consumes: existing `DocumentsAdifMirror.write(context: Context, adif: String): Boolean`.
 - Produces: `data class AdifAutoBackup.Outcome(val privateFile: File, val mirrored: Boolean)`; `suspend fun backupNow(context, logbook, settings): Outcome?`; `fun AdifAutoBackup.backupSnackbarText(mirrored: Boolean): String`. Task 2 relies on all three.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `app/src/test/java/net/ft8vc/app/AdifBackupSnackbarTextTest.kt`:
 
@@ -60,12 +60,12 @@ class AdifBackupSnackbarTextTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.AdifBackupSnackbarTextTest"`
 Expected: FAIL to compile — `backupSnackbarText` unresolved.
 
-- [ ] **Step 3: Implement Outcome and backupSnackbarText**
+- [x] **Step 3: Implement Outcome and backupSnackbarText**
 
 In `app/src/main/java/net/ft8vc/app/AdifAutoBackup.kt`, inside `object AdifAutoBackup`, add below the `TMP_NAME` constant:
 
@@ -97,12 +97,12 @@ and replace the last two lines of the `try` block (currently `DocumentsAdifMirro
             Outcome(target, mirrored = DocumentsAdifMirror.write(context, adif))
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.AdifBackupSnackbarTextTest"`
 Expected: PASS (2 tests). (`OperateViewModel`'s `result != null` check compiles unchanged against `Outcome?`.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/AdifAutoBackup.kt app/src/test/java/net/ft8vc/app/AdifBackupSnackbarTextTest.kt
@@ -120,7 +120,7 @@ git commit -m "feat(app): backupNow reports whether the Documents mirror succeed
 - Consumes: `AdifAutoBackup.backupNow(...): AdifAutoBackup.Outcome?` and `AdifAutoBackup.backupSnackbarText(mirrored: Boolean): String` from Task 1; existing `notify(text: String, tag: SnackbarEvent.Tag)`.
 - Produces: nothing new.
 
-- [ ] **Step 1: Update backupAdifNow**
+- [x] **Step 1: Update backupAdifNow**
 
 Replace the body of `backupAdifNow` (currently mapping `result != null` to the fixed "ADIF backup written" string):
 
@@ -138,12 +138,12 @@ Replace the body of `backupAdifNow` (currently mapping `result != null` to the f
     }
 ```
 
-- [ ] **Step 2: Compile and run the app unit suite**
+- [x] **Step 2: Compile and run the app unit suite**
 
 Run: `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL, all tests pass. (Known flake: `reset_clearsLevelMeter` is a pre-existing nanoTime-throttle race — re-run once if it's the only failure.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/OperateViewModel.kt
