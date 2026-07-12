@@ -151,7 +151,6 @@ class SettingsBridgeTest {
             useDarkTheme = false,
             cq73OnlyFilter = true,
             sendRr73 = false,
-            autoMonitorEnabled = false,
         )
         val (repo, _) = makeRepo(initial = settings)
         val bridge = SettingsBridge(repo, bridgeScope)
@@ -166,7 +165,6 @@ class SettingsBridgeTest {
         assertFalse(s.useDarkTheme)
         assertTrue(s.cq73OnlyFilter)
         assertFalse(s.sendRr73)
-        assertFalse(s.autoMonitorEnabled)
     }
 
     @Test

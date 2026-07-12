@@ -109,13 +109,6 @@ fun SettingsScreen(vm: OperateViewModel) {
 
             SettingsSection("Audio") {
                 DevicePicker(state = state, onSelect = vm::selectDevice)
-                AutoToggleRow(
-                    title = "Start receive when radio connects",
-                    subtitle = "Waterfall and decodes run as soon as USB audio is plugged in",
-                    checked = state.autoMonitorEnabled,
-                    onCheckedChange = vm::setAutoMonitorEnabled,
-                    enabled = true,
-                )
                 Text(
                     "Use a USB audio interface (Digirig or the radio's built-in USB audio) " +
                         "for RX and TX. Adjust input level on the Operate tab while monitoring.",

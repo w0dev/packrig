@@ -1,29 +1,12 @@
 package net.ft8vc.app.controllers
 
 /**
- * Pure decision logic for auto RX-monitor (spec
- * 2026-07-11-auto-rx-monitor-design): start receive-only capture when a
- * radio's USB audio is connected, so the waterfall and decode list are live
- * before the operator presses Start. No I/O and no Android dependencies —
- * the ViewModel supplies the environment and acts on the returned decisions.
+ * Pure decision logic for receive-only monitor captures (capture running
+ * without an operating session, e.g. after the capture-failed retry chip).
+ * No I/O and no Android dependencies — the ViewModel supplies the
+ * environment and acts on the returned decisions.
  */
 object MonitorGate {
-
-    /** All conditions required to start monitor capture (receive-only, no rig prep). */
-    fun shouldStartMonitor(
-        autoMonitorEnabled: Boolean,
-        appInForeground: Boolean,
-        usbAudioInputPresent: Boolean,
-        recordAudioGranted: Boolean,
-        isCapturing: Boolean,
-        isTransmitting: Boolean,
-    ): Boolean =
-        autoMonitorEnabled &&
-            appInForeground &&
-            usbAudioInputPresent &&
-            recordAudioGranted &&
-            !isCapturing &&
-            !isTransmitting
 
     /**
      * App left the foreground: stop a monitor-only capture. Android 9+ mutes

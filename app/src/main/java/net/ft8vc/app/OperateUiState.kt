@@ -112,8 +112,6 @@ data class OperateUiState(
     val maxUnansweredTxCycles: Int = 5,
     val lateStartTxEnabled: Boolean = true,
     val earlyDecodeEnabled: Boolean = true,
-    /** Auto RX-monitor: start receive when a radio's USB audio connects (Settings toggle). */
-    val autoMonitorEnabled: Boolean = true,
     val sendRr73: Boolean = true,
     val autoCqResumeEnabled: Boolean = false,
 

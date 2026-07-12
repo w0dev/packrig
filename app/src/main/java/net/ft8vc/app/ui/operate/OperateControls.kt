@@ -87,7 +87,7 @@ fun OperateControls(
             ),
         ) {
             Text(
-                if (state.isOperating) "Stop" else "Start",
+                if (state.isOperating) "Stop decoding" else "Start decoding",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
             )

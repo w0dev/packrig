@@ -8,51 +8,6 @@ import org.junit.Test
 
 class MonitorGateTest {
 
-    // All conditions met — the only combination that starts monitor capture.
-    private fun start(
-        autoMonitorEnabled: Boolean = true,
-        appInForeground: Boolean = true,
-        usbAudioInputPresent: Boolean = true,
-        recordAudioGranted: Boolean = true,
-        isCapturing: Boolean = false,
-        isTransmitting: Boolean = false,
-    ) = MonitorGate.shouldStartMonitor(
-        autoMonitorEnabled = autoMonitorEnabled,
-        appInForeground = appInForeground,
-        usbAudioInputPresent = usbAudioInputPresent,
-        recordAudioGranted = recordAudioGranted,
-        isCapturing = isCapturing,
-        isTransmitting = isTransmitting,
-    )
-
-    @Test fun `starts when all conditions met`() {
-        assertTrue(start())
-    }
-
-    @Test fun `setting off blocks start`() {
-        assertFalse(start(autoMonitorEnabled = false))
-    }
-
-    @Test fun `backgrounded app blocks start`() {
-        assertFalse(start(appInForeground = false))
-    }
-
-    @Test fun `no usb audio input blocks start`() {
-        assertFalse(start(usbAudioInputPresent = false))
-    }
-
-    @Test fun `missing record permission blocks start`() {
-        assertFalse(start(recordAudioGranted = false))
-    }
-
-    @Test fun `already capturing blocks start`() {
-        assertFalse(start(isCapturing = true))
-    }
-
-    @Test fun `transmitting blocks start`() {
-        assertFalse(start(isTransmitting = true))
-    }
-
     @Test fun `background stops monitor-only capture`() {
         assertTrue(MonitorGate.shouldStopOnBackground(isCapturing = true, isOperating = false))
     }

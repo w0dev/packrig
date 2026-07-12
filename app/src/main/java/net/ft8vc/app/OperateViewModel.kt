@@ -215,11 +215,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     private var txThread: Thread? = null
     private var lastDialFreqHz: Long? = null
 
-    // Auto RX-monitor (spec 2026-07-11-auto-rx-monitor-design). Both written
-    // only from the main thread (lifecycle observer / settings collect).
-    private var appInForeground = false
-    private var settingsLoaded = false
-
     init {
         viewModelScope.launch { settingsRepo.migrateLegacyRadioModel() }
         state = combine(
@@ -269,7 +264,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 maxUnansweredTxCycles = settings.maxUnansweredTxCycles,
                 lateStartTxEnabled = settings.lateStartTxEnabled,
                 earlyDecodeEnabled = settings.earlyDecodeEnabled,
-                autoMonitorEnabled = settings.autoMonitorEnabled,
                 sendRr73 = settings.sendRr73,
                 autoCqResumeEnabled = settings.autoCqResumeEnabled,
                 qsoActive = qso.qsoActive,
@@ -328,15 +322,9 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    // ── Phase 7 (HYG-04) ADIF backup + auto RX-monitor foreground tracking ────
+    // ── Phase 7 (HYG-04) ADIF backup on backgrounding ────
     private val processLifecycleObserver = object : androidx.lifecycle.DefaultLifecycleObserver {
-        override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {
-            appInForeground = true
-            maybeStartMonitor()
-        }
-
         override fun onStop(owner: androidx.lifecycle.LifecycleOwner) {
-            appInForeground = false
             AdifAutoBackup.scheduleBackupAfterQso(getApplication(), logbook, settingsRepo)
             // Android 9+ mutes mic input for backgrounded apps — a monitor-only
             // capture would feed the watchdog silent slots, so stop it here and
@@ -438,10 +426,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                             }
                         }
                     }
-                }
-                if (!settingsLoaded) {
-                    settingsLoaded = true
-                    maybeStartMonitor()
                 }
             }
         }
@@ -557,35 +541,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * Auto RX-monitor: start receive-only capture (waterfall + decodes live,
-     * no rig prep, no QSO session) when MonitorGate's conditions hold. Called
-     * on every trigger that can newly satisfy them: USB attach → refreshDevices,
-     * app foregrounding, and the first settings emission. The settingsLoaded
-     * gate prevents a launch race where the slice still holds the default
-     * autoMonitorEnabled=true before DataStore has emitted the user's choice.
-     */
-    private fun maybeStartMonitor() {
-        if (!settingsLoaded) return
-        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
-            getApplication(),
-            android.Manifest.permission.RECORD_AUDIO,
-        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        val start = MonitorGate.shouldStartMonitor(
-            autoMonitorEnabled = settingsBridge.slice.value.autoMonitorEnabled,
-            appInForeground = appInForeground,
-            usbAudioInputPresent = _viewState.value.devices.any { it.isUsb },
-            recordAudioGranted = granted,
-            // Intentional read of the async combined state: isTransmitting lives on
-            // the TxOrchestrator slice, not _viewState. A stale isCapturing here can
-            // at worst double-call beginCapture(), which UsbAudioCapture.start()
-            // absorbs (if (running) return).
-            isCapturing = state.value.isCapturing,
-            isTransmitting = state.value.isTransmitting,
-        )
-        if (start) beginCapture()
-    }
-
     fun refreshDevices() {
         val devices = AudioInputs.list(getApplication())
         _viewState.update { v ->
@@ -595,7 +550,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
             v.copy(devices = devices, selectedDeviceId = selected)
         }
         if (state.value.isOperating || state.value.txEnabled) prepareRig()
-        maybeStartMonitor()
     }
 
     fun selectDevice(id: Int) {
@@ -613,10 +567,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setAutoSeqEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsRepo.setAutoSeqEnabled(enabled) }
-    }
-
-    fun setAutoMonitorEnabled(enabled: Boolean) {
-        viewModelScope.launch { settingsRepo.setAutoMonitorEnabled(enabled) }
     }
 
     fun setAnswerWhenCalledEnabled(enabled: Boolean) {
@@ -760,9 +710,9 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startOperating() {
         if (state.value.isOperating) return
-        // Auto RX-monitor: if monitor capture is already running, adopt it —
-        // don't restart the audio chain or wipe the waterfall/decodes the
-        // operator was just looking at.
+        // If capture is already running (e.g. restarted via the retry chip),
+        // adopt it — don't restart the audio chain or wipe the
+        // waterfall/decodes the operator was just looking at.
         val adoptMonitorCapture = state.value.isCapturing
         if (!adoptMonitorCapture) {
             waterfall.clear()

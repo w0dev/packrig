@@ -46,7 +46,6 @@ class SettingsRepository(context: Context) {
             autoAnswerCqEnabled = prefs[Keys.AUTO_ANSWER_CQ] ?: false,
             lateStartTxEnabled = prefs[Keys.LATE_START_TX_ENABLED] ?: true,
             earlyDecodeEnabled = prefs[Keys.EARLY_DECODE_ENABLED] ?: true,
-            autoMonitorEnabled = prefs[Keys.AUTO_MONITOR_ENABLED] ?: true,
             sendRr73 = prefs[Keys.SEND_RR73] ?: true,
             autoCqResumeEnabled = prefs[Keys.AUTO_CQ_RESUME] ?: false,
             answerPolicy = prefs[Keys.ANSWER_POLICY]?.let { AnswerPolicy.valueOf(it) }
@@ -209,10 +208,6 @@ class SettingsRepository(context: Context) {
         appContext.settingsDataStore.edit { it[Keys.EARLY_DECODE_ENABLED] = enabled }
     }
 
-    suspend fun setAutoMonitorEnabled(enabled: Boolean) {
-        appContext.settingsDataStore.edit { it[Keys.AUTO_MONITOR_ENABLED] = enabled }
-    }
-
     suspend fun setSendRr73(enabled: Boolean) {
         appContext.settingsDataStore.edit { it[Keys.SEND_RR73] = enabled }
     }
@@ -334,7 +329,6 @@ class SettingsRepository(context: Context) {
         val AUTO_ANSWER_CQ = booleanPreferencesKey("auto_answer_cq")
         val LATE_START_TX_ENABLED = booleanPreferencesKey("late_start_tx_enabled")
         val EARLY_DECODE_ENABLED = booleanPreferencesKey("early_decode_enabled")
-        val AUTO_MONITOR_ENABLED = booleanPreferencesKey("auto_monitor_enabled")
         val SEND_RR73 = booleanPreferencesKey("send_rr73")
         val AUTO_CQ_RESUME = booleanPreferencesKey("auto_cq_resume")
         val ANSWER_POLICY = stringPreferencesKey("answer_policy")
