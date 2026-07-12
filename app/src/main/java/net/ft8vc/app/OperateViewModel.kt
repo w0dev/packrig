@@ -1032,7 +1032,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun setQrzApiKey(key: String) = qrzController.setApiKey(key)
     fun testQrzConnection() = qrzController.testConnection()
 
-    /** Phase 7 (UX-06): user-triggered backup from the Settings → Logbook row. */
+    /** Phase 7 (UX-06): user-triggered backup from the Log tab's logbook tools menu. */
     fun backupAdifNow() {
         viewModelScope.launch {
             val result = AdifAutoBackup.backupNow(getApplication(), logbook, settingsRepo)
@@ -1043,7 +1043,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Import an ADIF file picked in Settings → Logbook; merge with duplicate-skip. */
+    /** Import an ADIF file picked on the Log tab; merge with duplicate-skip. */
     fun importAdif(uri: Uri) {
         viewModelScope.launch {
             val outcome = try {

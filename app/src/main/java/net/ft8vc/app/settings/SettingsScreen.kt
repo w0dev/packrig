@@ -1,7 +1,5 @@
 package net.ft8vc.app.settings
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -371,41 +369,6 @@ fun SettingsScreen(vm: OperateViewModel) {
                     scheme = state.decodeColors,
                     onPickColor = vm::setDecodeColor,
                     onReset = vm::resetDecodeColors,
-                )
-            }
-
-            SettingsSection("Logbook") {
-                val importLauncher = rememberLauncherForActivityResult(
-                    ActivityResultContracts.OpenDocument(),
-                ) { uri -> uri?.let(vm::importAdif) }
-                val lastBackupLabel = state.lastAdifBackupAtMs?.let { ms ->
-                    val ageMs = System.currentTimeMillis() - ms
-                    when {
-                        ageMs < 60_000 -> "Last backup: just now"
-                        ageMs < 3_600_000 -> "Last backup: ${ageMs / 60_000} min ago"
-                        ageMs < 86_400_000 -> "Last backup: ${ageMs / 3_600_000} h ago"
-                        else -> "Last backup: ${ageMs / 86_400_000} d ago"
-                    }
-                } ?: "Last backup: never"
-                Text(lastBackupLabel, style = MaterialTheme.typography.bodySmall)
-                Button(
-                    onClick = vm::backupAdifNow,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Backup now")
-                }
-                OutlinedButton(
-                    // .adi files have no registered MIME type; filter in the reader instead.
-                    onClick = { importLauncher.launch(arrayOf("*/*")) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Import ADIF…")
-                }
-                Text(
-                    "ADIF auto-exports after every QSO to app-private storage " +
-                        "and Documents/ft8vc (survives uninstall).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 

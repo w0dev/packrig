@@ -19,8 +19,8 @@ import java.io.File
 /**
  * Phase 7 (HYG-04): atomic ADIF auto-export.
  *
- * Triggered after every QSO commit and via the Settings → Logbook "Backup
- * now" button. Writes are atomic (write to .tmp file, then rename) so a
+ * Triggered after every QSO commit and via the Log tab's "Backup
+ * now" menu item. Writes are atomic (write to .tmp file, then rename) so a
  * crash during write can never corrupt the existing backup. Runs on an
  * application-scoped coroutine so the export survives ViewModel
  * destruction (e.g. process pause mid-write).
