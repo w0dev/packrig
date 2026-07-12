@@ -28,7 +28,7 @@
 **Interfaces:**
 - Produces: `RigProfileList.selectionAfterDelete(remaining, deletedId, currentSelection): String?` — returns `currentSelection` only if it survives the delete, else null. `SettingsRepository.deleteRigProfile` already handles a null result (removes the key), so no repo change.
 
-- [ ] **Step 1: Rewrite the test to the new contract**
+- [x] **Step 1: Rewrite the test to the new contract**
 
 Replace `selectionFallsBackToFirstRemainingThenNull` in `RigProfileListTest.kt` with:
 
@@ -46,12 +46,12 @@ Replace `selectionFallsBackToFirstRemainingThenNull` in `RigProfileListTest.kt` 
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.settings.RigProfileListTest"`
 Expected: FAIL — first assert gets `"2"` instead of null
 
-- [ ] **Step 3: Implement the new fallback**
+- [x] **Step 3: Implement the new fallback**
 
 Replace `selectionAfterDelete` (and its KDoc) in `RigProfileList.kt`:
 
@@ -67,12 +67,12 @@ Replace `selectionAfterDelete` (and its KDoc) in `RigProfileList.kt`:
         }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.settings.RigProfileListTest"`
 Expected: BUILD SUCCESSFUL, all tests pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/RigProfileList.kt \
@@ -89,7 +89,7 @@ git commit -m "feat(app): deleting the selected rig now deselects (None)"
 **Interfaces:**
 - Produces: `SettingsRepository.selectRigProfile(id: String?)` and `OperateViewModel.selectRigProfile(id: String?)` — null clears the selection. Task 3's UI passes null for the None card; the existing `vm::selectRigProfile` binding in `SettingsScreen` adapts without change (contravariant parameter).
 
-- [ ] **Step 1: Widen the repo setter**
+- [x] **Step 1: Widen the repo setter**
 
 Replace `selectRigProfile` in `SettingsRepository.kt`:
 
@@ -106,7 +106,7 @@ Replace `selectRigProfile` in `SettingsRepository.kt`:
     }
 ```
 
-- [ ] **Step 2: Widen the ViewModel passthrough**
+- [x] **Step 2: Widen the ViewModel passthrough**
 
 In `OperateViewModel.kt`:
 
@@ -116,12 +116,12 @@ In `OperateViewModel.kt`:
     }
 ```
 
-- [ ] **Step 3: Compile and run the suite**
+- [x] **Step 3: Compile and run the suite**
 
 Run: `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/SettingsRepository.kt \
@@ -139,7 +139,7 @@ git commit -m "feat(app): selectRigProfile(null) clears the rig selection"
 - Consumes: `RigRegistry.byId`, `RigDescriptor.displayName/protocolFactory/defaultBaud/defaultPtt`, `RigProfile.baud/pttMethod`, `PttMethod`.
 - Produces: `RigCardSummary.subtitle(profile: RigProfile): String` — e.g. `"Yaesu FT-891 — CAT @ 38400, auto PTT"`. Task 4 renders it on each rig card.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```kotlin
 package net.ft8vc.app.settings
@@ -183,12 +183,12 @@ class RigCardSummaryTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.settings.RigCardSummaryTest"`
 Expected: compilation FAILURE — `Unresolved reference: RigCardSummary`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```kotlin
 package net.ft8vc.app.settings
@@ -217,12 +217,12 @@ object RigCardSummary {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.settings.RigCardSummaryTest"`
 Expected: BUILD SUCCESSFUL, 4 tests pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/RigCardSummary.kt \
@@ -240,7 +240,7 @@ git commit -m "feat(app): RigCardSummary subtitle helper for rig cards"
 - Consumes: `RigCardSummary.subtitle` (Task 3), `RigProfileList.MAX`, nullable `vm::selectRigProfile` (Task 2).
 - Produces: `RigCardList(profiles, selectedId, enabled, onSelect: (String?) -> Unit, onAdd, onEdit, onDelete)` public in `net.ft8vc.app.settings`. `RadioSettingsSection`'s signature changes only in `onSelectRigProfile: (String?) -> Unit`; the `SettingsScreen` call site (`vm::selectRigProfile`) compiles unchanged.
 
-- [ ] **Step 1: Create RigCardList.kt**
+- [x] **Step 1: Create RigCardList.kt**
 
 ```kotlin
 package net.ft8vc.app.settings
@@ -396,7 +396,7 @@ private fun AddRigButton(onClick: () -> Unit, enabled: Boolean) {
 
 (If `OutlinedCard(onClick = …)` needs `@OptIn(ExperimentalMaterial3Api::class)` on this BOM, add it to `RigCard` — the compiler will say.)
 
-- [ ] **Step 2: Rewire RadioSettingsSection**
+- [x] **Step 2: Rewire RadioSettingsSection**
 
 In `RadioSettingsSection.kt`:
 - Change the parameter to `onSelectRigProfile: (String?) -> Unit`.
@@ -418,12 +418,12 @@ In `RadioSettingsSection.kt`:
 - Remove now-unused imports (`DropdownMenuItem`, `ExposedDropdownMenuBox`, `ExposedDropdownMenuDefaults`, `OutlinedTextField`; keep `ExperimentalMaterial3Api` only if still referenced).
 - Everything else (empty-list hint, `catReady` block, diagnostics, dialogs) unchanged.
 
-- [ ] **Step 3: Compile and run the suite**
+- [x] **Step 3: Compile and run the suite**
 
 Run: `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL, no new warnings, all tests pass
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/RigCardList.kt \
@@ -438,17 +438,17 @@ git commit -m "feat(app): rig card list replaces dropdown (None card, Edit/x, da
 
 **Interfaces:** none.
 
-- [ ] **Step 1: Full build sanity**
+- [x] **Step 1: Full build sanity**
 
 Run: `./gradlew :app:assembleDebug`
 Expected: BUILD SUCCESSFUL
 
-- [ ] **Step 2: Confirm only intended files changed**
+- [x] **Step 2: Confirm only intended files changed**
 
 Run: `git status --short`
 Expected: only `Ft8NavHost.kt` pending (the pre-existing unrelated insets fix).
 
-- [ ] **Step 3: Commit plan checkboxes**
+- [x] **Step 3: Commit plan checkboxes**
 
 ```bash
 git add docs/superpowers/plans/2026-07-12-rig-card-list.md
