@@ -1,9 +1,9 @@
 
 ## Project
 
-**FT8VC — v1.x Code Health Milestone**
+**Packset — v1.x Code Health Milestone**
 
-FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig (reference: Yaesu FT-891 + Digirig Mobile) over USB audio + serial from a phone — no laptop in the field. v1.0 ships as signed APKs from GitHub Releases with `unstable` as the day-to-day development channel. This milestone is a focused **code-health pass** on the v1.0 codebase: refactor the monolithic orchestrator, harden threading and resource lifecycle, close the worst error-handling and security gaps, and bring it all under test — without expanding the feature surface.
+Packset is an open-source Android FT8 transceiver that drives an amateur radio rig (reference: Yaesu FT-891 + Digirig Mobile) over USB audio + serial from a phone — no laptop in the field. v1.0 ships as signed APKs from GitHub Releases with `unstable` as the day-to-day development channel. This milestone is a focused **code-health pass** on the v1.0 codebase: refactor the monolithic orchestrator, harden threading and resource lifecycle, close the worst error-handling and security gaps, and bring it all under test — without expanding the feature surface.
 
 **Core Value:** **The rig still keys, decodes still arrive, and QSOs still complete on a real FT-891 + Digirig in the field.** Every change in this milestone must preserve that. If a refactor risks RX/TX/CAT behavior on the reference setup, it doesn't ship.
 
@@ -12,7 +12,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 - **Tech stack**: Kotlin + Jetpack Compose + Coroutines for the JVM side; C/C++ `ft8_lib` via JNI for DSP. No new top-level dependencies for this milestone unless they enable a controller seam (e.g., a DI / lifecycle helper).
 - **Platform**: Android `minSdk = 28` (Android 9). API guards not required at this level.
 - **Hardware fidelity**: The reference setup is **Yaesu FT-891 + Digirig Mobile over USB-C OTG**. Field verification on that rig is the bar before each promotion.
-- **Release channel**: Land on `unstable` (`net.ft8vc.unstable`) phase-by-phase; promote to stable (`net.ft8vc` / `main`) only when the milestone is verified end-to-end.
+- **Release channel**: Land on `unstable` (`net.packset.unstable`) phase-by-phase; promote to stable (`net.packset` / `main`) only when the milestone is verified end-to-end.
 - **Behavior parity**: RX/TX/CAT/QSO behavior must be byte-equivalent to v1.0 on the reference rig. UX deltas are allowed (CAT timeout status, USB disconnect snackbar, decode counter, ADIF auto-export), but they must not crowd or claim main-screen real estate.
 - **License gate**: TX stays gated behind license acknowledgment; nothing in the refactor weakens the receive-only default.
 
@@ -89,7 +89,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 - USB Host hardware feature (android.hardware.usb.host required)
 - Audio recording permission (RECORD_AUDIO)
 - Signed APK via GitHub Releases
-- Stable and unstable variants (separate package IDs: `net.ft8vc` vs `net.ft8vc.unstable`)
+- Stable and unstable variants (separate package IDs: `net.packset` vs `net.packset.unstable`)
 - Side-by-side installation with stable signing key reuse
 - arm64-v8a (primary for modern Android devices)
 - armeabi-v7a (32-bit ARM)
@@ -139,7 +139,7 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 ## Import Organization
 
 - No path aliases (gradle `include` statements) used in imports
-- Fully qualified imports required: `net.ft8vc.core.QsoMachine`, `net.ft8vc.app.OperateViewModel`
+- Fully qualified imports required: `net.packset.core.QsoMachine`, `net.packset.app.OperateViewModel`
 
 ## Error Handling
 
@@ -223,27 +223,27 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 
 | Component | Responsibility | File |
 |-----------|----------------|------|
-| **MainActivity** | Entry point, Compose root setup | `app/src/main/java/net/ft8vc/app/MainActivity.kt` |
-| **OperateViewModel** | Central orchestrator for all screen state and I/O drivers | `app/src/main/java/net/ft8vc/app/OperateViewModel.kt` |
-| **Ft8vcApp** | Navigation host, tab routing, theme composition | `app/src/main/java/net/ft8vc/app/ui/nav/Ft8NavHost.kt` |
-| **OperateScreen** | Primary operating UI (Operate tab: decodes, TX controls, status) | `app/src/main/java/net/ft8vc/app/ui/operate/OperateScreen.kt` |
-| **SpectrumScreen** | Waterfall display and TX tone picker | `app/src/main/java/net/ft8vc/app/ui/spectrum/SpectrumScreen.kt` |
-| **LogScreen** | QSO log display and export | `app/src/main/java/net/ft8vc/app/ui/log/LogScreen.kt` |
-| **SettingsScreen** | Station profile, audio device, CAT, TX preferences | `app/src/main/java/net/ft8vc/app/settings/SettingsScreen.kt` |
-| **UsbAudioCapture** | USB audio RX, decimation to 12 kHz | `audio/src/main/java/net/ft8vc/audio/UsbAudioCapture.kt` |
-| **UsbAudioPlayback** | USB audio TX, encodes FT8 to 12 kHz samples | `audio/src/main/java/net/ft8vc/audio/UsbAudioPlayback.kt` |
-| **SpectrumProcessor** | FFT and waterfall for display | `audio/src/main/java/net/ft8vc/audio/dsp/SpectrumProcessor.kt` |
-| **RigController** | USB device discovery, permission mgmt, PTT/CAT routing | `rig/src/main/java/net/ft8vc/rig/RigController.kt` |
-| **SerialRigBackend** | Composes serial transport + CAT protocol into PTT (RTS) and CAT control | `rig/src/main/java/net/ft8vc/rig/SerialRigBackend.kt` |
-| **YaesuCat** | Yaesu new-CAT command/response parsing (freq, mode, DATA-U), parameterized by model | `rig/src/main/java/net/ft8vc/rig/YaesuCat.kt` |
-| **RigRegistry** | Static `RigDescriptor` table of supported radios; no default (operator selects) | `rig/src/main/java/net/ft8vc/rig/RigRegistry.kt` |
-| **QsoMachine** | Pure FT8 QSO state machine (CQ → grid → reports → 73) | `core/src/main/java/net/ft8vc/core/QsoMachine.kt` |
-| **SlotCollector** | Buffers PCM samples, flushes on 15-second UTC slot boundary | `core/src/main/java/net/ft8vc/core/SlotCollector.kt` |
-| **QsoMessages** | Parses/formats FT8 message types (CQ, grid, reports, RRR, 73) | `core/src/main/java/net/ft8vc/core/QsoMessages.kt` |
-| **SettingsRepository** | Preferences (DataStore) for station, audio, rig, TX prefs | `app/src/main/java/net/ft8vc/app/settings/SettingsRepository.kt` |
-| **RoomLogbook** | Room database abstraction: persist contacts, export ADIF | `data/src/main/java/net/ft8vc/data/Logbook.kt` |
-| **Ft8vcDatabase** | Room DAO for QSO contacts | `data/src/main/java/net/ft8vc/data/db/Ft8vcDatabase.kt` |
-| **Ft8Native** | JNI bridge to ft8_lib C/C++ for encode/decode | `ft8-native/src/main/java/net/ft8vc/ft8native/Ft8Native.kt` |
+| **MainActivity** | Entry point, Compose root setup | `app/src/main/java/net/packset/app/MainActivity.kt` |
+| **OperateViewModel** | Central orchestrator for all screen state and I/O drivers | `app/src/main/java/net/packset/app/OperateViewModel.kt` |
+| **PacksetApp** | Navigation host, tab routing, theme composition | `app/src/main/java/net/packset/app/ui/nav/Ft8NavHost.kt` |
+| **OperateScreen** | Primary operating UI (Operate tab: decodes, TX controls, status) | `app/src/main/java/net/packset/app/ui/operate/OperateScreen.kt` |
+| **SpectrumScreen** | Waterfall display and TX tone picker | `app/src/main/java/net/packset/app/ui/spectrum/SpectrumScreen.kt` |
+| **LogScreen** | QSO log display and export | `app/src/main/java/net/packset/app/ui/log/LogScreen.kt` |
+| **SettingsScreen** | Station profile, audio device, CAT, TX preferences | `app/src/main/java/net/packset/app/settings/SettingsScreen.kt` |
+| **UsbAudioCapture** | USB audio RX, decimation to 12 kHz | `audio/src/main/java/net/packset/audio/UsbAudioCapture.kt` |
+| **UsbAudioPlayback** | USB audio TX, encodes FT8 to 12 kHz samples | `audio/src/main/java/net/packset/audio/UsbAudioPlayback.kt` |
+| **SpectrumProcessor** | FFT and waterfall for display | `audio/src/main/java/net/packset/audio/dsp/SpectrumProcessor.kt` |
+| **RigController** | USB device discovery, permission mgmt, PTT/CAT routing | `rig/src/main/java/net/packset/rig/RigController.kt` |
+| **SerialRigBackend** | Composes serial transport + CAT protocol into PTT (RTS) and CAT control | `rig/src/main/java/net/packset/rig/SerialRigBackend.kt` |
+| **YaesuCat** | Yaesu new-CAT command/response parsing (freq, mode, DATA-U), parameterized by model | `rig/src/main/java/net/packset/rig/YaesuCat.kt` |
+| **RigRegistry** | Static `RigDescriptor` table of supported radios; no default (operator selects) | `rig/src/main/java/net/packset/rig/RigRegistry.kt` |
+| **QsoMachine** | Pure FT8 QSO state machine (CQ → grid → reports → 73) | `core/src/main/java/net/packset/core/QsoMachine.kt` |
+| **SlotCollector** | Buffers PCM samples, flushes on 15-second UTC slot boundary | `core/src/main/java/net/packset/core/SlotCollector.kt` |
+| **QsoMessages** | Parses/formats FT8 message types (CQ, grid, reports, RRR, 73) | `core/src/main/java/net/packset/core/QsoMessages.kt` |
+| **SettingsRepository** | Preferences (DataStore) for station, audio, rig, TX prefs | `app/src/main/java/net/packset/app/settings/SettingsRepository.kt` |
+| **RoomLogbook** | Room database abstraction: persist contacts, export ADIF | `data/src/main/java/net/packset/data/Logbook.kt` |
+| **PacksetDatabase** | Room DAO for QSO contacts | `data/src/main/java/net/packset/data/db/PacksetDatabase.kt` |
+| **Ft8Native** | JNI bridge to ft8_lib C/C++ for encode/decode | `ft8-native/src/main/java/net/packset/ft8native/Ft8Native.kt` |
 
 ## Pattern Overview
 
@@ -256,32 +256,32 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 ## Layers
 
 - Purpose: Compose UI, navigation, ViewModels
-- Location: `app/src/main/java/net/ft8vc/app/`
+- Location: `app/src/main/java/net/packset/app/`
 - Contains: Screens (Operate, Spectrum, Log, Settings), OperateViewModel, OperateUiState, SettingsRepository
 - Depends on: Jetpack Compose, Lifecycle, Navigation, all backend modules (core, audio, rig, data)
 - Used by: MainActivity (entry point)
 - Purpose: FT8 protocol, QSO sequencing, slot timing, decode filtering
-- Location: `core/src/main/java/net/ft8vc/core/`
+- Location: `core/src/main/java/net/packset/core/`
 - Contains: QsoMachine, QsoMessages, SlotCollector, DecodeViewMode, AnswerPolicy, MaidenheadGrid, AbandonedPartners
 - Depends on: Kotlin stdlib only (no Android, no external libs)
 - Used by: OperateViewModel, audio decode loop, test suites
 - Purpose: USB audio capture/playback, DSP (decimation, FFT, waterfall)
-- Location: `audio/src/main/java/net/ft8vc/audio/`
+- Location: `audio/src/main/java/net/packset/audio/`
 - Contains: UsbAudioCapture, UsbAudioPlayback, SpectrumProcessor, FirDecimator, Fft, Upsampler
 - Depends on: Android AudioRecord/AudioTrack APIs, core module (sample rate const), ft8-native (encode)
 - Used by: OperateViewModel (callbacks for frames and spectrum)
 - Purpose: USB device discovery, PTT keying, CAT for frequency/mode
-- Location: `rig/src/main/java/net/ft8vc/rig/`
+- Location: `rig/src/main/java/net/packset/rig/`
 - Contains: RigController, SerialRigBackend, SerialTransport/UsbSerialTransport, CatProtocol/YaesuCat, PttStrategy, NoOpRigBackend
 - Depends on: Android USB APIs, Kotlin stdlib
 - Used by: OperateViewModel (read CAT, set PTT)
 - Purpose: Room database, ADIF export
-- Location: `data/src/main/java/net/ft8vc/data/`
-- Contains: RoomLogbook, Ft8vcDatabase, QsoEntity, QsoDao, AdifWriter, AdifNormalizer, AdifValidator
+- Location: `data/src/main/java/net/packset/data/`
+- Contains: RoomLogbook, PacksetDatabase, QsoEntity, QsoDao, AdifWriter, AdifNormalizer, AdifValidator
 - Depends on: Room ORM, core module (models)
 - Used by: OperateViewModel (log completed QSOs)
 - Purpose: JNI wrapper around kgoba/ft8_lib (C/C++) for FT8 encode/decode
-- Location: `ft8-native/src/main/java/net/ft8vc/ft8native/`
+- Location: `ft8-native/src/main/java/net/packset/ft8native/`
 - Contains: Ft8Native (JNI methods for encode, decode batch)
 - Depends on: NDK, CMake, ft8_lib source (fetched at build time)
 - Used by: OperateViewModel (decode pass on each slot), UsbAudioPlayback (TX encode)
@@ -296,39 +296,39 @@ FT8VC is an open-source Android FT8 transceiver that drives an amateur radio rig
 
 - All state flows through `OperateUiState` (single StateFlow in OperateViewModel)
 - Settings persisted via DataStore (Preferences) in SettingsRepository
-- Log persisted via Room DAO (Ft8vcDatabase.qsoDao())
+- Log persisted via Room DAO (PacksetDatabase.qsoDao())
 - QSO session state (QsoMachine) is in-memory during operate; lost on app exit (by design — recover via Continue)
 
 ## Key Abstractions
 
 - Purpose: Pure FT8 state machine (no I/O, no Android dependencies)
-- Examples: `core/src/main/java/net/ft8vc/core/QsoMachine.kt`
+- Examples: `core/src/main/java/net/packset/core/QsoMachine.kt`
 - Pattern: Sealed enum of QsoState (Idle, CallingCq, Answering, SendingReport, etc); stateful accumulator with methods:
 - Purpose: Parse/format FT8 message types (CQ, directed, reports, endings)
-- Examples: `core/src/main/java/net/ft8vc/core/QsoMessages.kt`
+- Examples: `core/src/main/java/net/packset/core/QsoMessages.kt`
 - Pattern: Object with sealed class hierarchy (QsoRx.Cq, GridReply, Report, RReport, Roger, RogerBye, Bye, Other)
 - Purpose: Buffers mono PCM samples into 15-second UTC slot windows
-- Examples: `core/src/main/java/net/ft8vc/core/SlotCollector.kt`
+- Examples: `core/src/main/java/net/packset/core/SlotCollector.kt`
 - Pattern: Stateful buffer with wall-clock boundary detection:
 - Purpose: Abstraction for RX/TX audio, allows swapping implementations
-- Examples: `audio/src/main/java/net/ft8vc/audio/AudioEngine.kt` (interface), UsbAudioCapture/UsbAudioPlayback
+- Examples: `audio/src/main/java/net/packset/audio/AudioEngine.kt` (interface), UsbAudioCapture/UsbAudioPlayback
 - Pattern: start(deviceId, callback) and stop() contract; onFrames/onEncoded callbacks carry data
 - Purpose: Abstraction for PTT and CAT, allows mocking and fallback
-- Examples: `rig/src/main/java/net/ft8vc/rig/RigBackend.kt` (interface), SerialRigBackend, NoOpRigBackend
+- Examples: `rig/src/main/java/net/packset/rig/RigBackend.kt` (interface), SerialRigBackend, NoOpRigBackend
 - Pattern: keysender, unsendPtt(), readCat() → returns struct with freq, mode
 - Purpose: Abstraction for log persistence (Room impl; could be swapped)
-- Examples: `data/src/main/java/net/ft8vc/data/Logbook.kt` (interface), RoomLogbook
+- Examples: `data/src/main/java/net/packset/data/Logbook.kt` (interface), RoomLogbook
 - Pattern: suspend fun log(contact), fun contacts() Flow<List>, suspend exportAdif(), contactCount() Flow
 
 ## Entry Points
 
-- Location: `app/src/main/java/net/ft8vc/app/MainActivity.kt`
+- Location: `app/src/main/java/net/packset/app/MainActivity.kt`
 - Triggers: Android app launch (LAUNCHER intent-filter + USB device attach intent-filter)
-- Responsibilities: Creates AndroidView context, calls setContent { Ft8vcApp() }; Compose tree bootstrap
-- Location: `app/src/main/java/net/ft8vc/app/ui/nav/Ft8NavHost.kt:29`
+- Responsibilities: Creates AndroidView context, calls setContent { PacksetApp() }; Compose tree bootstrap
+- Location: `app/src/main/java/net/packset/app/ui/nav/Ft8NavHost.kt:29`
 - Triggers: Emitted by MainActivity.onCreate
 - Responsibilities: Instantiates OperateViewModel/LogViewModel, sets up NavHost with 4 bottom-tab destinations (Operate, Spectrum, Log, Settings)
-- Location: `app/src/main/java/net/ft8vc/app/OperateViewModel.kt:~150`
+- Location: `app/src/main/java/net/packset/app/OperateViewModel.kt:~150`
 - Triggers: User taps "Start" button on Operate screen
 - Responsibilities: Launch UsbAudioCapture, UsbAudioPlayback, SlotCollector, decode executor; enable CAT polling; enter operating state
 

@@ -1,8 +1,8 @@
-# FT8VC Operator's Manual
+# Packset Operator's Manual
 
-How FT8VC behaves and how to use it, end to end. This manual assumes you are a
+How Packset behaves and how to use it, end to end. This manual assumes you are a
 licensed amateur operator who has used FT8 before (WSJT-X or similar) and is
-new to FT8VC. It documents the current **`unstable`** channel behavior; the
+new to Packset. It documents the current **`unstable`** channel behavior; the
 stable channel may lag behind what is described here.
 
 ## Chapters
