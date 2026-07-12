@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.ft8vc.core.DecodeCategory
@@ -63,8 +64,8 @@ private val CATEGORY_ROWS = listOf(
 )
 
 /**
- * Collapsible decode-color editor (collapsed by default). Pattern mirrors the
- * USB diagnostics toggle row in SettingsScreen.
+ * Decode-color editor. Always expanded — it owns most of the Display tab
+ * (was a collapsible row when Settings was one long scroll).
  */
 @Composable
 fun DecodeColorsSection(
@@ -72,42 +73,37 @@ fun DecodeColorsSection(
     onPickColor: (DecodeCategory, Int) -> Unit,
     onReset: () -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<DecodeCategory?>(null) }
 
     Column {
-        TextButton(onClick = { expanded = !expanded }) {
-            Text(
-                text = "Decode colors",
-                style = MaterialTheme.typography.labelMedium,
-            )
-            Text(text = if (expanded) " ▴" else " ▾", style = MaterialTheme.typography.labelMedium)
-        }
-        if (expanded) {
-            CATEGORY_ROWS.forEach { rowSpec ->
-                val argb = scheme.colorFor(rowSpec.category) ?: return@forEach
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { editing = rowSpec.category }
-                        .padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(rowSpec.label, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            rowSpec.description,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Swatch(color = Color(argb))
+        Text(
+            "Decode colors",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+        CATEGORY_ROWS.forEach { rowSpec ->
+            val argb = scheme.colorFor(rowSpec.category) ?: return@forEach
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { editing = rowSpec.category }
+                    .padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(rowSpec.label, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        rowSpec.description,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
+                Swatch(color = Color(argb))
             }
-            TextButton(onClick = onReset) {
-                Text("Reset to defaults", style = MaterialTheme.typography.labelMedium)
-            }
+        }
+        TextButton(onClick = onReset) {
+            Text("Reset to defaults", style = MaterialTheme.typography.labelMedium)
         }
     }
 
