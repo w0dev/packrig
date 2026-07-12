@@ -77,6 +77,8 @@ data class OperateUiState(
     // ── Rx (capture, decodes, level metering) ─────────────────────────────
     val devices: List<AudioInputDevice> = emptyList(),
     val selectedDeviceId: Int? = null,
+    /** True when [selectedDeviceId] came from a persisted manual pick, not the USB auto-pick. */
+    val audioDeviceManuallySelected: Boolean = false,
     val isOperating: Boolean = false,
     val isCapturing: Boolean = false,
     val levelDbfs: Float = SILENCE_DBFS,

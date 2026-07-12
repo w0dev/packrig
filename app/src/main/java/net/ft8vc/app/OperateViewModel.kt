@@ -236,6 +236,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 decodeColors = settings.decodeColors,
                 devices = view.devices,
                 selectedDeviceId = settings.selectedAudioDeviceId ?: view.selectedDeviceId,
+                audioDeviceManuallySelected = settings.selectedAudioDeviceId != null,
                 isOperating = view.isOperating,
                 isCapturing = view.isCapturing,
                 levelDbfs = decode.levelDbfs,
