@@ -167,6 +167,8 @@ class DecodeControllerTest {
             listOf(Ft8DecodeResult("CQ K1ABC FN42", -8, 0.0f, 1000f, 50)),
         )
         flushOneSlot()
+        // Step past the 30 ms UI-update throttle so the level publish fires.
+        clockMs.set(clockMs.get() + 31L)
         controller.onFrames(ShortArray(1200) { 5000 })
         assertTrue(controller.slice.value.levelDbfs > OperateUiState.SILENCE_DBFS)
 

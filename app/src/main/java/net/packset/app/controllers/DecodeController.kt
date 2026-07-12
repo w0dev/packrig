@@ -137,7 +137,7 @@ class DecodeController(
     private val failureCount = AtomicLong(0L)
     private var gainScratch: ShortArray? = null
     private var levelEma = OperateUiState.SILENCE_DBFS
-    private var lastUiUpdateNs = 0L
+    private var lastUiUpdateMs = 0L
     /** Phase 6 (RELY-04): count of slots since the last decode failure, used to auto-clear the "Decodes dropped" chip. */
     private var consecutiveSuccessfulSlots: Int = 0
     /** Phase 6 (RELY-02b): consecutive slots with zero PCM samples. UI / VM cross-checks against AudioManager devices. */
@@ -169,7 +169,7 @@ class DecodeController(
         slotCollector.reset()
         clockOffset.reset()
         levelEma = OperateUiState.SILENCE_DBFS
-        lastUiUpdateNs = 0L
+        lastUiUpdateMs = 0L
         _slice.update {
             it.copy(levelDbfs = OperateUiState.SILENCE_DBFS, clip = false, clockOffsetSeconds = null)
         }
@@ -213,9 +213,10 @@ class DecodeController(
             scope.launch(decodeDispatcher) { decodeSlot(samples, slotStart, source = DecodePassSource.Full) }
         }
 
-        val now = System.nanoTime()
-        if (now - lastUiUpdateNs >= 30_000_000L) {
-            lastUiUpdateNs = now
+        // Throttle on the injected clock (not nanoTime) so tests are deterministic.
+        val now = clock()
+        if (now - lastUiUpdateMs >= 30L) {
+            lastUiUpdateMs = now
             _slice.update {
                 it.copy(
                     levelDbfs = levelEma.coerceIn(OperateUiState.SILENCE_DBFS, 0f),
