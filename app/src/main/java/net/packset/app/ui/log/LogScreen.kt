@@ -193,7 +193,7 @@ fun LogScreen(
                             onClick = {
                                 scope.launch {
                                     try {
-                                        shareAdif(context, "ft8vc_export.adi", vm.exportAdif())
+                                        shareAdif(context, "packset_export.adi", vm.exportAdif())
                                     } catch (e: AdifExportException) {
                                         snackbarHostState.showSnackbar(e.message ?: "ADIF export failed")
                                     }

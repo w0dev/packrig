@@ -198,8 +198,8 @@ static void synth_gfsk(const uint8_t* symbols, int n_sym, int offset_symbols,
 extern "C" JNIEXPORT jstring JNICALL
 Java_net_packset_ft8native_Ft8Native_nativeVersion(JNIEnv* env, jobject) {
     // FT8LIB_SHORT_HASH comes from FT8LIB_COMMIT in CMakeLists.txt — see
-    // docs/FT8_LIB_UPGRADE.md. Only the ft8vc-native version is bumped here.
-    return env->NewStringUTF("ft8vc-native 0.3.0 (ft8_lib " FT8LIB_SHORT_HASH ")");
+    // docs/FT8_LIB_UPGRADE.md. Only the packset-native version is bumped here.
+    return env->NewStringUTF("packset-native 0.3.0 (ft8_lib " FT8LIB_SHORT_HASH ")");
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL
@@ -290,7 +290,7 @@ Java_net_packset_ft8native_Ft8Native_nativeDecode(
 
     monitor_free(&mon);
 
-    jclass cls = env->FindClass("net/ft8vc/ft8native/Ft8DecodeResult");
+    jclass cls = env->FindClass("net/packset/ft8native/Ft8DecodeResult");
     jmethodID ctor = env->GetMethodID(cls, "<init>", "(Ljava/lang/String;IFFI)V");
     jobjectArray array = env->NewObjectArray(static_cast<jsize>(results.size()), cls, nullptr);
 
