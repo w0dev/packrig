@@ -1036,10 +1036,11 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun backupAdifNow() {
         viewModelScope.launch {
             val result = AdifAutoBackup.backupNow(getApplication(), logbook, settingsRepo)
-            notify(
-                if (result != null) "ADIF backup written" else "ADIF backup failed",
-                if (result != null) SnackbarEvent.Tag.TRANSIENT else SnackbarEvent.Tag.ERROR,
-            )
+            if (result != null) {
+                notify(AdifAutoBackup.backupSnackbarText(result.mirrored), SnackbarEvent.Tag.TRANSIENT)
+            } else {
+                notify("ADIF backup failed", SnackbarEvent.Tag.ERROR)
+            }
         }
     }
 
