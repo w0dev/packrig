@@ -38,33 +38,33 @@ jobs:
       - name: Prepare release keystore
         id: keystore
         env:
-          FT8VC_KEYSTORE_BASE64: ${{ secrets.FT8VC_KEYSTORE_BASE64 }}
+          PACKSET_KEYSTORE_BASE64: ${{ secrets.FT8VC_KEYSTORE_BASE64 }}
         run: |
-          if [ -z "$FT8VC_KEYSTORE_BASE64" ]; then
+          if [ -z "$PACKSET_KEYSTORE_BASE64" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
             echo "No FT8VC_KEYSTORE_BASE64 secret; building unsigned release APK."
             exit 0
           fi
-          echo "$FT8VC_KEYSTORE_BASE64" | base64 -d > "${GITHUB_WORKSPACE}/release.keystore"
+          echo "$PACKSET_KEYSTORE_BASE64" | base64 -d > "${GITHUB_WORKSPACE}/release.keystore"
           echo "configured=true" >> "$GITHUB_OUTPUT"
           echo "path=${GITHUB_WORKSPACE}/release.keystore" >> "$GITHUB_OUTPUT"
 
       - name: Set unstable version suffix
-        run: echo "FT8VC_VERSION_NAME_SUFFIX=-unstable+${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
+        run: echo "PACKSET_VERSION_NAME_SUFFIX=-unstable+${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
 
       - name: Assemble unstable release APK
         env:
-          FT8VC_UNSTABLE: true
-          FT8VC_VERSION_CODE: ${{ github.run_number }}
-          FT8VC_KEYSTORE: ${{ steps.keystore.outputs.path }}
-          FT8VC_KEYSTORE_PASSWORD: ${{ secrets.FT8VC_KEYSTORE_PASSWORD }}
-          FT8VC_KEY_ALIAS: ${{ secrets.FT8VC_KEY_ALIAS }}
-          FT8VC_KEY_PASSWORD: ${{ secrets.FT8VC_KEY_PASSWORD }}
+          PACKSET_UNSTABLE: true
+          PACKSET_VERSION_CODE: ${{ github.run_number }}
+          PACKSET_KEYSTORE: ${{ steps.keystore.outputs.path }}
+          PACKSET_KEYSTORE_PASSWORD: ${{ secrets.FT8VC_KEYSTORE_PASSWORD }}
+          PACKSET_KEY_ALIAS: ${{ secrets.FT8VC_KEY_ALIAS }}
+          PACKSET_KEY_PASSWORD: ${{ secrets.FT8VC_KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Upload unstable APK
         uses: actions/upload-artifact@v4
         with:
-          name: ft8vc-unstable-${{ github.run_number }}
+          name: packset-unstable-${{ github.run_number }}
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error

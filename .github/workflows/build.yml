@@ -47,6 +47,6 @@ jobs:
         if: github.ref != 'refs/heads/unstable'
         uses: actions/upload-artifact@v4
         with:
-          name: ft8vc-debug-apk
+          name: packset-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
