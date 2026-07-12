@@ -1,5 +1,6 @@
 package net.ft8vc.app.ui.nav
 
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -97,7 +98,10 @@ fun Ft8vcApp(
             NavHost(
                 navController = navController,
                 startDestination = Ft8Destination.Operate.route,
-                modifier = Modifier.padding(padding),
+                // Consume the scaffold insets so the per-tab inner Scaffolds
+                // don't re-apply the system bar insets (doubled gap above the
+                // tab bar and below the status bar on every tab).
+                modifier = Modifier.padding(padding).consumeWindowInsets(padding),
             ) {
                 composable(Ft8Destination.Operate.route) {
                     OperateScreen(
