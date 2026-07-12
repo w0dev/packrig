@@ -8,12 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,7 +38,7 @@ fun RadioSettingsSection(
     state: OperateUiState,
     usbDiagnostics: String,
     serialPortNames: List<String>,
-    onSelectRigProfile: (String) -> Unit,
+    onSelectRigProfile: (String?) -> Unit,
     onSaveRigProfile: (RigProfile) -> Unit,
     onDeleteRigProfile: (String) -> Unit,
     onTestCat: (RigProfile, (String) -> Unit) -> Unit,
@@ -56,7 +52,7 @@ fun RadioSettingsSection(
     var deleteTarget by remember { mutableStateOf<RigProfile?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        MyRigsBlock(
+        RigCardList(
             profiles = state.rigProfiles,
             selectedId = state.selectedRigProfileId,
             enabled = !state.catBusy && !state.isTransmitting,
@@ -138,57 +134,6 @@ fun RadioSettingsSection(
                 TextButton(onClick = { deleteTarget = null; onDeleteRigProfile(doomed.id) }) { Text("Delete") }
             },
             dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } },
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MyRigsBlock(
-    profiles: List<RigProfile>,
-    selectedId: String?,
-    enabled: Boolean,
-    onSelect: (String) -> Unit,
-    onAdd: () -> Unit,
-    onEdit: (RigProfile) -> Unit,
-    onDelete: (RigProfile) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selected = profiles.firstOrNull { it.id == selectedId }
-    if (profiles.isNotEmpty()) {
-        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
-            OutlinedTextField(
-                value = selected?.name ?: "Select a rig",
-                onValueChange = {},
-                readOnly = true,
-                enabled = enabled,
-                label = { Text("My rig") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(),
-            )
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                profiles.forEach { p ->
-                    DropdownMenuItem(
-                        text = { Text(p.name) },
-                        onClick = { expanded = false; onSelect(p.id) },
-                    )
-                }
-            }
-        }
-    }
-    val atCap = profiles.size >= RigProfileList.MAX
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        TextButton(onClick = onAdd, enabled = enabled && !atCap) { Text("Add rig") }
-        selected?.let {
-            TextButton(onClick = { onEdit(it) }, enabled = enabled) { Text("Edit") }
-            TextButton(onClick = { onDelete(it) }, enabled = enabled) { Text("Delete") }
-        }
-    }
-    if (atCap) {
-        Text(
-            "Maximum of ${RigProfileList.MAX} rigs.",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
