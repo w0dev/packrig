@@ -31,15 +31,15 @@ Unstable and stable APKs can be installed side by side (`applicationIdSuffix` `.
 1. Create a release keystore (once):
 
 ```bash
-keytool -genkey -v -keystore ft8vc-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias ft8vc
+keytool -genkeypair -v -keystore packset-release.jks -keyalg RSA -keysize 4096 -validity 10000 -alias packset
 ```
 
 2. Set environment variables and build:
 
 ```powershell
-$env:PACKSET_KEYSTORE = "C:\path\to\ft8vc-release.jks"
+$env:PACKSET_KEYSTORE = "C:\path\to\packset-release.jks"
 $env:PACKSET_KEYSTORE_PASSWORD = "..."
-$env:PACKSET_KEY_ALIAS = "ft8vc"
+$env:PACKSET_KEY_ALIAS = "packset"
 $env:PACKSET_KEY_PASSWORD = "..."
 .\gradlew.bat assembleRelease
 ```
@@ -66,17 +66,17 @@ Repository secrets (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 |--------|-------|
-| `FT8VC_KEYSTORE_BASE64` | Base64-encoded `.jks` file |
-| `FT8VC_KEYSTORE_PASSWORD` | Keystore password |
-| `FT8VC_KEY_ALIAS` | Key alias |
-| `FT8VC_KEY_PASSWORD` | Key password |
+| `PACKSET_KEYSTORE_BASE64` | Base64-encoded `.jks` file |
+| `PACKSET_KEYSTORE_PASSWORD` | Keystore password |
+| `PACKSET_KEY_ALIAS` | Key alias (`packset`) |
+| `PACKSET_KEY_PASSWORD` | Key password |
 
-**Stable** releases require all four secrets. **Unstable** builds use them when present (signed APK, same key as stable); if `FT8VC_KEYSTORE_BASE64` is missing, CI still produces an **unsigned** release APK for sideload testing.
+**Stable** releases require all four secrets. **Unstable** builds use them when present (signed APK, same key as stable); if `PACKSET_KEYSTORE_BASE64` is missing, CI still produces an **unsigned** release APK for sideload testing.
 
-> The secrets keep their historical `FT8VC_` prefix from before the Packset
-> rename — the workflows map them to `PACKSET_*` env vars. Renaming the
-> secrets is optional; if you do, update the `secrets.*` references in both
-> workflow files.
+> The signing key was rotated at the Packset rename (2026-07-12): a fresh
+> RSA-4096 keystore, alias `packset`, replacing the original FT8VC key.
+> Nothing signed with the old key is upgradeable in place — it predates the
+> first public release, so nothing needs to be.
 
 ## Unstable APK (CI)
 

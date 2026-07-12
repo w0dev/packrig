@@ -50,24 +50,24 @@ jobs:
 
       - name: Require release signing secrets
         env:
-          PACKSET_KEYSTORE_BASE64: ${{ secrets.FT8VC_KEYSTORE_BASE64 }}
+          PACKSET_KEYSTORE_BASE64: ${{ secrets.PACKSET_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$PACKSET_KEYSTORE_BASE64" ]; then
-            echo "::error::Stable releases require FT8VC_KEYSTORE_BASE64 and related repository secrets."
+            echo "::error::Stable releases require PACKSET_KEYSTORE_BASE64 and related repository secrets."
             exit 1
           fi
 
       - name: Decode release keystore
         env:
-          PACKSET_KEYSTORE_BASE64: ${{ secrets.FT8VC_KEYSTORE_BASE64 }}
+          PACKSET_KEYSTORE_BASE64: ${{ secrets.PACKSET_KEYSTORE_BASE64 }}
         run: echo "$PACKSET_KEYSTORE_BASE64" | base64 -d > "${GITHUB_WORKSPACE}/release.keystore"
 
       - name: Assemble release APK
         env:
           PACKSET_KEYSTORE: ${{ github.workspace }}/release.keystore
-          PACKSET_KEYSTORE_PASSWORD: ${{ secrets.FT8VC_KEYSTORE_PASSWORD }}
-          PACKSET_KEY_ALIAS: ${{ secrets.FT8VC_KEY_ALIAS }}
-          PACKSET_KEY_PASSWORD: ${{ secrets.FT8VC_KEY_PASSWORD }}
+          PACKSET_KEYSTORE_PASSWORD: ${{ secrets.PACKSET_KEYSTORE_PASSWORD }}
+          PACKSET_KEY_ALIAS: ${{ secrets.PACKSET_KEY_ALIAS }}
+          PACKSET_KEY_PASSWORD: ${{ secrets.PACKSET_KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Create GitHub Release

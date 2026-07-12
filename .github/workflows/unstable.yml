@@ -38,11 +38,11 @@ jobs:
       - name: Prepare release keystore
         id: keystore
         env:
-          PACKSET_KEYSTORE_BASE64: ${{ secrets.FT8VC_KEYSTORE_BASE64 }}
+          PACKSET_KEYSTORE_BASE64: ${{ secrets.PACKSET_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$PACKSET_KEYSTORE_BASE64" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "No FT8VC_KEYSTORE_BASE64 secret; building unsigned release APK."
+            echo "No PACKSET_KEYSTORE_BASE64 secret; building unsigned release APK."
             exit 0
           fi
           echo "$PACKSET_KEYSTORE_BASE64" | base64 -d > "${GITHUB_WORKSPACE}/release.keystore"
@@ -57,9 +57,9 @@ jobs:
           PACKSET_UNSTABLE: true
           PACKSET_VERSION_CODE: ${{ github.run_number }}
           PACKSET_KEYSTORE: ${{ steps.keystore.outputs.path }}
-          PACKSET_KEYSTORE_PASSWORD: ${{ secrets.FT8VC_KEYSTORE_PASSWORD }}
-          PACKSET_KEY_ALIAS: ${{ secrets.FT8VC_KEY_ALIAS }}
-          PACKSET_KEY_PASSWORD: ${{ secrets.FT8VC_KEY_PASSWORD }}
+          PACKSET_KEYSTORE_PASSWORD: ${{ secrets.PACKSET_KEYSTORE_PASSWORD }}
+          PACKSET_KEY_ALIAS: ${{ secrets.PACKSET_KEY_ALIAS }}
+          PACKSET_KEY_PASSWORD: ${{ secrets.PACKSET_KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Upload unstable APK
