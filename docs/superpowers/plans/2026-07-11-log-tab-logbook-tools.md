@@ -32,7 +32,7 @@ The "Last backup: X ago" string currently computed inline in `SettingsScreen.kt:
 - Consumes: nothing.
 - Produces: `fun lastBackupLabel(lastBackupAtMs: Long?, nowMs: Long): String` in package `net.ft8vc.app.ui.log` — Task 2 calls it with `System.currentTimeMillis()` as `nowMs`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `app/src/test/java/net/ft8vc/app/ui/log/BackupLabelTest.kt`:
 
@@ -73,12 +73,12 @@ class BackupLabelTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.ui.log.BackupLabelTest"`
 Expected: FAIL to compile — `lastBackupLabel` unresolved.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `app/src/main/java/net/ft8vc/app/ui/log/BackupLabel.kt`:
 
@@ -101,12 +101,12 @@ fun lastBackupLabel(lastBackupAtMs: Long?, nowMs: Long): String {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.ui.log.BackupLabelTest"`
 Expected: PASS (5 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/ui/log/BackupLabel.kt app/src/test/java/net/ft8vc/app/ui/log/BackupLabelTest.kt
@@ -127,7 +127,7 @@ Add the three-dot overflow menu (backup status line, Backup now, Import ADIF…)
 - Consumes: `lastBackupLabel(lastBackupAtMs: Long?, nowMs: Long): String` from Task 1; existing `OperateViewModel.backupAdifNow(): Unit` and `OperateViewModel.importAdif(uri: Uri): Unit`; `OperateUiState.lastAdifBackupAtMs: Long?`.
 - Produces: `LogScreen(vm: LogViewModel, lastAdifBackupAtMs: Long?, onBackupNow: () -> Unit, onImportAdif: (Uri) -> Unit)` — all new params defaulted so existing call sites still compile.
 
-- [ ] **Step 1: Add imports to LogScreen.kt**
+- [x] **Step 1: Add imports to LogScreen.kt**
 
 In `app/src/main/java/net/ft8vc/app/ui/log/LogScreen.kt`, add these imports (keep alphabetical order within their groups):
 
@@ -141,7 +141,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
 ```
 
-- [ ] **Step 2: Extend the LogScreen signature and local state**
+- [x] **Step 2: Extend the LogScreen signature and local state**
 
 Change the composable signature (currently `fun LogScreen(vm: LogViewModel = viewModel()) {`):
 
@@ -165,7 +165,7 @@ Below the existing `val searchFocus = remember { FocusRequester() }` line, add:
     ) { uri -> uri?.let(onImportAdif) }
 ```
 
-- [ ] **Step 3: Add the overflow menu to the top bar's default actions**
+- [x] **Step 3: Add the overflow menu to the top bar's default actions**
 
 In the `actions = { ... }` block's final `else` branch (the default state), immediately after the clear-log `IconButton` (`Icon(Icons.Filled.Delete, contentDescription = "Clear log")` … `}`), add:
 
@@ -210,7 +210,7 @@ In the `actions = { ... }` block's final `else` branch (the default state), imme
 
 Note: the always-enabled menu is intentional — import into an empty log is the restore-after-reinstall path, and backing up an empty log matches the old Settings behavior.
 
-- [ ] **Step 4: Add the empty-state import button**
+- [x] **Step 4: Add the empty-state import button**
 
 Replace the empty-state block (currently a single `Text("Complete a QSO on Operate to populate your log.", ...)` inside `if (contacts.isEmpty()) { ... }`):
 
@@ -234,7 +234,7 @@ Replace the empty-state block (currently a single `Text("Complete a QSO on Opera
 
 (The `else if` line is unchanged — shown for anchoring only.)
 
-- [ ] **Step 5: Wire the params in Ft8NavHost**
+- [x] **Step 5: Wire the params in Ft8NavHost**
 
 In `app/src/main/java/net/ft8vc/app/ui/nav/Ft8NavHost.kt`, change:
 
@@ -257,12 +257,12 @@ to:
                 }
 ```
 
-- [ ] **Step 6: Compile**
+- [x] **Step 6: Compile**
 
 Run: `./gradlew :app:compileDebugKotlin`
 Expected: BUILD SUCCESSFUL, no warnings about unused imports.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/ui/log/LogScreen.kt app/src/main/java/net/ft8vc/app/ui/nav/Ft8NavHost.kt
@@ -284,7 +284,7 @@ Delete the relocated section from Settings and update the three doc comments tha
 - Consumes: nothing from earlier tasks (independent of Tasks 1–2 at compile level, but lands after them so the controls are never absent from both screens).
 - Produces: nothing new.
 
-- [ ] **Step 1: Delete the Logbook section from SettingsScreen.kt**
+- [x] **Step 1: Delete the Logbook section from SettingsScreen.kt**
 
 Remove this entire block (between the `SettingsSection("Display") { ... }` block and the `SettingsSection("QRZ Logbook", ...)` block):
 
@@ -325,7 +325,7 @@ Remove this entire block (between the `SettingsSection("Display") { ... }` block
             }
 ```
 
-- [ ] **Step 2: Remove the now-unused imports from SettingsScreen.kt**
+- [x] **Step 2: Remove the now-unused imports from SettingsScreen.kt**
 
 Delete these two lines (the Logbook section was their only user; `Button` and `OutlinedButton` are used elsewhere in the file and stay):
 
@@ -334,7 +334,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 ```
 
-- [ ] **Step 3: Update the doc comments**
+- [x] **Step 3: Update the doc comments**
 
 In `app/src/main/java/net/ft8vc/app/OperateViewModel.kt`:
 
@@ -370,12 +370,12 @@ becomes
 
 (Keep the rest of that sentence/paragraph exactly as it is.)
 
-- [ ] **Step 4: Compile and run the app unit tests**
+- [x] **Step 4: Compile and run the app unit tests**
 
 Run: `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL, all tests pass. (Known flake: `reset_clearsLevelMeter` in DecodeController tests is a pre-existing nanoTime-throttle race — re-run once if it's the only failure.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/SettingsScreen.kt app/src/main/java/net/ft8vc/app/OperateViewModel.kt app/src/main/java/net/ft8vc/app/AdifAutoBackup.kt
