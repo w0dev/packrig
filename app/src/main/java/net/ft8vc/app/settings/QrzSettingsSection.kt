@@ -21,12 +21,31 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import net.ft8vc.app.controllers.QrzSlice
 import net.ft8vc.app.controllers.QrzTestStatus
+
+/** Renders raw key characters as XXXX-XXXX-XXXX-XXXX (dots when masked). */
+private class QrzKeyVisualTransformation(private val masked: Boolean) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val raw = text.text
+        return TransformedText(
+            AnnotatedString(QrzKeyFormat.display(raw, masked)),
+            object : OffsetMapping {
+                override fun originalToTransformed(offset: Int): Int =
+                    QrzKeyFormat.originalToTransformed(offset)
+
+                override fun transformedToOriginal(offset: Int): Int =
+                    QrzKeyFormat.transformedToOriginal(offset, raw.length)
+            },
+        )
+    }
+}
 
 /** QRZ Logbook settings: enable toggle, masked API key, test button + result. */
 @Composable
@@ -56,14 +75,15 @@ fun QrzSettingsSection(
         }
 
         OutlinedTextField(
-            value = qrz.apiKey,
-            onValueChange = onSetApiKey,
+            // Editable text is the raw 16 characters; dashes live in the visual
+            // transformation so they auto-appear per group and can't be deleted.
+            value = QrzKeyFormat.sanitize(qrz.apiKey),
+            onValueChange = { onSetApiKey(QrzKeyFormat.store(QrzKeyFormat.sanitize(it))) },
             label = { Text("QRZ API key") },
             placeholder = { Text("XXXX-XXXX-XXXX-XXXX") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
-            visualTransformation =
-                if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+            visualTransformation = QrzKeyVisualTransformation(masked = !showKey),
             trailingIcon = {
                 IconButton(onClick = { showKey = !showKey }) {
                     Icon(
