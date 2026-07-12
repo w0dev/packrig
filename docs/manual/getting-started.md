@@ -112,15 +112,15 @@ picker matters when more than one input is available (say, a headset
 alongside the Digirig), or for rig-free testing: select the phone's built-in
 microphone to decode FT8 audio played from a nearby speaker.
 
-**Start receive when radio connects** (on by default) starts audio capture —
-waterfall and decodes — as soon as USB audio is plugged in, before you touch
-the Operate tab. A **Monitoring** chip on the Operate tab shows when RX is
-running this way.
+The picker reads `Automatic (system default)` when no USB interface is
+attached, `Automatic — <name> (<type>)` when routing picked one for you, or
+the device name alone once you've picked one manually. Selecting `Automatic
+(system default)` from the dropdown returns to automatic routing.
 
 The picker is disabled while audio capture or transmit is running; stop
-operating (and monitoring) before switching inputs. Once audio is running,
-tap the volume icon on the Operate tab's status bar to open an input-gain
-slider; watch the adjacent level meter to confirm levels are healthy.
+operating before switching inputs. Once audio is running, tap the volume icon
+on the Operate tab's status bar to open an input-gain slider; watch the
+adjacent level meter to confirm levels are healthy.
 
 ### Enable transmit
 
@@ -135,12 +135,10 @@ first time.
 
 ## Your first receive session
 
-If **Start receive when radio connects** is on, decodes may already be
-flowing the moment you plug in — the Operate tab shows a **Monitoring** chip.
-Otherwise go to the **Operate** tab and tap **Start**. Either way, FT8VC
-opens the USB audio input and the level meter next to the volume icon starts
-moving with band noise — that's your first sign audio is flowing. A progress
-bar and UTC clock track your position in the current 15-second slot.
+Go to the **Operate** tab and tap **Start decoding**. FT8VC opens the USB
+audio input and the level meter next to the volume icon starts moving with
+band noise — that's your first sign audio is flowing. A progress bar and UTC
+clock track your position in the current 15-second slot.
 
 Decodes appear as soon as a 15-second slot's window closes and the decode
 pass finishes — you'll see your first batch within one slot of starting. If

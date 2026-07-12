@@ -50,8 +50,22 @@ affected. The rig controls are locked while transmitting.
 
 | Setting | Default | Behavior |
 |---------|---------|----------|
-| **Audio input** | auto-selected | Input device for RX. A USB audio interface is picked automatically when attached; the picker matters with multiple inputs or for mic-based rig-free testing. Locked while capture or TX is running. |
-| **Start receive when radio connects** | on | Auto-starts the waterfall and decodes as soon as USB audio is plugged in. The Operate tab shows a **Monitoring** chip while RX runs this way. |
+| **Audio input** | `Automatic (system default)` | Input device for RX. Locked while capture or TX is running. |
+
+Audio routes automatically: when a USB interface (Digirig or the radio's
+built-in USB audio) is attached, it's used for RX and TX — no selection
+needed. The picker reflects this:
+
+- **`Automatic (system default)`** — no USB interface attached; the system
+  default input is in use.
+- **`Automatic — <name> (<type>)`** — a USB interface was picked
+  automatically.
+- **`<name> (<type>)`** — you picked this device manually from the dropdown.
+
+Pick a device manually only if automatic routing chooses the wrong one (e.g.
+a USB hub or multiple audio devices), or for mic-based rig-free testing.
+Selecting **`Automatic (system default)`** from the dropdown returns to
+automatic routing.
 
 Input **gain** is adjusted on the Operate tab (volume icon in the status
 bar), not here. Default gain is 100%.

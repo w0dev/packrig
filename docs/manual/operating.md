@@ -8,15 +8,16 @@ them together.
 
 ## Starting and stopping
 
-Tap **Start** to begin operating: FT8VC opens the USB audio input, aligns to
-the 15-second UTC slots, and decodes each slot as it closes. **Stop** ends
-the session.
+Tap **Start decoding** to begin operating: FT8VC opens the USB audio input,
+aligns to the 15-second UTC slots, and decodes each slot as it closes. **Stop
+decoding** ends the session.
 
-If **Start receive when radio connects** is on (Settings → Audio, default
-on), receive may already be running before you press anything — the status
-bar shows a **Monitoring** chip. Monitoring is receive-only; pressing
-**Start** adopts the running capture into a full operating session without
-losing the current slot.
+If the capture watchdog has to recover from a stalled audio thread and
+exhausts its automatic retries, RX stops and the status bar shows an **Audio
+capture failed — tap to retry** chip. Tapping it restarts capture as a
+receive-only monitor (no CQ/TX session) and the status bar shows a
+**Monitoring** chip; tapping **Start decoding** adopts the running capture
+into a full operating session without losing the current slot.
 
 ## The status bar
 
@@ -48,7 +49,7 @@ Status chips appear in the bar when something needs attention:
 
 | Chip | Meaning |
 |------|---------|
-| **Monitoring** | RX is running via auto-monitor without a full operating session |
+| **Monitoring** | RX is running receive-only (not a full operating session), after a tap on **Audio capture failed — tap to retry** |
 | **Clock +N.Ns** | Phone clock is off vs received stations — tap to align (see Settings → Clock alignment) |
 | **Digirig disconnected — RX only** | The serial device vanished; PTT/CAT inert until it returns |
 | **CAT unreachable — tap to retry** | CAT reads are timing out; tap to re-probe |
