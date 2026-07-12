@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "net.ft8vc.audio"
+    namespace = "net.packset.audio"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

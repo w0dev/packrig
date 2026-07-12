@@ -1,6 +1,6 @@
 # Testing
 
-FT8VC has two test tiers: **JVM unit tests** (fast, no device) and **Android
+Packset has two test tiers: **JVM unit tests** (fast, no device) and **Android
 instrumented tests** (device/emulator, loads native code). CI runs unit tests only;
 instrumented tests are run locally when validating the native decoder.
 
@@ -10,7 +10,7 @@ instrumented tests are run locally when validating the native decoder.
 |-------------|------------|-------------------|
 | JDK 17 | Yes | Yes |
 | Android SDK (API 36 platform, build-tools 36.0.0) | Yes (Gradle test task) | Yes |
-| NDK 29.0.14206865 + CMake 4.1.2 | No | Yes (builds `libft8vc.so`) |
+| NDK 29.0.14206865 + CMake 4.1.2 | No | Yes (builds `libpackset.so`) |
 | Connected device or emulator | No | Yes |
 | Internet on first native build | No | Yes (`FetchContent` downloads `ft8_lib`) |
 
@@ -131,11 +131,11 @@ Run:
 
 ## Instrumented tests (`ft8-native`)
 
-These run on a connected Android device or emulator because they load `libft8vc.so`.
+These run on a connected Android device or emulator because they load `libpackset.so`.
 
 | Test class | Location |
 |------------|----------|
-| `Ft8DecodeInstrumentedTest` | `ft8-native/src/androidTest/java/net/ft8vc/ft8native/` |
+| `Ft8DecodeInstrumentedTest` | `ft8-native/src/androidTest/java/net/packset/ft8native/` |
 
 ### Test cases
 

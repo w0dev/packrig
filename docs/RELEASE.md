@@ -6,7 +6,7 @@
 |--------|---------|-----|
 | **`unstable`** | Day-to-day development and field testing | Unit tests + signed **unstable** release APK (artifact only; no debug APK) |
 | **`main`** | Stable, releasable code only | Unit tests, debug APK on push; **no** automatic release APK |
-| **Tag `v*`** on `main` | Stable public release | Unit tests, then a **draft** GitHub Release with signed `net.ft8vc` APK |
+| **Tag `v*`** on `main` | Stable public release | Unit tests, then a **draft** GitHub Release with signed `net.packset` APK |
 
 Merge to **`main` does not publish a release**. Stable APKs only ship when you push a version tag (e.g. `v1.0.0`) to a commit on `main`.
 
@@ -14,17 +14,17 @@ Merge to **`main` does not publish a release**. Stable APKs only ship when you p
 
 1. Create and push `unstable` once: `git checkout -b unstable && git push -u origin unstable`
 2. Do feature work on `unstable` (or topic branches merged into `unstable`).
-3. After each push to `unstable`, download the **Unstable APK** artifact from the Actions run (package id `net.ft8vc.unstable`, version like `1.0.0-unstable+abc1234`).
+3. After each push to `unstable`, download the **Unstable APK** artifact from the Actions run (package id `net.packset.unstable`, version like `1.0.0-unstable+abc1234`).
 4. When satisfied, merge `unstable` → `main`.
 5. Bump `versionCode` / `versionName` in `app/build.gradle.kts` (and `AppInfo.VERSION_NAME` if you surface it in UI), commit on `main`, tag `v1.0.0`, push the tag → **Stable Release** workflow creates the GitHub Release.
 
-Unstable and stable APKs can be installed side by side (`applicationIdSuffix` `.unstable` vs production `net.ft8vc`).
+Unstable and stable APKs can be installed side by side (`applicationIdSuffix` `.unstable` vs production `net.packset`).
 
 ## Version
 
 - `versionName` / `AppInfo.VERSION_NAME`: semantic version (e.g. `1.0.0`)
 - `versionCode` in `app/build.gradle.kts`: integer bump per **stable** release (e.g. `100`)
-- Unstable CI sets `FT8VC_VERSION_CODE` to the GitHub run number so each unstable build can upgrade over the last
+- Unstable CI sets `PACKSET_VERSION_CODE` to the GitHub run number so each unstable build can upgrade over the last
 
 ## Local signed release
 
@@ -37,10 +37,10 @@ keytool -genkey -v -keystore ft8vc-release.jks -keyalg RSA -keysize 2048 -validi
 2. Set environment variables and build:
 
 ```powershell
-$env:FT8VC_KEYSTORE = "C:\path\to\ft8vc-release.jks"
-$env:FT8VC_KEYSTORE_PASSWORD = "..."
-$env:FT8VC_KEY_ALIAS = "ft8vc"
-$env:FT8VC_KEY_PASSWORD = "..."
+$env:PACKSET_KEYSTORE = "C:\path\to\ft8vc-release.jks"
+$env:PACKSET_KEYSTORE_PASSWORD = "..."
+$env:PACKSET_KEY_ALIAS = "ft8vc"
+$env:PACKSET_KEY_PASSWORD = "..."
 .\gradlew.bat assembleRelease
 ```
 
@@ -49,9 +49,9 @@ Output: `app/build/outputs/apk/release/app-release.apk`
 ### Local unstable build (matches CI)
 
 ```powershell
-$env:FT8VC_UNSTABLE = "true"
-$env:FT8VC_VERSION_NAME_SUFFIX = "-unstable+local"
-$env:FT8VC_VERSION_CODE = "200"
+$env:PACKSET_UNSTABLE = "true"
+$env:PACKSET_VERSION_NAME_SUFFIX = "-unstable+local"
+$env:PACKSET_VERSION_CODE = "200"
 # ... same keystore vars as above ...
 .\gradlew.bat assembleRelease
 ```
@@ -73,9 +73,14 @@ Repository secrets (Settings → Secrets and variables → Actions):
 
 **Stable** releases require all four secrets. **Unstable** builds use them when present (signed APK, same key as stable); if `FT8VC_KEYSTORE_BASE64` is missing, CI still produces an **unsigned** release APK for sideload testing.
 
+> The secrets keep their historical `FT8VC_` prefix from before the Packset
+> rename — the workflows map them to `PACKSET_*` env vars. Renaming the
+> secrets is optional; if you do, update the `secrets.*` references in both
+> workflow files.
+
 ## Unstable APK (CI)
 
-Push to **`unstable`**. The [Unstable APK workflow](../.github/workflows/unstable.yml) builds a signed release APK and uploads it as a workflow artifact (not a GitHub Release). Open the Actions run → **Artifacts** → `ft8vc-unstable-<run>`.
+Push to **`unstable`**. The [Unstable APK workflow](../.github/workflows/unstable.yml) builds a signed release APK and uploads it as a workflow artifact (not a GitHub Release). Open the Actions run → **Artifacts** → `packset-unstable-<run>`.
 
 You can also trigger it manually via **Actions → Unstable APK → Run workflow**.
 

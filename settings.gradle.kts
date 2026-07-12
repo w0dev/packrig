@@ -31,7 +31,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ft8vc"
+rootProject.name = "packset"
 
 include(":app")
 include(":core")

@@ -2,7 +2,7 @@
 
 ## What you need
 
-- An amateur radio license valid for your jurisdiction and band/mode. FT8VC
+- An amateur radio license valid for your jurisdiction and band/mode. Packset
   gates transmit behind a one-time license acknowledgment; receive works
   without one.
 - An Android phone with USB-C **OTG** (USB host) support and enough OTG power
@@ -15,7 +15,7 @@
     audio codec and serial CAT port — the FTX-1 reference setup, and most
     current Yaesu models.
 - Android 9 (API 28) or newer.
-- A rig. FT8VC's verified reference setups are the Yaesu FT-891 + Digirig
+- A rig. Packset's verified reference setups are the Yaesu FT-891 + Digirig
   Mobile and the Yaesu FTX-1 over built-in USB — see
   [Hardware setup](../HARDWARE.md) for FT-891 wiring and menu values, and
   [Supported radios](../RIG_MODELS.md) for the full model table. Unlisted
@@ -24,8 +24,8 @@
 
 ## Install
 
-FT8VC ships two release channels that install side by side on the same
-device: stable (`net.ft8vc`) and unstable (`net.ft8vc.unstable`). Unstable is
+Packset ships two release channels that install side by side on the same
+device: stable (`net.packset`) and unstable (`net.packset.unstable`). Unstable is
 the day-to-day development channel and gets new builds first; stable lags
 until a milestone is verified end-to-end. Installing one does not remove or
 conflict with the other — use unstable for field testing and stable for
@@ -47,21 +47,21 @@ and FT-891 menu settings, follow [Hardware setup](../HARDWARE.md).
 
 ## Grant USB permissions
 
-Android needs two things before FT8VC can talk to the interface: the
+Android needs two things before Packset can talk to the interface: the
 `RECORD_AUDIO` permission (for the USB audio input) and USB device permission
 for the serial port (for CAT/PTT). The audio permission prompt appears the
 first time capture starts; the USB serial permission prompt appears when
-FT8VC finds a device matching your rig profile and asks Android to grant
+Packset finds a device matching your rig profile and asks Android to grant
 access to it. Note that this USB prompt covers only the serial port: the
 audio side is a standard USB audio device that Android's audio framework
 handles on its own, with no per-app USB permission needed.
 
-If you decline USB permission, or no matching device is present, FT8VC falls
+If you decline USB permission, or no matching device is present, Packset falls
 back to a no-op rig backend: PTT and CAT become inert (keying and frequency
 reads do nothing), and the **Rigs** tab in Settings reports CAT as
 unavailable. Audio capture is independent of this — RX still works over USB
 audio even without CAT/PTT permission. Re-granting permission (or
-reconnecting the interface) lets FT8VC bind to it without restarting the app.
+reconnecting the interface) lets Packset bind to it without restarting the app.
 
 ## Configure, in order
 
@@ -109,7 +109,7 @@ entries stay correct.
 
 The **Audio input** picker (General tab, **Audio** section) lists whatever
 input devices Android reports.
-When a USB audio interface is attached, FT8VC selects it automatically — you
+When a USB audio interface is attached, Packset selects it automatically — you
 normally only need to confirm it's the one shown, not pick it yourself. The
 picker matters when more than one input is available (say, a headset
 alongside the Digirig), or for rig-free testing: select the phone's built-in
@@ -127,11 +127,11 @@ adjacent level meter to confirm levels are healthy.
 
 ### Enable transmit
 
-FT8VC is receive-only until you turn it on. Flip **Enable transmit** in the
+Packset is receive-only until you turn it on. Flip **Enable transmit** in the
 **TX** section of the **General** tab to allow the app to key the radio.
 The first time you actually
 try to transmit — starting a CQ, or tapping a decode row to answer or resume a
-QSO on the Operate tab — FT8VC shows a one-time "Confirm before transmitting"
+QSO on the Operate tab — Packset shows a one-time "Confirm before transmitting"
 dialog reminding you that transmitting requires a valid license and that you
 are responsible for lawful operation; tap **I understand** to acknowledge and
 proceed, or **Cancel** to back out. This acknowledgment persists after the
@@ -139,7 +139,7 @@ first time.
 
 ## Your first receive session
 
-Go to the **Operate** tab and tap **Start decoding**. FT8VC opens the USB
+Go to the **Operate** tab and tap **Start decoding**. Packset opens the USB
 audio input and the level meter next to the volume icon starts moving with
 band noise — that's your first sign audio is flowing. A progress bar and UTC
 clock track your position in the current 15-second slot.
