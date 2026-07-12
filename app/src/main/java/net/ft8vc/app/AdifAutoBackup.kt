@@ -35,6 +35,14 @@ object AdifAutoBackup {
     private const val FILE_NAME = "ft8vc-logbook.adi"
     private const val TMP_NAME = "ft8vc-logbook.adi.tmp"
 
+    /** Result of [backupNow]: where the private copy lives, and whether the Documents mirror succeeded. */
+    data class Outcome(val privateFile: File, val mirrored: Boolean)
+
+    /** Success snackbar copy — only claims Documents/ft8vc when the durable mirror was written. */
+    fun backupSnackbarText(mirrored: Boolean): String =
+        if (mirrored) "ADIF backup written to Documents/ft8vc"
+        else "ADIF backup written (app-private storage only)"
+
     /** Application-scoped scope. Survives any single ViewModel lifecycle. */
     val applicationScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -69,12 +77,12 @@ object AdifAutoBackup {
         }
     }
 
-    /** Write the current logbook to disk atomically. Returns the final file path on success, null on failure. */
+    /** Write the current logbook to disk atomically. Returns the [Outcome] on success, null on failure. */
     suspend fun backupNow(
         context: Context,
         logbook: Logbook,
         settings: SettingsRepository,
-    ): File? = withContext(Dispatchers.IO) {
+    ): Outcome? = withContext(Dispatchers.IO) {
         try {
             val adif = logbook.exportAdif(
                 AdifExportContext(
@@ -92,8 +100,7 @@ object AdifAutoBackup {
                 tmp.delete()
             }
             settings.setLastAdifBackupAtMs(System.currentTimeMillis())
-            DocumentsAdifMirror.write(context, adif)
-            target
+            Outcome(target, mirrored = DocumentsAdifMirror.write(context, adif))
         } catch (t: Throwable) {
             Log.e(TAG, "ADIF backup failed", t)
             null
