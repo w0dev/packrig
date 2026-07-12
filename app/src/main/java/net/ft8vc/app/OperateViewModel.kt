@@ -553,11 +553,13 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         if (state.value.isOperating || state.value.txEnabled) prepareRig()
     }
 
-    fun selectDevice(id: Int) {
+    /** Select an input device manually, or pass null to return to automatic routing. */
+    fun selectDevice(id: Int?) {
         val wasActive = state.value.isCapturing
         if (wasActive) stopCapture()
         _viewState.update { it.copy(selectedDeviceId = id) }
         viewModelScope.launch { settingsRepo.setSelectedAudioDeviceId(id) }
+        if (id == null) refreshDevices()
         if (wasActive) beginCapture()
     }
 
