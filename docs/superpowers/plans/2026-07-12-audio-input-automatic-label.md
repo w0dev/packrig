@@ -1,6 +1,6 @@
 # Audio Input "Automatic" Label & Recovery Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Rename the audio-input picker's empty state to "Automatic (system default)", show whether the current device is manual or auto-picked, and add an "Automatic" dropdown entry that clears a persisted manual selection.
 
@@ -35,7 +35,7 @@ Spec: `docs/superpowers/specs/2026-07-12-audio-input-automatic-label-design.md`
 - Consumes: `net.ft8vc.audio.AudioInputDevice` (existing: `id: Int`, `name: String`, `type: Int`, `isUsb: Boolean`, derived `typeLabel: String`; USB device type constant is `android.media.AudioDeviceInfo.TYPE_USB_DEVICE`, whose `typeLabel` is `"USB device"`).
 - Produces: `fun audioInputDeviceLabel(selected: AudioInputDevice?, manuallySelected: Boolean): String` — Task 4 calls this from `DevicePicker`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `app/src/test/java/net/ft8vc/app/settings/AudioInputLabelTest.kt`:
 
@@ -93,12 +93,12 @@ class AudioInputLabelTest {
 
 Note: `AudioDeviceInfo.TYPE_USB_DEVICE` is a static int constant — check whether other tests in `app/src/test` reference Android constants directly (e.g. via `unitTests.isReturnDefaultValues = true` in `app/build.gradle.kts`). If the constant is not resolvable on the JVM, replace `type = AudioDeviceInfo.TYPE_USB_DEVICE` with `type = 11` (the framework value of `TYPE_USB_DEVICE`) and expect label `"USB device"` the same way, dropping the import.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.settings.AudioInputLabelTest"`
 Expected: FAIL to compile — `audioInputDeviceLabel` unresolved.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `app/src/main/java/net/ft8vc/app/settings/AudioInputLabel.kt`:
 
@@ -123,12 +123,12 @@ fun audioInputDeviceLabel(selected: AudioInputDevice?, manuallySelected: Boolean
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.settings.AudioInputLabelTest"`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/AudioInputLabel.kt \
@@ -150,7 +150,7 @@ git commit -m "feat(app): pure label derivation for audio input picker states"
 
 No JVM test seam exists for the `combine()` assembly (it lives inside the AndroidViewModel); the derivation is a single expression verified by compilation here and exercised end-to-end in the Task 5 device check. The flag's consumer logic is already covered by Task 1's tests.
 
-- [ ] **Step 1: Add the field to `OperateUiState`**
+- [x] **Step 1: Add the field to `OperateUiState`**
 
 In `app/src/main/java/net/ft8vc/app/OperateUiState.kt`, directly below `val selectedDeviceId: Int? = null,` (line 79):
 
@@ -160,7 +160,7 @@ In `app/src/main/java/net/ft8vc/app/OperateUiState.kt`, directly below `val sele
     val audioDeviceManuallySelected: Boolean = false,
 ```
 
-- [ ] **Step 2: Derive it in the ViewModel combine**
+- [x] **Step 2: Derive it in the ViewModel combine**
 
 In `app/src/main/java/net/ft8vc/app/OperateViewModel.kt`, directly below the `selectedDeviceId` line in the `OperateUiState(...)` construction (line 238):
 
@@ -169,12 +169,12 @@ In `app/src/main/java/net/ft8vc/app/OperateViewModel.kt`, directly below the `se
                 audioDeviceManuallySelected = settings.selectedAudioDeviceId != null,
 ```
 
-- [ ] **Step 3: Verify the app module compiles and existing tests pass**
+- [x] **Step 3: Verify the app module compiles and existing tests pass**
 
 Run: `./gradlew :app:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL, no failures. (Known flake: `reset_clearsLevelMeter` in DecodeController tests is a pre-existing timing race — re-run once before suspecting this change.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/OperateUiState.kt \
@@ -195,7 +195,7 @@ git commit -m "feat(app): expose whether audio device selection is manual in UI 
 
 Like Task 2, `selectDevice` sits on the AndroidViewModel with no JVM test seam (it touches `AudioInputs.list(getApplication())` via `refreshDevices()` and the DataStore-backed repo); the repository's `null`-clears-key behavior already exists. Verified by compilation here plus the Task 5 device check.
 
-- [ ] **Step 1: Make `selectDevice` nullable and re-run the auto-pick on clear**
+- [x] **Step 1: Make `selectDevice` nullable and re-run the auto-pick on clear**
 
 Replace the existing function at `app/src/main/java/net/ft8vc/app/OperateViewModel.kt:555-561`:
 
@@ -216,12 +216,12 @@ Behavior notes (already satisfied by the code above — do not add more):
 - `refreshDevices()` before `beginCapture()` so a restarted capture prefers the re-auto-picked USB device.
 - Persisting `null` removes the DataStore key, so `settings.selectedAudioDeviceId` becomes `null` and the combine falls back to the auto-picked view-state id (`settings.selectedAudioDeviceId ?: view.selectedDeviceId`), flipping `audioDeviceManuallySelected` to `false`.
 
-- [ ] **Step 2: Verify the app module compiles and existing tests pass**
+- [x] **Step 2: Verify the app module compiles and existing tests pass**
 
 Run: `./gradlew :app:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL, no failures.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/OperateViewModel.kt
@@ -242,7 +242,7 @@ git commit -m "feat(app): selectDevice(null) clears manual pick back to automati
 
 Compose UI has no JVM test in this project's conventions; the label logic it renders is covered by Task 1's tests. Visual verification happens in Task 5.
 
-- [ ] **Step 1: Replace the Audio section info text**
+- [x] **Step 1: Replace the Audio section info text**
 
 At `app/src/main/java/net/ft8vc/app/settings/SettingsScreen.kt:110-118`, replace the section body text:
 
@@ -261,7 +261,7 @@ At `app/src/main/java/net/ft8vc/app/settings/SettingsScreen.kt:110-118`, replace
             }
 ```
 
-- [ ] **Step 2: Rework `DevicePicker`**
+- [x] **Step 2: Rework `DevicePicker`**
 
 Replace the function at `app/src/main/java/net/ft8vc/app/settings/SettingsScreen.kt:427-456`:
 
@@ -307,12 +307,12 @@ private fun DevicePicker(state: OperateUiState, onSelect: (Int?) -> Unit) {
 
 Note: `AudioInputLabel.kt` is in the same `net.ft8vc.app.settings` package as `SettingsScreen.kt`, so no import is needed for `audioInputDeviceLabel`.
 
-- [ ] **Step 3: Verify the app compiles**
+- [x] **Step 3: Verify the app compiles**
 
 Run: `./gradlew :app:compileDebugKotlin`
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/SettingsScreen.kt
@@ -325,12 +325,12 @@ git commit -m "feat(app): Automatic entry and label states in audio input picker
 
 **Files:** none (verification only).
 
-- [ ] **Step 1: Run the full app unit-test suite**
+- [x] **Step 1: Run the full app unit-test suite**
 
 Run: `./gradlew :app:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL, all tests pass (modulo the known `reset_clearsLevelMeter` flake — re-run once if it trips).
 
-- [ ] **Step 2: Assemble the unstable debug build**
+- [x] **Step 2: Assemble the unstable debug build**
 
 Run: `./gradlew :app:assembleDebug`
 Expected: BUILD SUCCESSFUL.
