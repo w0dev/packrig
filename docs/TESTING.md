@@ -46,7 +46,7 @@ tests are instrumented (see below).
 
 ### CI
 
-GitHub Actions (`.github/workflows/build.yml`) runs `gradle testDebugUnitTest` on
+GitHub Actions (`.github/workflows/ci.yml`) runs `gradle testDebugUnitTest` on
 every push/PR to `main`, then `assembleDebug`. Instrumented tests are **not** run
 in CI.
 

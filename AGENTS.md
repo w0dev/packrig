@@ -64,7 +64,7 @@ After NDK or native changes, do a clean native rebuild (see [docs/SDK_SETUP.md](
 .\gradlew.bat :ft8-native:connectedDebugAndroidTest
 ```
 
-CI (`.github/workflows/build.yml`) runs `testDebugUnitTest` then `assembleDebug` on every PR.
+CI (`.github/workflows/ci.yml`) runs `testDebugUnitTest`, then `assembleDebug` (PRs/main) or the signed unstable APK (pushes to `unstable`) — APK jobs only run after tests pass.
 
 ## Code conventions
 
