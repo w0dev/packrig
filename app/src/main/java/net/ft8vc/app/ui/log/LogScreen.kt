@@ -1,6 +1,9 @@
 package net.ft8vc.app.ui.log
 
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -17,15 +20,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -70,7 +77,12 @@ import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun LogScreen(vm: LogViewModel = viewModel()) {
+fun LogScreen(
+    vm: LogViewModel = viewModel(),
+    lastAdifBackupAtMs: Long? = null,
+    onBackupNow: () -> Unit = {},
+    onImportAdif: (Uri) -> Unit = {},
+) {
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val filteredContacts by vm.filteredContacts.collectAsStateWithLifecycle()
     val searchQuery by vm.searchQuery.collectAsStateWithLifecycle()
@@ -87,6 +99,10 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
     val selectionActive = selectedIds.isNotEmpty()
     var searchActive by remember { mutableStateOf(vm.searchQuery.value.isNotBlank()) }
     val searchFocus = remember { FocusRequester() }
+    var toolsMenuOpen by remember { mutableStateOf(false) }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(onImportAdif) }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -190,6 +206,42 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
                         IconButton(onClick = { showClearConfirm = true }, enabled = contacts.isNotEmpty()) {
                             Icon(Icons.Filled.Delete, contentDescription = "Clear log")
                         }
+                        IconButton(onClick = { toolsMenuOpen = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "Logbook tools")
+                        }
+                        DropdownMenu(
+                            expanded = toolsMenuOpen,
+                            onDismissRequest = { toolsMenuOpen = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(lastBackupLabel(lastAdifBackupAtMs, System.currentTimeMillis()))
+                                        Text(
+                                            "Auto-exports after every QSO to Documents/ft8vc",
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    }
+                                },
+                                onClick = {},
+                                enabled = false,
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Backup now") },
+                                onClick = {
+                                    toolsMenuOpen = false
+                                    onBackupNow()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Import ADIF…") },
+                                onClick = {
+                                    toolsMenuOpen = false
+                                    // .adi files have no registered MIME type; filter in the reader instead.
+                                    importLauncher.launch(arrayOf("*/*"))
+                                },
+                            )
+                        }
                     }
                 },
             )
@@ -201,12 +253,19 @@ fun LogScreen(vm: LogViewModel = viewModel()) {
                 .padding(padding),
         ) {
             if (contacts.isEmpty()) {
-                Text(
-                    "Complete a QSO on Operate to populate your log.",
+                Column(
                     modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        "Complete a QSO on Operate to populate your log.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) {
+                        Text("Import ADIF…")
+                    }
+                }
             } else if (searchQuery.isNotBlank() && filteredContacts.isEmpty()) {
                 Text(
                     "No QSOs match \"${searchQuery.trim()}\"",

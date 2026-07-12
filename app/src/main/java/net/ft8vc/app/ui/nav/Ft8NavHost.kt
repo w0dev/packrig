@@ -117,7 +117,12 @@ fun Ft8vcApp(
                     SpectrumScreen(vm = operateVm)
                 }
                 composable(Ft8Destination.Log.route) {
-                    LogScreen(vm = logVm)
+                    LogScreen(
+                        vm = logVm,
+                        lastAdifBackupAtMs = operateState.lastAdifBackupAtMs,
+                        onBackupNow = operateVm::backupAdifNow,
+                        onImportAdif = operateVm::importAdif,
+                    )
                 }
                 composable(Ft8Destination.Settings.route) {
                     SettingsScreen(vm = operateVm)
