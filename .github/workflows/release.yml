@@ -45,6 +45,9 @@ jobs:
         with:
           gradle-version: '9.4.1'
 
+      - name: Unit tests
+        run: gradle testDebugUnitTest --no-daemon --stacktrace
+
       - name: Require release signing secrets
         env:
           FT8VC_KEYSTORE_BASE64: ${{ secrets.FT8VC_KEYSTORE_BASE64 }}
@@ -72,3 +75,4 @@ jobs:
         with:
           files: app/build/outputs/apk/release/*.apk
           generate_release_notes: true
+          draft: true

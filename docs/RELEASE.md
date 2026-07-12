@@ -6,7 +6,7 @@
 |--------|---------|-----|
 | **`unstable`** | Day-to-day development and field testing | Unit tests + signed **unstable** release APK (artifact only; no debug APK) |
 | **`main`** | Stable, releasable code only | Unit tests, debug APK on push; **no** automatic release APK |
-| **Tag `v*`** on `main` | Stable public release | GitHub Release with signed `net.ft8vc` APK |
+| **Tag `v*`** on `main` | Stable public release | Unit tests, then a **draft** GitHub Release with signed `net.ft8vc` APK |
 
 Merge to **`main` does not publish a release**. Stable APKs only ship when you push a version tag (e.g. `v1.0.0`) to a commit on `main`.
 
@@ -58,7 +58,9 @@ $env:FT8VC_VERSION_CODE = "200"
 
 ## GitHub Release (stable, CI)
 
-Push a tag `v*` (e.g. `v1.0.0`) on a commit that is on **`main`**. The [Stable Release workflow](../.github/workflows/release.yml) builds a signed production APK and attaches it to a GitHub Release. Tags not on `main` are rejected.
+Push a tag `v*` (e.g. `v1.0.0`) on a commit that is on **`main`**. The [Stable Release workflow](../.github/workflows/release.yml) runs the unit tests, builds a signed production APK, and attaches it to a **draft** GitHub Release. Tags not on `main` are rejected, and a unit-test failure aborts the release.
+
+The draft is not public until you open it (Releases → the draft entry) and press **Publish release** — the last human gate after the field smoke checklist.
 
 Repository secrets (Settings → Secrets and variables → Actions):
 
