@@ -3,18 +3,35 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+/** CI writes the keystore at repo root; resolve from app module or an absolute path. */
+fun resolveReleaseKeystore(): java.io.File? {
+    val path = System.getenv("PACKSET_KEYSTORE")?.takeIf { it.isNotBlank() } ?: return null
+    return file(path).takeIf { it.isFile } ?: rootProject.file(path).takeIf { it.isFile }
+}
+
 android {
-    namespace = "net.ft8vc.app"
+    namespace = "net.packset.app"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "net.ft8vc"
+        applicationId = "net.packset"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0-dev"
+        versionCode = System.getenv("PACKSET_VERSION_CODE")?.toIntOrNull() ?: 100
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            resolveReleaseKeystore()?.let { store ->
+                storeFile = store
+                storePassword = System.getenv("PACKSET_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("PACKSET_KEY_ALIAS")
+                keyPassword = System.getenv("PACKSET_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -23,10 +40,17 @@ android {
             isMinifyEnabled = false
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            if (System.getenv("PACKSET_UNSTABLE") == "true") {
+                applicationIdSuffix = ".unstable"
+                versionNameSuffix = System.getenv("PACKSET_VERSION_NAME_SUFFIX") ?: "-unstable"
+            }
+            if (resolveReleaseKeystore() != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -40,7 +64,6 @@ android {
         compose = true
     }
 
-    // AGP 8.5.1+: uncompressed native libs are zip-aligned for 16 KB devices.
     packaging {
         jniLibs {
             useLegacyPackaging = false
@@ -65,7 +88,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.kotlinx.coroutines.android)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -75,9 +102,22 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     debugImplementation(libs.androidx.ui.tooling)
 
+    implementation(libs.kotlinx.collections.immutable)
+
     testImplementation(libs.junit)
+    testImplementation(libs.turbine)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    // Real org.json for JVM unit tests (android.jar ships throw-only stubs).
+    // Runtime uses the Android platform copy — this is test classpath only.
+    testImplementation("org.json:json:20240303")
+    testImplementation(testFixtures(project(":rig")))
+    testImplementation(testFixtures(project(":ft8-native")))
+    testImplementation(testFixtures(project(":audio")))
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

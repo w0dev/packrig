@@ -7,11 +7,13 @@
         android:name="android.hardware.usb.host"
         android:required="true" />
 
-    <!-- INTERNET is used by the NTP clock service (added in a later phase). -->
-    <uses-permission android:name="android.permission.INTERNET" />
-
     <!-- Required to capture RX audio from the Digirig USB sound card. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- QRZ logbook auto-upload (spec 2026-07-11-qrz-logbook-upload): HTTPS to
+         logbook.qrz.com plus connectivity-returned retry trigger. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:allowBackup="true"
@@ -19,19 +21,40 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Ft8vc"
+        android:theme="@style/Theme.Packset"
         tools:targetApi="34">
 
+        <!-- singleTask: the USB_DEVICE_ATTACHED filter below otherwise launches a
+             SECOND MainActivity instance (second ViewModel, second QSO machine,
+             second rig controller) on every Digirig attach/re-enumeration.
+             Attach is delivered to the existing instance via onNewIntent. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Ft8vc">
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.Packset">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/usb_device_filter" />
         </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

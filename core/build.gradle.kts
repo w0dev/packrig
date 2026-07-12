@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "net.ft8vc.core"
+    namespace = "net.packset.core"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

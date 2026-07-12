@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Phase 7 (HYG-01): tightened to USB-UART parts actually shipped on
+  Digirig variants. Roadmap spec called for CP2102 (0xEA60) only + FT240X,
+  but field hardware in this repo's reference setup uses a CP2105 (0xEA70).
+  The CP2103/2104/2108 PIDs were kept so other Digirig revisions and
+  common Silicon Labs UART bridges continue to auto-grant USB permission.
+-->
+<resources>
+    <!-- Silicon Labs CP210x — Digirig Mobile serial / PTT (VID 0x10C4). -->
+    <usb-device vendor-id="4292" product-id="60000" />  <!-- 0xEA60 — CP2102, CP2104, CP2102N -->
+    <usb-device vendor-id="4292" product-id="60001" />  <!-- 0xEA61 — CP2102 dual / CP2101-4 variants -->
+    <usb-device vendor-id="4292" product-id="60016" />  <!-- 0xEA70 — CP2105 (reference hardware) -->
+    <usb-device vendor-id="4292" product-id="60017" />  <!-- 0xEA71 — CP2108 -->
+
+    <!-- FTDI FT240X — alternate Digirig serial bridge (VID 0x0403 / PID 0x6015). -->
+    <usb-device vendor-id="1027" product-id="24597" />
+</resources>
