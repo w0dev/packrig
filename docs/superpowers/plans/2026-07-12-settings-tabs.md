@@ -28,7 +28,7 @@
 **Interfaces:**
 - Produces: `enum class SettingsTab(val title: String)` in package `net.ft8vc.app.settings`, entries in order `GENERAL("General"), RIGS("Rigs"), DISPLAY("Display"), INTEGRATIONS("Integrations")`. Task 2 renders `SettingsTab.entries` in declaration order.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```kotlin
 package net.ft8vc.app.settings
@@ -48,12 +48,12 @@ class SettingsTabTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.settings.SettingsTabTest"`
 Expected: compilation FAILURE — `Unresolved reference: SettingsTab`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```kotlin
 package net.ft8vc.app.settings
@@ -69,12 +69,12 @@ enum class SettingsTab(val title: String) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "net.ft8vc.app.settings.SettingsTabTest"`
 Expected: BUILD SUCCESSFUL, 1 test passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/SettingsTab.kt \
@@ -91,9 +91,9 @@ git commit -m "feat(app): SettingsTab enum for Settings screen tabs"
 - Consumes: `SettingsTab` from Task 1.
 - Produces: `SettingsScreen(vm: OperateViewModel)` public signature unchanged; everything else in the file stays private.
 
-- [ ] **Step 1: Restructure the screen body**
+- [x] **Step 1: Restructure the screen body**
 
-In `SettingsScreen.kt`, replace the single scrollable `Column` inside the Scaffold with a tab row plus a per-tab content switch. The section contents move verbatim into four new private composables; only the two Station labels change.
+In `SettingsScreen.kt`, replace the single scrollable `Column` inside the Scaffold with a tab row plus a per-tab content switch (implemented with `SecondaryTabRow` — plain `TabRow` is deprecated in this Material 3 version). The section contents move verbatim into four new private composables; only the two Station labels change.
 
 New imports needed (keep existing ones):
 
@@ -181,17 +181,17 @@ private fun SettingsTabColumn(content: @Composable () -> Unit) {
 
 All four take `(vm: OperateViewModel, state: OperateUiState)`. `GeneralSettingsTab` needs `@OptIn(ExperimentalMaterial3Api::class)` (its sections use `ExposedDropdownMenuBox`). Helper composables (`SettingsSection`, `DevicePicker`, `AnswerPolicyPicker`, `AutoToggleRow`, `MaxUnansweredTxPicker`) and helper functions stay unchanged.
 
-- [ ] **Step 2: Compile**
+- [x] **Step 2: Compile**
 
 Run: `./gradlew :app:compileDebugKotlin`
 Expected: BUILD SUCCESSFUL, no warnings introduced
 
-- [ ] **Step 3: Run the full app unit test suite**
+- [x] **Step 3: Run the full app unit test suite**
 
 Run: `./gradlew :app:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL, all tests pass
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/src/main/java/net/ft8vc/app/settings/SettingsScreen.kt
@@ -205,17 +205,17 @@ git commit -m "feat(app): Settings screen tabs — General, Rigs, Display, Integ
 
 **Interfaces:** none.
 
-- [ ] **Step 1: Full build sanity**
+- [x] **Step 1: Full build sanity**
 
 Run: `./gradlew :app:assembleDebug`
 Expected: BUILD SUCCESSFUL
 
-- [ ] **Step 2: Verify the unrelated Ft8NavHost.kt change is still uncommitted and untouched**
+- [x] **Step 2: Verify the unrelated Ft8NavHost.kt change is still uncommitted and untouched**
 
 Run: `git status --short && git diff --stat`
 Expected: only `app/src/main/java/net/ft8vc/app/ui/nav/Ft8NavHost.kt` modified (the pre-existing insets fix), nothing else pending.
 
-- [ ] **Step 3: Commit plan checkboxes**
+- [x] **Step 3: Commit plan checkboxes**
 
 ```bash
 git add docs/superpowers/plans/2026-07-12-settings-tabs.md
