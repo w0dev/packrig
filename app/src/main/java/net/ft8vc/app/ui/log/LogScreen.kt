@@ -258,7 +258,7 @@ fun LogScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(
-                        "Complete a QSO on Operate to populate your log.",
+                        "Complete a QSO on the Operate tab to populate your log.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
