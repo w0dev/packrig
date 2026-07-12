@@ -1,6 +1,9 @@
 package net.ft8vc.app
 
 import android.app.Application
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,6 +11,7 @@ import net.ft8vc.app.controllers.AppRfState
 import net.ft8vc.app.controllers.CaptureWatchdog
 import net.ft8vc.app.controllers.DecodeController
 import net.ft8vc.app.controllers.MonitorGate
+import net.ft8vc.app.controllers.QrzUploadController
 import net.ft8vc.app.controllers.QsoSessionController
 import net.ft8vc.app.controllers.RigSession
 import net.ft8vc.app.controllers.SettingsBridge
@@ -16,6 +20,7 @@ import net.ft8vc.app.controllers.TxOrchestrator
 import net.ft8vc.app.controllers.WorkedBeforeCache
 import net.ft8vc.app.ui.Waterfall
 import net.ft8vc.app.ui.bandLabelForFreqLoose
+import net.ft8vc.app.settings.KeystoreCipher
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.app.settings.SettingsRepository
 import net.ft8vc.audio.AudioInputs
@@ -37,6 +42,8 @@ import net.ft8vc.data.adif.AdifImportException
 import net.ft8vc.data.adif.AdifReader
 import net.ft8vc.data.db.Ft8vcDatabase
 import net.ft8vc.data.model.QsoContact
+import net.ft8vc.data.qrz.HttpQrzClient
+import net.ft8vc.data.qrz.QrzUploadQueue
 import net.ft8vc.app.ui.bandLabelForLogging
 import net.ft8vc.ft8native.Ft8Native
 import net.ft8vc.rig.PttMethod
@@ -79,8 +86,23 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     private val settingsRepo = SettingsRepository(app)
     private val settingsBridge = SettingsBridge(settingsRepo, viewModelScope)
-    private val logbook: Logbook = RoomLogbook(Ft8vcDatabase.get(app))
+    private val roomLogbook = RoomLogbook(Ft8vcDatabase.get(app))
+    private val logbook: Logbook = roomLogbook
     private val workedBeforeCache = WorkedBeforeCache(logbook)
+
+    private val qrzClient = HttpQrzClient()
+    private val qrzQueue = QrzUploadQueue(roomLogbook.qrzQueueStore(), qrzClient)
+    private val qrzController = QrzUploadController(
+        settings = settingsRepo.settings,
+        queue = qrzQueue,
+        client = qrzClient,
+        cipher = KeystoreCipher,
+        setEnabledPref = settingsRepo::setQrzUploadEnabled,
+        setApiKeyPref = { settingsRepo.setQrzApiKey(it) },
+        persistLastError = settingsRepo::setQrzLastError,
+        registerConnectivityListener = ::registerQrzConnectivityListener,
+        scope = viewModelScope,
+    )
 
     /**
      * Phase 5 (REFACTOR-06) follow-up — combine() flow assembly.
@@ -205,8 +227,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
             rigSession.slice,
             decodeController.slice,
             txOrchestrator.slice,
-            qsoSession.slice,
-        ) { (settings, view), rig, decode, tx, qso ->
+            kotlinx.coroutines.flow.combine(qsoSession.slice, qrzController.slice) { q, z -> q to z },
+        ) { (settings, view), rig, decode, tx, (qso, qrz) ->
             OperateUiState(
                 myCall = settings.myCall,
                 myGrid = settings.myGrid,
@@ -287,6 +309,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 contactCount = view.contactCount,
                 lastAdifBackupAtMs = settings.lastAdifBackupAtMs,
                 userBlockedCalls = qso.userBlockedCalls,
+                qrz = qrz,
             ).let { it.copy(rigHasCat = it.computeRigHasCat()) }
         }.distinctUntilChanged().stateIn(
             viewModelScope,
@@ -980,13 +1003,34 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
             state.value.potaParkRef,
         )
         val contact = QsoContact.fromSnapshot(snapshot, freq, band, parks)
-        withContext(Dispatchers.IO) { logbook.log(contact) }
+        withContext(Dispatchers.IO) { logbook.log(contact, qrzPending = qrzController.isEnabled) }
+        qrzController.onQsoLogged()
         workedBeforeCache.invalidate(contact.dxCall)
         decodeController.reclassifyWorkedBefore(contact.dxCall)
         // Phase 7 (HYG-04): atomic ADIF auto-export on ApplicationScope so the
         // backup outlives this ViewModel if the user pauses the app mid-write.
         AdifAutoBackup.scheduleBackupAfterQso(getApplication(), logbook, settingsRepo)
     }
+
+    /** Flush the QRZ queue when the default network comes back (quiet self-heal). */
+    private fun registerQrzConnectivityListener(onAvailable: () -> Unit) {
+        val manager = getApplication<Application>()
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        try {
+            manager.registerDefaultNetworkCallback(
+                object : ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: Network) = onAvailable()
+                },
+            )
+        } catch (_: RuntimeException) {
+            // Too many callbacks or missing service — QRZ retries still fire
+            // on app start and each logged QSO; connectivity is best-effort.
+        }
+    }
+
+    fun setQrzUploadEnabled(enabled: Boolean) = qrzController.setEnabled(enabled)
+    fun setQrzApiKey(key: String) = qrzController.setApiKey(key)
+    fun testQrzConnection() = qrzController.testConnection()
 
     /** Phase 7 (UX-06): user-triggered backup from the Settings → Logbook row. */
     fun backupAdifNow() {

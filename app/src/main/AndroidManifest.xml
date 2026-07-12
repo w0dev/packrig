@@ -10,6 +10,11 @@
     <!-- Required to capture RX audio from the Digirig USB sound card. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- QRZ logbook auto-upload (spec 2026-07-11-qrz-logbook-upload): HTTPS to
+         logbook.qrz.com plus connectivity-returned retry trigger. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

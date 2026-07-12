@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.ft8vc.app.controllers.AppRfState
+import net.ft8vc.app.controllers.QrzSlice
 import net.ft8vc.app.settings.DecodeColorScheme
 import net.ft8vc.app.settings.PttPreference
 import net.ft8vc.audio.AudioInputDevice
@@ -182,6 +183,8 @@ data class OperateUiState(
     /** Phase 7 (UX-06): epoch ms of the most recent successful ADIF auto-backup, null if never. */
     val lastAdifBackupAtMs: Long? = null,
     val userBlockedCalls: List<String> = emptyList(),
+    /** QRZ auto-upload settings-section state (spec 2026-07-11-qrz-logbook-upload). */
+    val qrz: QrzSlice = QrzSlice(),
 ) {
     val selectedRigProfileName: String?
         get() = rigProfiles.firstOrNull { it.id == selectedRigProfileId }?.name

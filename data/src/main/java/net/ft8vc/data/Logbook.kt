@@ -7,6 +7,8 @@ import net.ft8vc.data.db.Ft8vcDatabase
 import net.ft8vc.data.db.QrzUploadState
 import net.ft8vc.data.db.QsoEntity
 import net.ft8vc.data.model.QsoContact
+import net.ft8vc.data.qrz.QrzQueueStore
+import net.ft8vc.data.qrz.RoomQrzQueueStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -28,6 +30,9 @@ interface Logbook {
 
 class RoomLogbook(db: Ft8vcDatabase) : Logbook {
     private val dao = db.qsoDao()
+
+    /** Store seam for the QRZ upload queue, backed by the same DAO. */
+    fun qrzQueueStore(): QrzQueueStore = RoomQrzQueueStore(dao)
 
     override suspend fun log(contact: QsoContact, qrzPending: Boolean): Long =
         dao.insert(
