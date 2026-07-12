@@ -10,8 +10,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -406,6 +409,26 @@ fun SettingsScreen(vm: OperateViewModel) {
                 )
             }
 
+            SettingsSection(
+                "QRZ Logbook",
+                titleBadge = {
+                    if (state.qrz.warning) {
+                        Icon(
+                            Icons.Filled.Warning,
+                            contentDescription = "QRZ upload not connected",
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                },
+            ) {
+                QrzSettingsSection(
+                    qrz = state.qrz,
+                    onSetEnabled = vm::setQrzUploadEnabled,
+                    onSetApiKey = vm::setQrzApiKey,
+                    onTest = vm::testQrzConnection,
+                )
+            }
+
             SettingsSection("About") {
                 Text("${AppInfo.APP_NAME} ${AppInfo.VERSION_NAME}")
                 if (state.nativeLoaded) {
@@ -428,9 +451,19 @@ fun SettingsScreen(vm: OperateViewModel) {
 }
 
 @Composable
-private fun SettingsSection(title: String, content: @Composable () -> Unit) {
+private fun SettingsSection(
+    title: String,
+    titleBadge: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            titleBadge?.invoke()
+        }
         content()
     }
 }
