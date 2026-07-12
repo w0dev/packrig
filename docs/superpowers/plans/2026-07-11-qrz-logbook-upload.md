@@ -1038,7 +1038,7 @@ Behavior:
 - Combines queue `status` into the slice; persists `lastError` (or null) via `persistLastError` exactly once per completed flush pass (tracked via `QrzQueueStatus.flushCount`) — DataStore keeps the persisted error as the boot-time value, the queue's live value wins afterward.
 - `setEnabled(true)` persists then flushes (trigger 3). `setEnabled(false)` persists and clears `testStatus`.
 - `setApiKey` persists via `setApiKeyPref` (repository encrypts) and updates the in-memory key immediately so the text field doesn't lag.
-- `testConnection()`: `Testing` → `client.status(key)` → `Passed("Connected — <callsign>, <count> QSOs")` (omitting nulls gracefully: fall back to `"Connected"`) + flush (trigger 4), or `Failed(reason)` + `persistLastError(reason)`.
+- `testConnection()`: `Testing` → `client.status(key)` → `Passed("Connected — <callsign>")` (null callsign falls back to `"Connected"`) + flush (trigger 4), or `Failed(reason)` + `persistLastError(reason)`.
 - `registerConnectivityListener` is called once at init; the callback flushes when enabled (trigger 5).
 - All flushes are `scope.launch { queue.flush(currentKey) }` — quiet, no exceptions escape (queue never throws).
 - Warning rule: `enabled && lastError != null && pendingCount > 0` (per spec).

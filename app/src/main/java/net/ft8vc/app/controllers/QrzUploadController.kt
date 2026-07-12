@@ -123,11 +123,7 @@ class QrzUploadController(
         scope.launch {
             when (val outcome = client.status(key)) {
                 is QrzOutcome.Success -> {
-                    val detail = listOfNotNull(
-                        outcome.callsign,
-                        outcome.count?.let { "$it QSOs" },
-                    ).joinToString(", ")
-                    val message = if (detail.isEmpty()) "Connected" else "Connected — $detail"
+                    val message = outcome.callsign?.let { "Connected — $it" } ?: "Connected"
                     _slice.update { it.copy(testStatus = QrzTestStatus.Passed(message)) }
                     flush()
                 }

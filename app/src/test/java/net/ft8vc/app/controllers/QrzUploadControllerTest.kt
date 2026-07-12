@@ -140,14 +140,14 @@ class QrzUploadControllerTest {
     }
 
     @Test
-    fun testConnection_success_showsCallsignAndCount() = runTest {
+    fun testConnection_success_showsCallsign() = runTest {
         val settings = MutableStateFlow(StationSettings(qrzApiKeyEncrypted = "enc:K"))
         val controller = buildController(settings, MemoryStore(), StubClient())
         advanceUntilIdle()
         controller.testConnection()
         advanceUntilIdle()
         assertEquals(
-            QrzTestStatus.Passed("Connected — W0DEV, 42 QSOs"),
+            QrzTestStatus.Passed("Connected — W0DEV"),
             controller.slice.value.testStatus,
         )
     }

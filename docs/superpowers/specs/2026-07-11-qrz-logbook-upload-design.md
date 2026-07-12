@@ -34,9 +34,9 @@ returns. This is the app's first network feature.
   - Toggle: *Upload QSOs to QRZ*.
   - Text field: *API key* (QRZ Logbook API key, format `XXXX-XXXX-XXXX-XXXX`),
     masked (`PasswordVisualTransformation`) with a show/hide toggle.
-  - Button: **Test connection** — calls `ACTION=STATUS`; on success shows the
-    logbook callsign and QSO count QRZ returns, on failure shows QRZ's reason
-    string inline. A successful test also triggers a queue flush.
+  - Button: **Test connection** — calls `ACTION=STATUS`; on success shows
+    "Connected — <logbook callsign>", on failure shows QRZ's reason string
+    inline. A successful test also triggers a queue flush.
 - Section header shows ⚠ when: upload enabled **and** last attempt failed
   **and** pending QSOs exist. Cleared by the next successful upload or test.
 - Persistence: `qrzUploadEnabled: Boolean` and `qrzLastError: String?` in
