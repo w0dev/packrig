@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong
 class CaptureLifecycle(private val engine: AudioEngine) {
 
     private val executor: ExecutorService =
-        Executors.newSingleThreadExecutor { r -> Thread(r, "ft8vc-capture-lifecycle") }
+        Executors.newSingleThreadExecutor { r -> Thread(r, "packset-capture-lifecycle") }
 
     /**
      * Bumped on every start/stop submission. A failing start only reports via

@@ -34,7 +34,7 @@ class Ft8DecodeInstrumentedTest {
 
     @Test
     fun nativeLibraryLoads() {
-        assertTrue("libft8vc.so failed to load", Ft8Native.isAvailable())
+        assertTrue("libpackset.so failed to load", Ft8Native.isAvailable())
         assertNotNull(Ft8Native.version())
     }
 

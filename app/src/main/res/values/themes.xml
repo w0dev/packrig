@@ -3,8 +3,8 @@
     <!-- Base theme. Colors are driven by the Compose Material3 theme at runtime;
          this XML theme exists mainly for the splash/launch window. -->
     <style name="Theme.Packset" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/ft8vc_background</item>
-        <item name="android:statusBarColor">@color/ft8vc_background</item>
-        <item name="android:navigationBarColor">@color/ft8vc_background</item>
+        <item name="android:windowBackground">@color/packset_background</item>
+        <item name="android:statusBarColor">@color/packset_background</item>
+        <item name="android:navigationBarColor">@color/packset_background</item>
     </style>
 </resources>

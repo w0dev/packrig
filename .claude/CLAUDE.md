@@ -73,8 +73,8 @@ Packset is an open-source Android FT8 transceiver that drives an amateur radio r
 - Caching and parallel builds enabled
 - AndroidX enabled; non-transitive R class
 - Kotlin code style: official
-- Release keystore resolved from env var `FT8VC_KEYSTORE`
-- Credentials via env vars: `FT8VC_KEYSTORE_PASSWORD`, `FT8VC_KEY_ALIAS`, `FT8VC_KEY_PASSWORD`
+- Release keystore resolved from env var `PACKSET_KEYSTORE`
+- Credentials via env vars: `PACKSET_KEYSTORE_PASSWORD`, `PACKSET_KEY_ALIAS`, `PACKSET_KEY_PASSWORD`
 - ProGuard rules in `app/proguard-rules.pro`
 
 ## Platform Requirements

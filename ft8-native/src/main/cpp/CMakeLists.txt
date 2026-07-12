@@ -10,7 +10,7 @@ endif ()
 project(packset LANGUAGES C CXX)
 
 # kgoba/ft8_lib has no CMakeLists, so we download the sources (pinned commit)
-# and compile the subset we need directly into libft8vc.so. We deliberately omit
+# and compile the subset we need directly into libpackset.so. We deliberately omit
 # common/audio.c (PortAudio) and common/wave.c (file IO) since we feed PCM from
 # Android. Pin a commit for reproducible builds; bump deliberately — follow
 # docs/FT8_LIB_UPGRADE.md. FT8LIB_COMMIT is the single place the pin lives:

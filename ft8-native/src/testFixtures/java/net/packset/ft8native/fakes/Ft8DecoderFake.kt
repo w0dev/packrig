@@ -25,7 +25,7 @@ data class EncodeInvocation(
 
 /**
  * Test fake for [Ft8DecoderApi] that lets JVM unit tests run without loading
- * `libft8vc.so`. Phase 0 (FOUND-05).
+ * `libpackset.so`. Phase 0 (FOUND-05).
  *
  * Failure-injection switches mirror the four real-world scenarios the decode
  * boundary exhibits:

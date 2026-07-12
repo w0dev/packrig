@@ -23,7 +23,7 @@ class Ft8NativeLateTxTest {
     }
 
     @Before fun nativeLoaded() {
-        assumeTrue("libft8vc.so not loaded", Ft8Native.isAvailable())
+        assumeTrue("libpackset.so not loaded", Ft8Native.isAvailable())
     }
 
     @Test

@@ -62,7 +62,7 @@ class UsbAudioCapture(private val context: Context) : AudioEngine {
                     break
                 }
             }
-        }, "ft8vc-capture").also { it.start() }
+        }, "packset-capture").also { it.start() }
     }
 
     override fun stop() {

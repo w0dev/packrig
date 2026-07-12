@@ -62,7 +62,7 @@ class AdifReaderTest {
 
     @Test
     fun ignoresHeaderAndUnknownFields() {
-        val adif = "<ADIF_VER:5>3.1.4<PROGRAMID:5>FT8VC<EOH>\n" +
+        val adif = "<ADIF_VER:5>3.1.4<PROGRAMID:7>Packset<EOH>\n" +
             "<CALL:5>K1ABC<QSO_DATE:8>20231114<TIME_ON:6>221320<BAND:3>20m<QSL_RCVD:1>N<EOR>\n"
         val result = AdifReader.read(adif)
         assertEquals(1, result.contacts.size)

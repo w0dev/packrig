@@ -3,7 +3,7 @@ package net.packset.ft8native
 import android.util.Log
 
 /**
- * Kotlin entry point to the native FT8 core (`libft8vc.so`).
+ * Kotlin entry point to the native FT8 core (`libpackset.so`).
  *
  * Wraps kgoba/ft8_lib. [decode] takes one slot of 12 kHz mono PCM and returns
  * the messages found in it. Encode/TX is added in Phase 3.
@@ -16,7 +16,7 @@ object Ft8Native : Ft8DecoderApi {
         System.loadLibrary("packset")
         true
     } catch (t: UnsatisfiedLinkError) {
-        Log.e(TAG, "Failed to load libft8vc.so", t)
+        Log.e(TAG, "Failed to load libpackset.so", t)
         false
     }
 

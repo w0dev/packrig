@@ -1,10 +1,10 @@
-# AGENTS.md — FT8VC
+# AGENTS.md — Packset
 
 Guidance for AI coding agents working in this repository.
 
 ## Project summary
 
-**FT8VC** is an open-source Android FT8 transceiver app (Kotlin + Jetpack Compose + NDK).
+**Packset** is an open-source Android FT8 transceiver app (Kotlin + Jetpack Compose + NDK).
 Target field setup: **Yaesu FT-891 + Digirig Mobile** over USB-C OTG.
 
 | Doc | Purpose |
@@ -134,10 +134,10 @@ Before finishing:
 
 | Module | Test location | Framework |
 |--------|---------------|-----------|
-| `core` | `core/src/test/java/net/ft8vc/core/` | JUnit 4 |
-| `audio` | `audio/src/test/java/net/ft8vc/audio/` | JUnit 4 |
-| `rig` | `rig/src/test/java/net/ft8vc/rig/` | JUnit 4 |
-| `data` | `data/src/test/java/net/ft8vc/data/` | JUnit 4 |
+| `core` | `core/src/test/java/net/packset/core/` | JUnit 4 |
+| `audio` | `audio/src/test/java/net/packset/audio/` | JUnit 4 |
+| `rig` | `rig/src/test/java/net/packset/rig/` | JUnit 4 |
+| `data` | `data/src/test/java/net/packset/data/` | JUnit 4 |
 | `ft8-native` | `ft8-native/src/androidTest/` | AndroidJUnit4 |
 | `app` | Prefer extracting logic to `core`; ViewModel tests use coroutines test when added |
 

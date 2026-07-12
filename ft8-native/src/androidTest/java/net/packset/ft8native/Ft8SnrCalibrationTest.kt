@@ -51,7 +51,7 @@ class Ft8SnrCalibrationTest {
     fun snrTracksWsjtxAcrossSampleWavs() {
         val wavs = listWavs()
         assumeTrue("No assets/snr/*.wav fixtures; skipping", wavs.isNotEmpty())
-        assertTrue("libft8vc.so failed to load", Ft8Native.isAvailable())
+        assertTrue("libpackset.so failed to load", Ft8Native.isAvailable())
 
         val absErrs = mutableListOf<Int>()
         for (wavPath in wavs) {
