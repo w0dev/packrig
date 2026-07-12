@@ -181,7 +181,7 @@ private fun GeneralSettingsTab(vm: OperateViewModel, state: OperateUiState) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text("Enable transmit", fontWeight = FontWeight.SemiBold)
                     Text(
                         "Allow the app to key the radio",
@@ -337,7 +337,7 @@ private fun GeneralSettingsTab(vm: OperateViewModel, state: OperateUiState) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text("POTA mode", fontWeight = FontWeight.SemiBold)
                     Text(
                         "CQ POTA on-air and POTA fields in ADIF export",
@@ -597,7 +597,7 @@ private fun AutoToggleRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold)
             Text(
                 subtitle,
