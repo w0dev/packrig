@@ -1,10 +1,13 @@
 package net.ft8vc.app.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -22,7 +25,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,28 +60,46 @@ fun SettingsScreen(vm: OperateViewModel) {
         topBar = { TopAppBar(title = { Text("Settings") }) },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            SecondaryTabRow(selectedTabIndex = selectedTab) {
+            // Weighted tab row: SecondaryTabRow gives every tab 1/4 of the
+            // width, which wraps "Integrations" on narrow screens. Weights
+            // follow label length so longer labels get more room.
+            Row(modifier = Modifier.fillMaxWidth()) {
                 SettingsTab.entries.forEachIndexed { index, tab ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(tab.title)
-                                if (tab == SettingsTab.INTEGRATIONS && state.qrz.warning) {
-                                    Icon(
-                                        Icons.Filled.Warning,
-                                        contentDescription = "QRZ upload not connected",
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.size(16.dp),
-                                    )
+                    val selected = selectedTab == index
+                    Column(modifier = Modifier.weight(tab.weight)) {
+                        Tab(
+                            selected = selected,
+                            onClick = { selectedTab = index },
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(tab.title, maxLines = 1, softWrap = false)
+                                    if (tab == SettingsTab.INTEGRATIONS && state.qrz.warning) {
+                                        Icon(
+                                            Icons.Filled.Warning,
+                                            contentDescription = "QRZ upload not connected",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
                                 }
+                            },
+                        )
+                        if (selected) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(2.dp)
+                                    .background(MaterialTheme.colorScheme.primary),
+                            )
+                        } else {
+                            Box(Modifier.fillMaxWidth().height(2.dp)) {
+                                HorizontalDivider(Modifier.align(Alignment.BottomCenter))
                             }
-                        },
-                    )
+                        }
+                    }
                 }
             }
             when (SettingsTab.entries[selectedTab]) {
