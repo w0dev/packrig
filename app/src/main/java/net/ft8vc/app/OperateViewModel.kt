@@ -657,7 +657,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settingsRepo.deleteRigProfile(id) }
     }
 
-    fun selectRigProfile(id: String) {
+    fun selectRigProfile(id: String?) {
         viewModelScope.launch { settingsRepo.selectRigProfile(id) }
     }
 

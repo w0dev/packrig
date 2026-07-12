@@ -147,9 +147,12 @@ class SettingsRepository(context: Context) {
         }
     }
 
-    suspend fun selectRigProfile(id: String) {
+    /** Select a saved rig by id, or clear the selection (None) with null. */
+    suspend fun selectRigProfile(id: String?) {
         appContext.settingsDataStore.edit { prefs ->
-            if (RigProfileJson.decode(prefs[Keys.RIG_PROFILES]).any { it.id == id }) {
+            if (id == null) {
+                prefs.remove(Keys.SELECTED_RIG_PROFILE)
+            } else if (RigProfileJson.decode(prefs[Keys.RIG_PROFILES]).any { it.id == id }) {
                 prefs[Keys.SELECTED_RIG_PROFILE] = id
             }
         }
