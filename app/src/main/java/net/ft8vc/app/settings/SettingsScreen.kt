@@ -110,8 +110,11 @@ fun SettingsScreen(vm: OperateViewModel) {
             SettingsSection("Audio") {
                 DevicePicker(state = state, onSelect = vm::selectDevice)
                 Text(
-                    "Use a USB audio interface (Digirig or the radio's built-in USB audio) " +
-                        "for RX and TX. Adjust input level on the Operate tab while monitoring.",
+                    "Audio routes automatically: when a USB interface (Digirig or the " +
+                        "radio's built-in USB audio) is attached, it's used for RX and TX — " +
+                        "no selection needed. Pick a device manually only if automatic " +
+                        "routing chooses the wrong one (e.g. a USB hub or multiple audio " +
+                        "devices). Adjust input level on the Operate tab while monitoring.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -426,10 +429,10 @@ private fun SettingsSection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DevicePicker(state: OperateUiState, onSelect: (Int) -> Unit) {
+private fun DevicePicker(state: OperateUiState, onSelect: (Int?) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val selected = state.devices.firstOrNull { it.id == state.selectedDeviceId }
-    val label = selected?.let { "${it.name} (${it.typeLabel})" } ?: "No input selected"
+    val label = audioInputDeviceLabel(selected, state.audioDeviceManuallySelected)
 
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (!state.isCapturing) expanded = it }) {
         OutlinedTextField(
@@ -442,6 +445,13 @@ private fun DevicePicker(state: OperateUiState, onSelect: (Int) -> Unit) {
             modifier = Modifier.fillMaxWidth().menuAnchor(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Automatic (system default)") },
+                onClick = {
+                    expanded = false
+                    onSelect(null)
+                },
+            )
             state.devices.forEach { device ->
                 DropdownMenuItem(
                     text = { Text("${device.name} (${device.typeLabel})") },
