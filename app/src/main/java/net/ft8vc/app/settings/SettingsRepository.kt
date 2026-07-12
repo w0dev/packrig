@@ -75,6 +75,9 @@ class SettingsRepository(context: Context) {
             lastAdifBackupAtMs = prefs[Keys.LAST_ADIF_BACKUP_AT_MS],
             rigProfiles = RigProfileJson.decode(prefs[Keys.RIG_PROFILES]),
             selectedRigProfileId = prefs[Keys.SELECTED_RIG_PROFILE],
+            qrzUploadEnabled = prefs[Keys.QRZ_UPLOAD_ENABLED] ?: false,
+            qrzApiKeyEncrypted = prefs[Keys.QRZ_API_KEY_ENC],
+            qrzLastError = prefs[Keys.QRZ_LAST_ERROR],
         ).withRigProfileApplied()
     }
 
@@ -269,6 +272,26 @@ class SettingsRepository(context: Context) {
         appContext.settingsDataStore.edit { it[Keys.LAST_ADIF_BACKUP_AT_MS] = value }
     }
 
+    suspend fun setQrzUploadEnabled(enabled: Boolean) {
+        appContext.settingsDataStore.edit { it[Keys.QRZ_UPLOAD_ENABLED] = enabled }
+    }
+
+    /** Encrypts via AndroidKeyStore before persisting; blank clears the key. */
+    suspend fun setQrzApiKey(plaintext: String, cipher: QrzKeyCipher = KeystoreCipher) {
+        val encrypted = plaintext.trim().takeIf { it.isNotEmpty() }?.let(cipher::encrypt)
+        appContext.settingsDataStore.edit {
+            if (encrypted == null) it.remove(Keys.QRZ_API_KEY_ENC)
+            else it[Keys.QRZ_API_KEY_ENC] = encrypted
+        }
+    }
+
+    suspend fun setQrzLastError(message: String?) {
+        appContext.settingsDataStore.edit {
+            if (message == null) it.remove(Keys.QRZ_LAST_ERROR)
+            else it[Keys.QRZ_LAST_ERROR] = message
+        }
+    }
+
     /** Persist one decode-row category color. No-op for the non-configurable OTHER. */
     suspend fun setDecodeColor(category: DecodeCategory, argb: Int) {
         val key = decodeColorKey(category) ?: return
@@ -333,6 +356,9 @@ class SettingsRepository(context: Context) {
         val LAST_ADIF_BACKUP_AT_MS = longPreferencesKey("last_adif_backup_at_ms")
         val RIG_PROFILES = stringPreferencesKey("rig_profiles")
         val SELECTED_RIG_PROFILE = stringPreferencesKey("selected_rig_profile")
+        val QRZ_UPLOAD_ENABLED = booleanPreferencesKey("qrz_upload_enabled")
+        val QRZ_API_KEY_ENC = stringPreferencesKey("qrz_api_key_enc")
+        val QRZ_LAST_ERROR = stringPreferencesKey("qrz_last_error")
     }
 
     companion object {

@@ -16,7 +16,7 @@ private class FakeLogbook(
     private val bandsByCall: MutableMap<String, Set<String>> = mutableMapOf(),
 ) : Logbook {
     val calls = AtomicInteger(0)
-    override suspend fun log(contact: QsoContact): Long = 0L
+    override suspend fun log(contact: QsoContact, qrzPending: Boolean): Long = 0L
     override fun contacts(): Flow<List<QsoContact>> = emptyFlow()
     override suspend fun exportAdif(context: AdifExportContext): String = ""
     override fun contactCount(): Flow<Int> = emptyFlow()

@@ -74,6 +74,12 @@ data class StationSettings(
     val decodeColors: DecodeColorScheme = DecodeColorScheme.DEFAULT,
     /** Phase 7: epoch ms of the most recent successful ADIF auto-backup, or null if none yet. */
     val lastAdifBackupAtMs: Long? = null,
+    /** Auto-upload logged QSOs to QRZ.com (spec 2026-07-11-qrz-logbook-upload). */
+    val qrzUploadEnabled: Boolean = false,
+    /** Base64(iv+ciphertext) of the QRZ API key, AndroidKeyStore-encrypted; null = not set. */
+    val qrzApiKeyEncrypted: String? = null,
+    /** Last QRZ upload/test failure; persisted so the Settings warning survives restart. */
+    val qrzLastError: String? = null,
 ) {
     val selectedRigProfile: RigProfile? get() = rigProfiles.firstOrNull { it.id == selectedRigProfileId }
 }
