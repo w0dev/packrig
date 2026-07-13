@@ -13,13 +13,13 @@ class RigCardSummaryTest {
 
     @Test
     fun namedPresetWithDefaults() {
-        assertEquals("Yaesu FT-891 — CAT @ 38400, auto PTT", RigCardSummary.subtitle(p("ft891")))
+        assertEquals("CAT @ 38400, auto PTT", RigCardSummary.subtitle(p("ft891")))
     }
 
     @Test
     fun overridesWinOverPresetDefaults() {
         assertEquals(
-            "Yaesu FT-891 — CAT @ 4800, CAT PTT",
+            "CAT @ 4800, CAT PTT",
             RigCardSummary.subtitle(p("ft891", baud = 4800, ptt = PttMethod.CAT)),
         )
     }
@@ -27,7 +27,7 @@ class RigCardSummaryTest {
     @Test
     fun pttOnlyGenericHasNoCat() {
         assertEquals(
-            "Serial PTT only (RTS), no CAT (generic) — no CAT, RTS PTT",
+            "no CAT, RTS PTT",
             RigCardSummary.subtitle(p(RigRegistry.GENERIC_RTS)),
         )
     }
