@@ -4,7 +4,7 @@ import net.packrig.rig.PttMethod
 import net.packrig.rig.RigProfile
 import net.packrig.rig.RigRegistry
 
-/** Pure text rules for rig card subtitles: "<model> — <CAT part>, <PTT part>". */
+/** Pure text rules for rig card subtitles: "<CAT part>, <PTT part>". */
 object RigCardSummary {
 
     fun subtitle(profile: RigProfile): String {
@@ -19,6 +19,6 @@ object RigCardSummary {
             PttMethod.RTS -> "RTS PTT"
             PttMethod.CAT -> "CAT PTT"
         }
-        return "${descriptor.displayName} — $cat, $ptt"
+        return "$cat, $ptt"
     }
 }
