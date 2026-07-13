@@ -12,7 +12,7 @@ moves and you want the fixes.
   Upstream moves slowly and cuts no releases (only tags `0.1` and `2.0` exist,
   both older than the pin), so commit pinning is the only sane strategy.
 - Upstream ships no CMake build; we compile a hand-picked source subset
-  directly into `libpackset.so` (see below), which is why upgrades need a real
+  directly into `libpackrig.so` (see below), which is why upgrades need a real
   checklist and not just a hash bump.
 
 ### Check whether upstream has moved
@@ -32,7 +32,7 @@ https://github.com/kgoba/ft8_lib/compare/9fec6ca...<new-hash>
 | Location | What it holds |
 |----------|---------------|
 | `ft8-native/src/main/cpp/CMakeLists.txt` — `set(FT8LIB_COMMIT ...)` | **Source of truth.** Full 40-char commit hash; used as `GIT_TAG` and passed to the JNI code as the `FT8LIB_SHORT_HASH` compile definition |
-| `ft8-native/src/main/cpp/ft8_jni.cpp` — `version()` | Builds the `"packset-native x.y.z (ft8_lib <short hash>)"` string shown in Settings → "Decoder library". The short hash comes from `FT8LIB_SHORT_HASH` automatically; only the `packset-native` version number is hardcoded here |
+| `ft8-native/src/main/cpp/ft8_jni.cpp` — `version()` | Builds the `"packrig-native x.y.z (ft8_lib <short hash>)"` string shown in Settings → "Decoder library". The short hash comes from `FT8LIB_SHORT_HASH` automatically; only the `packrig-native` version number is hardcoded here |
 | [FT8_NATIVE.md](FT8_NATIVE.md) | Documents the pinned hash |
 | `.claude/CLAUDE.md` — Key Dependencies | Documents the pinned hash |
 
@@ -72,7 +72,7 @@ Also re-check `HAVE_STPCPY` (we define it so ft8_lib doesn't redefine bionic's
    `ft8-native/src/main/cpp/CMakeLists.txt` to the new full hash. The short
    hash in the version string follows automatically.
 3. **Update the source list / JNI bridge** if the diff requires it (step 1).
-4. **Bump the `packset-native` version** in `ft8_jni.cpp` `version()`
+4. **Bump the `packrig-native` version** in `ft8_jni.cpp` `version()`
    (e.g. `0.3.0` → `0.4.0`). The version string is what Settings displays, so
    it's also your on-device proof the new build shipped.
 5. **Update docs:** the pin in [FT8_NATIVE.md](FT8_NATIVE.md),
@@ -104,7 +104,7 @@ Also re-check `HAVE_STPCPY` (we define it so ft8_lib doesn't redefine bionic's
    - `Ft8SnrCalibrationTest` — SNR estimates stay within calibration bounds
    - `Ft8NativeLateTxTest`, `Ft8HashPersistenceTest`
 3. **On-device smoke:** Settings shows
-   `Decoder library: loaded v packset-native <new> (ft8_lib <new short hash>)`;
+   `Decoder library: loaded v packrig-native <new> (ft8_lib <new short hash>)`;
    monitor a live band and confirm decode counts look normal against a second
    receiver (or pskreporter).
 4. **Field verification** on the reference rig (FT-891 + Digirig) before any

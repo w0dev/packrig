@@ -8,7 +8,7 @@ them together.
 
 ## Starting and stopping
 
-Tap **Start decoding** to begin operating: Packset opens the USB audio input,
+Tap **Start decoding** to begin operating: PackRig opens the USB audio input,
 aligns to the 15-second UTC slots, and decodes each slot as it closes. **Stop
 decoding** ends the session.
 
@@ -111,7 +111,7 @@ When TX is disabled it reads "RX only — enable TX in Settings."
 
 ## QSO automation
 
-Packset runs a standard FT8 sequence: CQ → grid exchange → signal reports →
+PackRig runs a standard FT8 sequence: CQ → grid exchange → signal reports →
 RRR/RR73 → 73, advancing automatically when the expected reply is decoded
 (**Auto sequence**, on by default). The automation toggles live in
 **Settings → General → Auto TX**:
@@ -140,7 +140,7 @@ automatically — see [Logging and ADIF](logging.md).
 The waterfall shows the received passband, newest at the top. **Tap or drag**
 to set your TX audio offset; a bold red WSJT-X-style goalpost marker brackets
 your 50 Hz footprint and a live **TX Hz** readout confirms the value. The
-tone persists across tabs and app restarts, and Packset holds it for the whole
+tone persists across tabs and app restarts, and PackRig holds it for the whole
 QSO — it never QSYs onto the DX's tone.
 
 When CAT is ready, the **dial** label doubles as the band picker, same as on

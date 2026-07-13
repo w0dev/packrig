@@ -140,7 +140,7 @@ NO_ISO = {
     "Scarborough Reef",
 }
 
-OUT_PATH = "core/src/main/java/net/packset/core/CallsignCountryTable.kt"
+OUT_PATH = "core/src/main/java/net/packrig/core/CallsignCountryTable.kt"
 CHUNK = 200  # entries per Kotlin string literal (stays far below 64K)
 
 
@@ -216,7 +216,7 @@ def emit(prefixes, exacts, version):
         body = "\n".join(f'        "{c}",' for c in cs)
         return "listOf(\n" + body + "\n    )"
     today = datetime.date.today().isoformat()
-    return f"""package net.packset.core
+    return f"""package net.packrig.core
 
 /**
  * GENERATED FILE — do not edit by hand.

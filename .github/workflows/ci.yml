@@ -42,7 +42,7 @@ jobs:
           gradle-version: '9.4.1'
 
       - name: Golden trace replay
-        run: gradle :app:testDebugUnitTest --tests "net.packset.app.foundations.golden.GoldenTraceTest" --no-daemon --stacktrace
+        run: gradle :app:testDebugUnitTest --tests "net.packrig.app.foundations.golden.GoldenTraceTest" --no-daemon --stacktrace
 
       - name: Unit tests
         run: gradle testDebugUnitTest --no-daemon --stacktrace
@@ -93,7 +93,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:
-          name: packset-debug-apk
+          name: packrig-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -132,33 +132,33 @@ jobs:
       - name: Prepare release keystore
         id: keystore
         env:
-          PACKSET_KEYSTORE_BASE64: ${{ secrets.PACKSET_KEYSTORE_BASE64 }}
+          PACKRIG_KEYSTORE_BASE64: ${{ secrets.PACKSET_KEYSTORE_BASE64 }}
         run: |
-          if [ -z "$PACKSET_KEYSTORE_BASE64" ]; then
+          if [ -z "$PACKRIG_KEYSTORE_BASE64" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "No PACKSET_KEYSTORE_BASE64 secret; building unsigned release APK."
+            echo "No PACKRIG_KEYSTORE_BASE64 secret; building unsigned release APK."
             exit 0
           fi
-          echo "$PACKSET_KEYSTORE_BASE64" | base64 -d > "${GITHUB_WORKSPACE}/release.keystore"
+          echo "$PACKRIG_KEYSTORE_BASE64" | base64 -d > "${GITHUB_WORKSPACE}/release.keystore"
           echo "configured=true" >> "$GITHUB_OUTPUT"
           echo "path=${GITHUB_WORKSPACE}/release.keystore" >> "$GITHUB_OUTPUT"
 
       - name: Set unstable version suffix
-        run: echo "PACKSET_VERSION_NAME_SUFFIX=-unstable+${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
+        run: echo "PACKRIG_VERSION_NAME_SUFFIX=-unstable+${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
 
       - name: Assemble unstable release APK
         env:
-          PACKSET_UNSTABLE: true
-          PACKSET_VERSION_CODE: ${{ github.run_number }}
-          PACKSET_KEYSTORE: ${{ steps.keystore.outputs.path }}
-          PACKSET_KEYSTORE_PASSWORD: ${{ secrets.PACKSET_KEYSTORE_PASSWORD }}
-          PACKSET_KEY_ALIAS: ${{ secrets.PACKSET_KEY_ALIAS }}
-          PACKSET_KEY_PASSWORD: ${{ secrets.PACKSET_KEY_PASSWORD }}
+          PACKRIG_UNSTABLE: true
+          PACKRIG_VERSION_CODE: ${{ github.run_number }}
+          PACKRIG_KEYSTORE: ${{ steps.keystore.outputs.path }}
+          PACKRIG_KEYSTORE_PASSWORD: ${{ secrets.PACKSET_KEYSTORE_PASSWORD }}
+          PACKRIG_KEY_ALIAS: ${{ secrets.PACKSET_KEY_ALIAS }}
+          PACKRIG_KEY_PASSWORD: ${{ secrets.PACKSET_KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Upload unstable APK
         uses: actions/upload-artifact@v7
         with:
-          name: packset-unstable-${{ github.run_number }}
+          name: packrig-unstable-${{ github.run_number }}
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error

@@ -38,7 +38,7 @@ Three paths, for different purposes:
 ### Share export
 
 **Export ADIF** on the Log tab produces a single validated ADIF 3.1 file
-(`packset_export.adi`) and opens the Android share sheet — send it to Drive,
+(`packrig_export.adi`) and opens the Android share sheet — send it to Drive,
 email, a logging app, wherever. When POTA mode is involved, entries carry
 `MY_SIG = POTA` and `MY_SIG_INFO = <ref>`; export fails closed (with a clear
 error instead of a bad file) if POTA mode is on without a valid park
@@ -52,9 +52,9 @@ The **POTA activations** section of the Log tab groups POTA contacts into
 
 ### Automatic backup
 
-After every logged QSO, Packset writes an ADIF backup to two places:
-app-private storage and the shared **`Documents/packset`** folder. The
-`Documents/packset` copy survives app uninstall and is readable by any file
+After every logged QSO, PackRig writes an ADIF backup to two places:
+app-private storage and the shared **`Documents/packrig`** folder. The
+`Documents/packrig` copy survives app uninstall and is readable by any file
 manager. The Log tab's **⋮** (Logbook tools) menu shows the last-backup time
 and a **Backup now** entry to force one — for example right before running
 Clear log or reinstalling.
@@ -65,7 +65,7 @@ Clear log or reinstalling.
 directly when the log is empty) merges an existing ADIF file into the
 logbook — use it to restore a backup or carry over history from another
 logger. Android's file picker shows all file types because `.adi` has no
-registered MIME type; Packset validates the content on read.
+registered MIME type; PackRig validates the content on read.
 
 Worked-before coloring in the decode list (see
 [Settings reference](settings.md#display)) is driven by the logbook, so an

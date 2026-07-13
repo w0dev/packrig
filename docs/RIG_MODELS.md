@@ -1,6 +1,6 @@
 # Supported radios (multi-rig)
 
-Registry: `rig/src/main/java/net/packset/rig/RigRegistry.kt`. Protocol tables:
+Registry: `rig/src/main/java/net/packrig/rig/RigRegistry.kt`. Protocol tables:
 `YaesuCat.FT891` and `YaesuModels`. "Verified" = confirmed on real hardware
 (CAT sync, TX keys, full QSO); "CAT from manual" = protocol authored from the
 CAT manual + cross-checked against FT8CN, transport fields (PID/port) best-guess.

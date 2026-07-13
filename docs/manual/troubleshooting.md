@@ -79,7 +79,7 @@ dropping mid-TX — cable, hub power, or RTS wiring.
 ## "Digirig disconnected — RX only"
 
 The serial device vanished mid-session. RX keeps running over USB audio;
-PTT and CAT are inert until the device returns. Replug the interface; Packset
+PTT and CAT are inert until the device returns. Replug the interface; PackRig
 re-binds without a restart. Frequent disconnects point at OTG power — use a
 powered hub and a known-good data cable.
 
@@ -95,7 +95,7 @@ that row** to resume the QSO from the right step in the sequence.
   missing or malformed park reference. Exports fail closed rather than
   produce a bad file — fix the reference in Settings → General → POTA
   (format `US-3315`, comma-separated).
-- **Lost the log?** Check `Documents/packset` — an ADIF backup is written
+- **Lost the log?** Check `Documents/packrig` — an ADIF backup is written
   there after every QSO and survives uninstall. Re-import it via the Log
   tab's **⋮** (Logbook tools) menu → **Import ADIF…**.
 

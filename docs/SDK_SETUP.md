@@ -7,7 +7,7 @@ Android Studio’s **SDK Manager** shows several “update available” items. N
 | SDK Manager item | Version you see | Action |
 |------------------|-----------------|--------|
 | **Android SDK Platform-Tools** | 37.0.0 | **Install/update.** This is `adb`, fastboot, etc. It does **not** set your app’s `compileSdk`. Always keep it current. |
-| **CMake** | 4.1.2 | **Install/update.** Matches `cmake = "4.1.2"` in `gradle/libs.versions.toml`. Required to build `libpackset.so`. |
+| **CMake** | 4.1.2 | **Install/update.** Matches `cmake = "4.1.2"` in `gradle/libs.versions.toml`. Required to build `libpackrig.so`. |
 | **NDK (Side by side)** | **29.0.14206865** (stable channel) | **Install.** Matches `ndk = "29.0.14206865"`. 16 KB page alignment by default. |
 | **Android SDK Platform 36** | API 36 | **Install.** Matches `compileSdk` / `targetSdk` 36. |
 | **Android SDK Build-Tools 36.0.0** | 36.0.0 | **Install.** Required by AGP 9.2. |
@@ -28,16 +28,16 @@ Android Studio’s **SDK Manager** shows several “update available” items. N
    .\gradlew.bat clean :ft8-native:externalNativeBuildCleanDebug :app:assembleDebug
    ```
 
-3. **Uninstall** the old Packset app from the emulator (long-press → Uninstall), then **Run** again from Android Studio.
+3. **Uninstall** the old PackRig app from the emulator (long-press → Uninstall), then **Run** again from Android Studio.
 
-4. The **16 KB page size** dialog should disappear once `libpackset.so` is rebuilt with **NDK 29** and 16 KB linker flags.
+4. The **16 KB page size** dialog should disappear once `libpackrig.so` is rebuilt with **NDK 29** and 16 KB linker flags.
 
-### Verify `libpackset.so` alignment (optional)
+### Verify `libpackrig.so` alignment (optional)
 
 After a debug build, on Windows PowerShell (adjust path if needed):
 
 ```powershell
-$so = "app\build\intermediates\merged_native_libs\debug\mergeDebugNativeLibs\out\lib\x86_64\libpackset.so"
+$so = "app\build\intermediates\merged_native_libs\debug\mergeDebugNativeLibs\out\lib\x86_64\libpackrig.so"
 & "$env:LOCALAPPDATA\Android\Sdk\ndk\29.0.14206865\toolchains\llvm\prebuilt\windows-x86_64\bin\llvm-objdump.exe" -p $so | Select-String "LOAD"
 ```
 
