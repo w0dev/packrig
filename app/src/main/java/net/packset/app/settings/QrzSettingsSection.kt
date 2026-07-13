@@ -11,7 +11,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -74,14 +73,14 @@ fun QrzSettingsSection(
             Switch(checked = qrz.enabled, onCheckedChange = onSetEnabled)
         }
 
-        OutlinedTextField(
+        SettingsTextField(
             // Editable text is the raw 16 characters; dashes live in the visual
             // transformation so they auto-appear per group and can't be deleted.
-            value = QrzKeyFormat.sanitize(qrz.apiKey),
-            onValueChange = { onSetApiKey(QrzKeyFormat.store(QrzKeyFormat.sanitize(it))) },
+            persistedValue = QrzKeyFormat.sanitize(qrz.apiKey),
+            onValueChange = { onSetApiKey(QrzKeyFormat.store(it)) },
+            transform = { QrzKeyFormat.sanitize(it) },
             label = { Text("QRZ API key") },
             placeholder = { Text("XXXX-XXXX-XXXX-XXXX") },
-            singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             visualTransformation = QrzKeyVisualTransformation(masked = !showKey),
             trailingIcon = {
