@@ -1,0 +1,25 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgD" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14532d"/>
+      <stop offset="1" stop-color="#0b3018"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bgD)"/>
+  <!-- waves off antenna -->
+  <g fill="none" stroke="#facc15" stroke-width="14" stroke-linecap="round">
+    <path d="M338 150 a44 44 0 0 1 44 44" opacity="0.95"/>
+    <path d="M338 116 a78 78 0 0 1 78 78" opacity="0.55"/>
+  </g>
+  <!-- antenna -->
+  <rect x="330" y="150" width="14" height="120" rx="7" fill="#eafff1"/>
+  <circle cx="337" cy="150" r="14" fill="#facc15"/>
+  <!-- backpack body -->
+  <rect x="150" y="238" width="150" height="150" rx="40" fill="#34d399"/>
+  <!-- pack lid / pocket -->
+  <rect x="150" y="238" width="150" height="58" rx="28" fill="#10b981"/>
+  <rect x="205" y="316" width="40" height="52" rx="12" fill="#0b3018"/>
+  <!-- straps -->
+  <path d="M182 240 q-24 -46 8 -78" fill="none" stroke="#eafff1" stroke-width="14" stroke-linecap="round"/>
+  <path d="M268 240 q24 -46 -8 -78" fill="none" stroke="#eafff1" stroke-width="14" stroke-linecap="round"/>
+</svg>

@@ -1,4 +1,4 @@
-# Packset
+# PackRig
 
 > A pocket-sized FT8 application for Android
 
@@ -9,14 +9,14 @@ your phone — no laptop in the field.
 
 ## Install
 
-**[Download the latest APK](https://github.com/w0dev/packset/releases/latest)**,
+**[Download the latest APK](https://github.com/w0dev/packrig/releases/latest)**,
 open it on your phone, and tap **Install**. That's it — the app is signed with a
 stable key, so future versions upgrade in place.
 
 - Android 9 or newer. Allow installs from your browser/file manager if prompted.
 - Receive-only out of the box: a valid amateur radio license is required to
   transmit, and TX stays off until you enable it in Settings.
-- Bleeding edge? The `net.packset.unstable` artifact from a recent **Unstable APK**
+- Bleeding edge? The `net.packrig.unstable` artifact from a recent **Unstable APK**
   workflow run installs side by side with the release app.
 
 > **Status:** v1.0.0 from tagged commits on `main`. Day-to-day development and field
@@ -24,7 +24,7 @@ stable key, so future versions upgrade in place.
 
 ## Why
 
-Packset aims for a clean, focused operating UI with a reliable decoder, distributed as
+PackRig aims for a clean, focused operating UI with a reliable decoder, distributed as
 signed APKs from GitHub Releases. The verified reference setups are a **Yaesu FT-891 +
 Digirig Mobile** and a **Yaesu FTX-1 over its built-in USB port**, both via USB-C OTG —
 and anything that exposes a USB audio device will get you on the air for RX.
@@ -66,7 +66,7 @@ The quick start below is the condensed version.
 6. **Acknowledge the license** and enable transmit when you are ready to call.
 7. **Operate tab → Start decoding** — decodes appear within one 15 s slot. Tap a
    CQ to answer, or **Start CQ** to call. Completed QSOs auto-log to the Log tab;
-   ADIF also auto-exports to `Documents/packset` after every contact.
+   ADIF also auto-exports to `Documents/packrig` after every contact.
 
 See [docs/HARDWARE.md](docs/HARDWARE.md) for the FT-891 menu values that the
 reference setup uses, and [docs/RIG_MODELS.md](docs/RIG_MODELS.md) for the full
@@ -163,7 +163,7 @@ portable FT8 session.
 
 - Room-backed logbook; completed QSOs auto-log
 - **ADIF auto-backup after every QSO** to app-private storage *and*
-  `Documents/packset` (survives uninstall), plus a manual **Backup now** button
+  `Documents/packrig` (survives uninstall), plus a manual **Backup now** button
 - **Export ADIF** (3.1, validated) via Android share intent
 - **Import ADIF** to merge an existing log
 - **QRZ Logbook upload** (Settings → Integrations): completed QSOs upload
@@ -179,7 +179,7 @@ Kotlin + Jetpack Compose UI on top of a C/C++ NDK core that wraps
 [`kgoba/ft8_lib`](https://github.com/kgoba/ft8_lib) (MIT) for FT8 encode/decode.
 
 ```
-packset/
+packrig/
   app/          Compose UI (Operate / Spectrum / Log / Settings), ViewModels
   core/         Slot scheduler, FT8 message models, QSO state machine
   audio/        12 kHz USB audio capture/playback, DSP, waterfall
@@ -246,7 +246,7 @@ testing into a dummy load first is strongly recommended.
 
 ## Acknowledgements
 
-Packset stands on the work of others:
+PackRig stands on the work of others:
 
 - **FT8 itself** was created by **Steven Franke, K9AN, and Joe Taylor, K1JT**
   (the name stands for "Franke–Taylor design, 8-FSK modulation") and first
@@ -254,7 +254,7 @@ Packset stands on the work of others:
   specification is what makes independent implementations like this one
   possible. Thank you.
 - [`kgoba/ft8_lib`](https://github.com/kgoba/ft8_lib) by **Kārlis Goba,
-  YL3JG**, does the actual FT8 encode/decode in Packset's native core.
+  YL3JG**, does the actual FT8 encode/decode in PackRig's native core.
 - **Kiss FFT** by **Mark Borgerding**, bundled with ft8_lib, powers the FFT.
 - The FT8 software that came before —
   [WSJT-X](https://wsjt.sourceforge.io/wsjtx.html) and the WSJT development
@@ -262,6 +262,6 @@ Packset stands on the work of others:
 
 ## License
 
-Packset is licensed under the [MIT License](LICENSE). Bundled third-party
+PackRig is licensed under the [MIT License](LICENSE). Bundled third-party
 components and their license texts are listed in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

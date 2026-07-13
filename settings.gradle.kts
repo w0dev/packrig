@@ -31,7 +31,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "packset"
+rootProject.name = "packrig"
 
 include(":app")
 include(":core")

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "net.packset.data"
+    namespace = "net.packrig.data"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

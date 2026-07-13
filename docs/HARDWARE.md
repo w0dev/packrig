@@ -1,6 +1,6 @@
 # Hardware setup: Yaesu FT-891 + Digirig Mobile + Android
 
-This is the wiring and menu reference for Packset's primary reference rig.
+This is the wiring and menu reference for PackRig's primary reference rig.
 Menu values below were confirmed on-air 2026-06-02. For other radios
 (including the FTX-1 second reference rig and the generic presets), see
 [RIG_MODELS.md](RIG_MODELS.md).
@@ -42,12 +42,12 @@ manual and your on-air results:
 
 | Setting | Menu # | Value | Notes |
 |---------|--------|-------|-------|
-| CAT RTS | 05-08 | **DISABLE** | Required for Packset CAT PTT (`TX1;`/`TX0;`). If enabled, asserting the Digirig RTS line can latch TX or block un-key. Desktop CAT PTT software often does not drive RTS, so this menu may appear fine on PC until Android touches RTS. |
-| CAT rate | 05-06 | **38400** | Must match the **CAT baud rate** in the Packset rig profile (Settings → Radio; 38400 is the FT-891 preset default). |
+| CAT RTS | 05-08 | **DISABLE** | Required for PackRig CAT PTT (`TX1;`/`TX0;`). If enabled, asserting the Digirig RTS line can latch TX or block un-key. Desktop CAT PTT software often does not drive RTS, so this menu may appear fine on PC until Android touches RTS. |
+| CAT rate | 05-06 | **38400** | Must match the **CAT baud rate** in the PackRig rig profile (Settings → Radio; 38400 is the FT-891 preset default). |
 | DATA IN | 08-09 | **REAR** | Digirig audio on the 6-pin DATA jack. |
 | Operating mode | — | **DATA-U** (`D-U` on display) | Plain USB keys the mic path; rear data audio stays muted (0 W). |
 
-Confirmed on-air 2026-06-02: phone + Digirig OTG, Packset CAT PTT, ~20 W after ~1 s key-up, spots on PSK Reporter.
+Confirmed on-air 2026-06-02: phone + Digirig OTG, PackRig CAT PTT, ~20 W after ~1 s key-up, spots on PSK Reporter.
 
 ## Digirig configuration
 

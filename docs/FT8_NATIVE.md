@@ -1,6 +1,6 @@
 # FT8 Native module (`ft8-native/`)
 
-Android NDK library (`libpackset.so`) that wraps [`kgoba/ft8_lib`](https://github.com/kgoba/ft8_lib)
+Android NDK library (`libpackrig.so`) that wraps [`kgoba/ft8_lib`](https://github.com/kgoba/ft8_lib)
 (MIT) for FT8 encode and decode. Exposed to Kotlin via JNI as `Ft8Native`.
 
 ## Purpose
@@ -15,7 +15,7 @@ and message extraction.
 
 | Method | Description |
 |--------|-------------|
-| `isAvailable()` | True if `libpackset.so` loaded successfully |
+| `isAvailable()` | True if `libpackrig.so` loaded successfully |
 | `version()` | Native build identifier string |
 | `decode(samples, sampleRate)` | Decode one FT8 slot; returns `Array<Ft8DecodeResult>` |
 | `encode(message, freqHz, sampleRate)` | Encode message to a full ~15 s slot of PCM |

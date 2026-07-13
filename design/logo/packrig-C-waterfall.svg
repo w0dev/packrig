@@ -1,0 +1,20 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgC" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#101827"/>
+      <stop offset="1" stop-color="#0a0f18"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bgC)"/>
+  <!-- FT8 waterfall bars -->
+  <g>
+    <rect x="96"  y="150" width="40" height="212" rx="10" fill="#2dd4bf"/>
+    <rect x="152" y="210" width="40" height="152" rx="10" fill="#38bdf8"/>
+    <rect x="208" y="120" width="40" height="242" rx="10" fill="#818cf8"/>
+    <rect x="264" y="196" width="40" height="166" rx="10" fill="#38bdf8"/>
+    <rect x="320" y="164" width="40" height="198" rx="10" fill="#2dd4bf"/>
+    <rect x="376" y="240" width="40" height="122" rx="10" fill="#facc15"/>
+  </g>
+  <!-- baseline -->
+  <rect x="80" y="372" width="352" height="14" rx="7" fill="#334155"/>
+</svg>

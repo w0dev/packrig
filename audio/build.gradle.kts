@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "net.packset.audio"
+    namespace = "net.packrig.audio"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

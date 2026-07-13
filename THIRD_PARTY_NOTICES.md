@@ -1,13 +1,13 @@
 # Third-Party Notices
 
-Packset is licensed under the [MIT License](LICENSE). The distributed app
-(`libpackset.so` and the APK) incorporates the third-party components below.
+PackRig is licensed under the [MIT License](LICENSE). The distributed app
+(`libpackrig.so` and the APK) incorporates the third-party components below.
 Their license texts are reproduced here as required.
 
 ## ft8_lib
 
 FT8 encode/decode. Source: <https://github.com/kgoba/ft8_lib>, compiled into
-`libpackset.so` at a pinned commit (see `ft8-native/CMakeLists.txt`).
+`libpackrig.so` at a pinned commit (see `ft8-native/CMakeLists.txt`).
 
 ```
 MIT License
@@ -36,7 +36,7 @@ SOFTWARE.
 ## Kiss FFT
 
 FFT implementation bundled with ft8_lib (`fft/kiss_fft.c`, `fft/kiss_fftr.c`),
-compiled into `libpackset.so`. Source: <https://github.com/mborgerding/kissfft>.
+compiled into `libpackrig.so`. Source: <https://github.com/mborgerding/kissfft>.
 
 ```
 Copyright (c) 2003-2010 Mark Borgerding. All rights reserved.
@@ -77,5 +77,5 @@ Version 2.0: <https://www.apache.org/licenses/LICENSE-2.0>.
 ## FT8 protocol
 
 The FT8 protocol was designed by Steven Franke (K9AN) and Joe Taylor (K1JT)
-and openly published by the WSJT-X project. Packset implements the published
+and openly published by the WSJT-X project. PackRig implements the published
 protocol and contains no WSJT-X code.
