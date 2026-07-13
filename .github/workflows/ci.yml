@@ -132,7 +132,7 @@ jobs:
       - name: Prepare release keystore
         id: keystore
         env:
-          PACKRIG_KEYSTORE_BASE64: ${{ secrets.PACKSET_KEYSTORE_BASE64 }}
+          PACKRIG_KEYSTORE_BASE64: ${{ secrets.PACKRIG_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$PACKRIG_KEYSTORE_BASE64" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
@@ -151,9 +151,9 @@ jobs:
           PACKRIG_UNSTABLE: true
           PACKRIG_VERSION_CODE: ${{ github.run_number }}
           PACKRIG_KEYSTORE: ${{ steps.keystore.outputs.path }}
-          PACKRIG_KEYSTORE_PASSWORD: ${{ secrets.PACKSET_KEYSTORE_PASSWORD }}
-          PACKRIG_KEY_ALIAS: ${{ secrets.PACKSET_KEY_ALIAS }}
-          PACKRIG_KEY_PASSWORD: ${{ secrets.PACKSET_KEY_PASSWORD }}
+          PACKRIG_KEYSTORE_PASSWORD: ${{ secrets.PACKRIG_KEYSTORE_PASSWORD }}
+          PACKRIG_KEY_ALIAS: ${{ secrets.PACKRIG_KEY_ALIAS }}
+          PACKRIG_KEY_PASSWORD: ${{ secrets.PACKRIG_KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Upload unstable APK

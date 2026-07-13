@@ -66,19 +66,17 @@ Repository secrets (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 |--------|-------|
-| `PACKSET_KEYSTORE_BASE64` | Base64-encoded `.jks` file |
-| `PACKSET_KEYSTORE_PASSWORD` | Keystore password |
-| `PACKSET_KEY_ALIAS` | Key alias |
-| `PACKSET_KEY_PASSWORD` | Key password |
+| `PACKRIG_KEYSTORE_BASE64` | Base64-encoded `.jks` file |
+| `PACKRIG_KEYSTORE_PASSWORD` | Keystore password |
+| `PACKRIG_KEY_ALIAS` | Key alias (`packrig`) |
+| `PACKRIG_KEY_PASSWORD` | Key password |
 
-**Stable** releases require all four secrets. **Unstable** builds use them when present (signed APK, same key as stable); if the keystore secret is missing, CI still produces an **unsigned** release APK for sideload testing.
+**Stable** releases require all four secrets. **Unstable** builds use them when present (signed APK, same key as stable); if `PACKRIG_KEYSTORE_BASE64` is missing, CI still produces an **unsigned** release APK for sideload testing.
 
 > The signing key was rotated at the 2026-07-12 rebrand: a fresh RSA-4096
-> keystore replacing the original key. The secrets keep their historical
-> `PACKSET_` prefix from an interim project name — the workflows map them to
-> `PACKRIG_*` env vars. Renaming the secrets (or rotating the key again to
-> match the PackRig name) means re-entering the four values and updating the
-> `secrets.*` references in both workflow files.
+> keystore (CN=PackRig, alias `packrig`) replacing all earlier keys. Nothing
+> signed with an earlier key is upgradeable in place — they predate the first
+> public release, so nothing needs to be.
 
 ## Unstable APK (CI)
 
