@@ -1,6 +1,6 @@
 # Add project specific ProGuard rules here.
 # Keep JNI entry points for the native FT8 bridge.
--keep class net.packset.ft8native.** { *; }
+-keep class net.packrig.ft8native.** { *; }
 
 # Room
 -keep class * extends androidx.room.RoomDatabase

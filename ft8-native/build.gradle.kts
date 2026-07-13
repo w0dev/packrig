@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "net.packset.ft8native"
+    namespace = "net.packrig.ft8native"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     ndkVersion = libs.versions.ndk.get()

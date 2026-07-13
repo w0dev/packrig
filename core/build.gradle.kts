@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "net.packset.core"
+    namespace = "net.packrig.core"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

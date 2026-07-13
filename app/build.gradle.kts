@@ -5,19 +5,19 @@ plugins {
 
 /** CI writes the keystore at repo root; resolve from app module or an absolute path. */
 fun resolveReleaseKeystore(): java.io.File? {
-    val path = System.getenv("PACKSET_KEYSTORE")?.takeIf { it.isNotBlank() } ?: return null
+    val path = System.getenv("PACKRIG_KEYSTORE")?.takeIf { it.isNotBlank() } ?: return null
     return file(path).takeIf { it.isFile } ?: rootProject.file(path).takeIf { it.isFile }
 }
 
 android {
-    namespace = "net.packset.app"
+    namespace = "net.packrig.app"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "net.packset"
+        applicationId = "net.packrig"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = System.getenv("PACKSET_VERSION_CODE")?.toIntOrNull() ?: 100
+        versionCode = System.getenv("PACKRIG_VERSION_CODE")?.toIntOrNull() ?: 100
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -27,9 +27,9 @@ android {
         create("release") {
             resolveReleaseKeystore()?.let { store ->
                 storeFile = store
-                storePassword = System.getenv("PACKSET_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("PACKSET_KEY_ALIAS")
-                keyPassword = System.getenv("PACKSET_KEY_PASSWORD")
+                storePassword = System.getenv("PACKRIG_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("PACKRIG_KEY_ALIAS")
+                keyPassword = System.getenv("PACKRIG_KEY_PASSWORD")
             }
         }
     }
@@ -41,9 +41,9 @@ android {
         }
         release {
             isMinifyEnabled = true
-            if (System.getenv("PACKSET_UNSTABLE") == "true") {
+            if (System.getenv("PACKRIG_UNSTABLE") == "true") {
                 applicationIdSuffix = ".unstable"
-                versionNameSuffix = System.getenv("PACKSET_VERSION_NAME_SUFFIX") ?: "-unstable"
+                versionNameSuffix = System.getenv("PACKRIG_VERSION_NAME_SUFFIX") ?: "-unstable"
             }
             if (resolveReleaseKeystore() != null) {
                 signingConfig = signingConfigs.getByName("release")

@@ -6,7 +6,7 @@
 |--------|---------|-----|
 | **`unstable`** | Day-to-day development and field testing | Unit tests + signed **unstable** release APK (artifact only; no debug APK) |
 | **`main`** | Stable, releasable code only | Unit tests, debug APK on push; **no** automatic release APK |
-| **Tag `v*`** on `main` | Stable public release | Unit tests, then a **draft** GitHub Release with signed `net.packset` APK |
+| **Tag `v*`** on `main` | Stable public release | Unit tests, then a **draft** GitHub Release with signed `net.packrig` APK |
 
 Merge to **`main` does not publish a release**. Stable APKs only ship when you push a version tag (e.g. `v1.0.0`) to a commit on `main`.
 
@@ -14,33 +14,33 @@ Merge to **`main` does not publish a release**. Stable APKs only ship when you p
 
 1. Create and push `unstable` once: `git checkout -b unstable && git push -u origin unstable`
 2. Do feature work on `unstable` (or topic branches merged into `unstable`).
-3. After each push to `unstable`, download the **Unstable APK** artifact from the Actions run (package id `net.packset.unstable`, version like `1.0.0-unstable+abc1234`).
+3. After each push to `unstable`, download the **Unstable APK** artifact from the Actions run (package id `net.packrig.unstable`, version like `1.0.0-unstable+abc1234`).
 4. When satisfied, merge `unstable` → `main`.
 5. Bump `versionCode` / `versionName` in `app/build.gradle.kts` (and `AppInfo.VERSION_NAME` if you surface it in UI), commit on `main`, tag `v1.0.0`, push the tag → **Stable Release** workflow creates the GitHub Release.
 
-Unstable and stable APKs can be installed side by side (`applicationIdSuffix` `.unstable` vs production `net.packset`).
+Unstable and stable APKs can be installed side by side (`applicationIdSuffix` `.unstable` vs production `net.packrig`).
 
 ## Version
 
 - `versionName` / `AppInfo.VERSION_NAME`: semantic version (e.g. `1.0.0`)
 - `versionCode` in `app/build.gradle.kts`: integer bump per **stable** release (e.g. `100`)
-- Unstable CI sets `PACKSET_VERSION_CODE` to the GitHub run number so each unstable build can upgrade over the last
+- Unstable CI sets `PACKRIG_VERSION_CODE` to the GitHub run number so each unstable build can upgrade over the last
 
 ## Local signed release
 
 1. Create a release keystore (once):
 
 ```bash
-keytool -genkeypair -v -keystore packset-release.jks -keyalg RSA -keysize 4096 -validity 10000 -alias packset
+keytool -genkeypair -v -keystore packrig-release.jks -keyalg RSA -keysize 4096 -validity 10000 -alias packrig
 ```
 
 2. Set environment variables and build:
 
 ```powershell
-$env:PACKSET_KEYSTORE = "C:\path\to\packset-release.jks"
-$env:PACKSET_KEYSTORE_PASSWORD = "..."
-$env:PACKSET_KEY_ALIAS = "packset"
-$env:PACKSET_KEY_PASSWORD = "..."
+$env:PACKRIG_KEYSTORE = "C:\path\to\packrig-release.jks"
+$env:PACKRIG_KEYSTORE_PASSWORD = "..."
+$env:PACKRIG_KEY_ALIAS = "packrig"
+$env:PACKRIG_KEY_PASSWORD = "..."
 .\gradlew.bat assembleRelease
 ```
 
@@ -49,9 +49,9 @@ Output: `app/build/outputs/apk/release/app-release.apk`
 ### Local unstable build (matches CI)
 
 ```powershell
-$env:PACKSET_UNSTABLE = "true"
-$env:PACKSET_VERSION_NAME_SUFFIX = "-unstable+local"
-$env:PACKSET_VERSION_CODE = "200"
+$env:PACKRIG_UNSTABLE = "true"
+$env:PACKRIG_VERSION_NAME_SUFFIX = "-unstable+local"
+$env:PACKRIG_VERSION_CODE = "200"
 # ... same keystore vars as above ...
 .\gradlew.bat assembleRelease
 ```
@@ -68,19 +68,21 @@ Repository secrets (Settings → Secrets and variables → Actions):
 |--------|-------|
 | `PACKSET_KEYSTORE_BASE64` | Base64-encoded `.jks` file |
 | `PACKSET_KEYSTORE_PASSWORD` | Keystore password |
-| `PACKSET_KEY_ALIAS` | Key alias (`packset`) |
+| `PACKSET_KEY_ALIAS` | Key alias |
 | `PACKSET_KEY_PASSWORD` | Key password |
 
-**Stable** releases require all four secrets. **Unstable** builds use them when present (signed APK, same key as stable); if `PACKSET_KEYSTORE_BASE64` is missing, CI still produces an **unsigned** release APK for sideload testing.
+**Stable** releases require all four secrets. **Unstable** builds use them when present (signed APK, same key as stable); if the keystore secret is missing, CI still produces an **unsigned** release APK for sideload testing.
 
-> The signing key was rotated at the Packset rename (2026-07-12): a fresh
-> RSA-4096 keystore, alias `packset`, replacing the original FT8VC key.
-> Nothing signed with the old key is upgradeable in place — it predates the
-> first public release, so nothing needs to be.
+> The signing key was rotated at the 2026-07-12 rebrand: a fresh RSA-4096
+> keystore replacing the original key. The secrets keep their historical
+> `PACKSET_` prefix from an interim project name — the workflows map them to
+> `PACKRIG_*` env vars. Renaming the secrets (or rotating the key again to
+> match the PackRig name) means re-entering the four values and updating the
+> `secrets.*` references in both workflow files.
 
 ## Unstable APK (CI)
 
-Push to **`unstable`**. The [CI workflow](../.github/workflows/ci.yml) `unstable-apk` job runs the unit tests, then builds a signed release APK and uploads it as a workflow artifact (not a GitHub Release). Open the Actions run → **Artifacts** → `packset-unstable-<run>`.
+Push to **`unstable`**. The [CI workflow](../.github/workflows/ci.yml) `unstable-apk` job runs the unit tests, then builds a signed release APK and uploads it as a workflow artifact (not a GitHub Release). Open the Actions run → **Artifacts** → `packrig-unstable-<run>`.
 
 You can also trigger it manually via **Actions → CI → Run workflow** (on the
 `unstable` branch).

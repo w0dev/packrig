@@ -1,6 +1,6 @@
-# Packset documentation
+# PackRig documentation
 
-Component-level documentation for the Packset Android project. For project overview, features, and build instructions, see the [root README](../README.md).
+Component-level documentation for the PackRig Android project. For project overview, features, and build instructions, see the [root README](../README.md).
 
 For AI agents and contributors: see [AGENTS.md](../AGENTS.md) (mandatory unit tests + doc updates for applicable changes).
 

@@ -5,7 +5,7 @@ integration with audio, rig, codec, and logbook modules.
 
 ## Navigation
 
-`MainActivity` hosts `PacksetApp` with a bottom nav bar:
+`MainActivity` hosts `PackRigApp` with a bottom nav bar:
 
 | Tab | Screen | Purpose |
 |-----|--------|---------|
