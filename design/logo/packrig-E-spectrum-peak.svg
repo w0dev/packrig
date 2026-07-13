@@ -1,0 +1,27 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgE" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#101827"/>
+      <stop offset="1" stop-color="#0a0f18"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bgE)"/>
+  <!-- spectrum bars whose tops trace a single mountain peak -->
+  <g>
+    <rect x="86"  y="356" width="20" height="30"  rx="6" fill="#2dd4bf"/>
+    <rect x="114" y="332" width="20" height="54"  rx="6" fill="#2dd4bf"/>
+    <rect x="142" y="300" width="20" height="86"  rx="6" fill="#38bdf8"/>
+    <rect x="170" y="262" width="20" height="124" rx="6" fill="#38bdf8"/>
+    <rect x="198" y="216" width="20" height="170" rx="6" fill="#60a5fa"/>
+    <rect x="226" y="170" width="20" height="216" rx="6" fill="#818cf8"/>
+    <rect x="254" y="132" width="20" height="254" rx="6" fill="#facc15"/>
+    <rect x="282" y="176" width="20" height="210" rx="6" fill="#818cf8"/>
+    <rect x="310" y="224" width="20" height="162" rx="6" fill="#60a5fa"/>
+    <rect x="338" y="270" width="20" height="116" rx="6" fill="#38bdf8"/>
+    <rect x="366" y="306" width="20" height="80"  rx="6" fill="#38bdf8"/>
+    <rect x="394" y="334" width="20" height="52"  rx="6" fill="#2dd4bf"/>
+    <rect x="422" y="358" width="20" height="28"  rx="6" fill="#2dd4bf"/>
+  </g>
+  <!-- baseline -->
+  <rect x="78" y="392" width="356" height="12" rx="6" fill="#334155"/>
+</svg>

@@ -1,0 +1,29 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0e1320"/>
+      <stop offset="1" stop-color="#080b12"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bgG)"/>
+  <!-- spectrum bars: smaller left peak, taller right peak, valley between -->
+  <g>
+    <rect x="82"  y="362" width="18" height="30"  rx="5" fill="#7c3aed"/>
+    <rect x="107" y="336" width="18" height="56"  rx="5" fill="#7c3aed"/>
+    <rect x="132" y="300" width="18" height="92"  rx="5" fill="#6d28d9"/>
+    <rect x="157" y="262" width="18" height="130" rx="5" fill="#0d9488"/>
+    <rect x="182" y="232" width="18" height="160" rx="5" fill="#d97706"/>
+    <rect x="207" y="270" width="18" height="122" rx="5" fill="#0d9488"/>
+    <rect x="232" y="310" width="18" height="82"  rx="5" fill="#6d28d9"/>
+    <rect x="257" y="300" width="18" height="92"  rx="5" fill="#6d28d9"/>
+    <rect x="282" y="250" width="18" height="142" rx="5" fill="#0d9488"/>
+    <rect x="307" y="200" width="18" height="192" rx="5" fill="#16a34a"/>
+    <rect x="332" y="164" width="18" height="228" rx="5" fill="#16a34a"/>
+    <rect x="357" y="150" width="18" height="242" rx="5" fill="#d97706"/>
+    <rect x="382" y="200" width="18" height="192" rx="5" fill="#16a34a"/>
+    <rect x="407" y="262" width="18" height="130" rx="5" fill="#0d9488"/>
+    <rect x="432" y="320" width="18" height="72"  rx="5" fill="#6d28d9"/>
+  </g>
+  <!-- baseline -->
+  <rect x="74" y="392" width="376" height="12" rx="6" fill="#2a3244"/>
+</svg>

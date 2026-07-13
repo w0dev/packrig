@@ -1,0 +1,21 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0e4d5c"/>
+      <stop offset="1" stop-color="#0a2f3a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bgA)"/>
+  <!-- radio arcs -->
+  <g fill="none" stroke="#f5a623" stroke-width="16" stroke-linecap="round">
+    <path d="M256 150 m-60,0 a60,60 0 0 1 120,0" opacity="0.95"/>
+    <path d="M256 150 m-104,0 a104,104 0 0 1 208,0" opacity="0.6"/>
+    <path d="M256 150 m-148,0 a148,148 0 0 1 296,0" opacity="0.3"/>
+  </g>
+  <!-- antenna mast + source dot -->
+  <circle cx="256" cy="150" r="18" fill="#f5a623"/>
+  <rect x="248" y="150" width="16" height="150" rx="8" fill="#e6f2f4"/>
+  <!-- mountain ridge (field) -->
+  <path d="M64 372 L188 300 L256 344 L332 288 L448 372 Z" fill="#4fd1c5"/>
+  <path d="M64 372 L448 372 L448 400 L64 400 Z" fill="#2c8f88"/>
+</svg>

@@ -1,22 +1,84 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- A simple stylized waterfall / waveform glyph. -->
-    <path
-        android:fillColor="#3DDC97"
-        android:pathData="M30,54 h6 v0 h-6 z M30,40 l6,0 0,28 -6,0 z" />
-    <path
-        android:fillColor="#3DDC97"
-        android:pathData="M42,30 l6,0 0,48 -6,0 z" />
-    <path
-        android:fillColor="#5BC0EB"
-        android:pathData="M54,38 l6,0 0,32 -6,0 z" />
-    <path
-        android:fillColor="#5BC0EB"
-        android:pathData="M66,26 l6,0 0,56 -6,0 z" />
-    <path
-        android:fillColor="#9BC53D"
-        android:pathData="M78,44 l6,0 0,20 -6,0 z" />
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- PackRig "K" mark: twin spectrum peaks with wifi arcs (design/logo/packrig-K-peaks-wifi.svg).
+         Scaled to keep all content inside the 66dp adaptive-icon safe zone. -->
+    <group
+        android:pivotX="256"
+        android:pivotY="267"
+        android:scaleX="0.66"
+        android:scaleY="0.66"
+        android:translateY="-11">
+        <!-- wifi-style signal arcs radiating from the valley, behind the peaks -->
+        <path
+            android:strokeColor="#fbbf24"
+            android:strokeWidth="11"
+            android:strokeLineCap="round"
+            android:strokeAlpha="0.95"
+            android:pathData="M205,252 A70,70 0 0 1 307,252" />
+        <path
+            android:strokeColor="#fbbf24"
+            android:strokeWidth="11"
+            android:strokeLineCap="round"
+            android:strokeAlpha="0.68"
+            android:pathData="M172,214 A120,120 0 0 1 340,214" />
+        <path
+            android:strokeColor="#fbbf24"
+            android:strokeWidth="11"
+            android:strokeLineCap="round"
+            android:strokeAlpha="0.45"
+            android:pathData="M109,215 A170,170 0 0 1 403,215" />
+        <!-- spectrum bars: tall left peak + shorter right peak, valley centered -->
+        <path
+            android:fillColor="#7c3aed"
+            android:pathData="M77,358 h8 a5,5 0 0 1 5,5 v24 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-24 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#7c3aed"
+            android:pathData="M102,322 h8 a5,5 0 0 1 5,5 v60 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-60 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#1d4ed8"
+            android:pathData="M127,270 h8 a5,5 0 0 1 5,5 v112 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-112 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#16a34a"
+            android:pathData="M152,200 h8 a5,5 0 0 1 5,5 v182 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-182 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#d97706"
+            android:pathData="M177,140 h8 a5,5 0 0 1 5,5 v242 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-242 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#0d9488"
+            android:pathData="M202,202 h8 a5,5 0 0 1 5,5 v180 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-180 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#1d4ed8"
+            android:pathData="M227,262 h8 a5,5 0 0 1 5,5 v120 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-120 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#6d28d9"
+            android:pathData="M252,300 h8 a5,5 0 0 1 5,5 v82 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-82 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#1d4ed8"
+            android:pathData="M277,268 h8 a5,5 0 0 1 5,5 v114 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-114 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#16a34a"
+            android:pathData="M302,224 h8 a5,5 0 0 1 5,5 v158 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-158 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#d97706"
+            android:pathData="M327,210 h8 a5,5 0 0 1 5,5 v172 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-172 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#0d9488"
+            android:pathData="M352,250 h8 a5,5 0 0 1 5,5 v132 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-132 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#6d28d9"
+            android:pathData="M377,298 h8 a5,5 0 0 1 5,5 v84 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-84 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#7c3aed"
+            android:pathData="M402,330 h8 a5,5 0 0 1 5,5 v52 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-52 a5,5 0 0 1 5,-5 z" />
+        <path
+            android:fillColor="#7c3aed"
+            android:pathData="M427,358 h8 a5,5 0 0 1 5,5 v24 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 v-24 a5,5 0 0 1 5,-5 z" />
+        <!-- baseline -->
+        <path
+            android:fillColor="#2a3244"
+            android:pathData="M70,392 h372 a6,6 0 0 1 6,6 v0 a6,6 0 0 1 -6,6 h-372 a6,6 0 0 1 -6,-6 v0 a6,6 0 0 1 6,-6 z" />
+    </group>
 </vector>

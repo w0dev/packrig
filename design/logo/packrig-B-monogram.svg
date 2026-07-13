@@ -1,0 +1,17 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a2a6c"/>
+      <stop offset="1" stop-color="#12203f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bgB)"/>
+  <!-- PR monogram -->
+  <g fill="#e8edf7" font-family="Helvetica, Arial, sans-serif" font-weight="700">
+    <text x="256" y="330" font-size="240" text-anchor="middle" letter-spacing="-14">PR</text>
+  </g>
+  <!-- waveform crossbar cutting through -->
+  <g stroke="#5ee6c4" stroke-width="14" stroke-linecap="round" fill="none">
+    <path d="M92 258 L150 258 L172 210 L200 306 L224 236 L248 258 L420 258"/>
+  </g>
+</svg>
