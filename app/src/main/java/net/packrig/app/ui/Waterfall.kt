@@ -37,13 +37,8 @@ class Waterfall(
 
     fun addColumn(column: FloatArray) {
         synchronized(lock) {
-            // Robust noise-floor estimate: the 15th percentile of this column.
-            // Using a percentile (not the min) keeps the floor stable when a few
-            // bins are very quiet or a strong signal is present.
             val n = minOf(bins, column.size)
-            System.arraycopy(column, 0, scratch, 0, n)
-            java.util.Arrays.sort(scratch, 0, n)
-            val floorSample = scratch[(n * 15) / 100]
+            val floorSample = estimateFloor(column, n, scratch)
 
             if (!primed) {
                 emaFloor = floorSample
@@ -96,5 +91,23 @@ class Waterfall(
             else -> { val u = (t - 0.88f) / 0.12f; r = 255; g = (255 - 155 * u).toInt(); b = 0 }
         }
         return (0xFF shl 24) or (r.coerceIn(0, 255) shl 16) or (g.coerceIn(0, 255) shl 8) or b.coerceIn(0, 255)
+    }
+
+    companion object {
+        /**
+         * Noise-floor estimate for one spectrum column: the median of the
+         * first [n] bins. The rig's RX filter leaves a large block of bins
+         * near-silent, so a low percentile measures the filter floor instead
+         * of the band noise and washes the display out; the median lands in
+         * the in-band noise block while still sitting below signal bins.
+         *
+         * Sorts into [scratch] (no allocation; callers pass a reusable buffer
+         * of at least [n] floats).
+         */
+        fun estimateFloor(column: FloatArray, n: Int, scratch: FloatArray): Float {
+            System.arraycopy(column, 0, scratch, 0, n)
+            java.util.Arrays.sort(scratch, 0, n)
+            return scratch[n / 2]
+        }
     }
 }
