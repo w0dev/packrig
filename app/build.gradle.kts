@@ -17,8 +17,8 @@ android {
         applicationId = "net.packrig"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = System.getenv("PACKRIG_VERSION_CODE")?.toIntOrNull() ?: 100
-        versionName = "1.0.0"
+        versionCode = System.getenv("PACKRIG_VERSION_CODE")?.toIntOrNull() ?: 101
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
