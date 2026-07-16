@@ -8,10 +8,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -26,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -47,6 +50,7 @@ fun OperateScreen(
     var showBandSheet by remember { mutableStateOf(false) }
     var showPotaSheet by remember { mutableStateOf(false) }
     var showLicenseDialog by remember { mutableStateOf(false) }
+    var pendingBlockCall by remember { mutableStateOf<String?>(null) }
     var pendingTxAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val potaSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var parkRefDraft by remember(state.potaParkRef) { mutableStateOf(state.potaParkRef) }
@@ -137,7 +141,9 @@ fun OperateScreen(
                 onAnswerCq = { row -> gateOnLicense { vm.answerCq(row) } },
                 onResume = { row -> gateOnLicense { vm.resumeFromDecode(row) } },
                 userBlockedCalls = state.userBlockedCalls,
-                onBlockSender = { call -> vm.blockStation(call) },
+                onBlockSender = { call ->
+                    if (state.blockConfirmEnabled) pendingBlockCall = call else vm.blockStation(call)
+                },
                 modifier = Modifier.fillMaxWidth().weight(1f),
             )
             OperateTxSelector(
@@ -196,6 +202,18 @@ fun OperateScreen(
         )
     }
 
+    pendingBlockCall?.let { call ->
+        BlockConfirmDialog(
+            call = call,
+            onConfirm = { dontAskAgain ->
+                vm.blockStation(call)
+                if (dontAskAgain) vm.setBlockConfirmEnabled(false)
+                pendingBlockCall = null
+            },
+            onDismiss = { pendingBlockCall = null },
+        )
+    }
+
     if (showBandSheet && state.catReady) {
         DialFrequencyBottomSheet(
             onDismissRequest = { showBandSheet = false },
@@ -228,4 +246,32 @@ fun OperateScreen(
             }
         }
     }
+}
+
+@Composable
+private fun BlockConfirmDialog(
+    call: String,
+    onConfirm: (dontAskAgain: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var dontAskAgain by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Block $call?") },
+        text = {
+            Column {
+                Text("Their decodes will be hidden. You can unblock in Settings.")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = dontAskAgain, onCheckedChange = { dontAskAgain = it })
+                    Text("Don't ask me again")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(dontAskAgain) }) { Text("OK") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
