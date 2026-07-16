@@ -71,6 +71,7 @@ data class OperateUiState(
     val decodeViewMode: DecodeViewMode = DecodeViewMode.OPERATE,
     /** Operate-screen only: decode list shows CQ / 73 / RR73 (plus QSO partner when active). */
     val cq73OnlyFilter: Boolean = false,
+    val blockConfirmEnabled: Boolean = true,
     /** User-configurable decode row colors. */
     val decodeColors: DecodeColorScheme = DecodeColorScheme.DEFAULT,
 

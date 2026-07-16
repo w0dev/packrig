@@ -10,4 +10,10 @@ class StationSettingsDefaultsTest {
         val s = StationSettings()
         assertTrue("Late-start TX must default to ON per spec R7", s.lateStartTxEnabled)
     }
+
+    @Test
+    fun blockConfirmEnabledDefaultsTrue() {
+        val s = StationSettings()
+        assertTrue("Block confirmation must default to ON", s.blockConfirmEnabled)
+    }
 }

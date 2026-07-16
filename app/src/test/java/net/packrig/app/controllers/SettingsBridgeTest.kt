@@ -168,6 +168,17 @@ class SettingsBridgeTest {
     }
 
     @Test
+    fun sliceCarriesBlockConfirmEnabled() = runTest {
+        val (repo, flow) = makeRepo(initial = defaultSettings.copy(blockConfirmEnabled = false))
+        val bridge = SettingsBridge(repo, bridgeScope)
+
+        bridge.slice.test {
+            assertEquals(false, awaitItem().blockConfirmEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun sliceCarriesLateStartTxEnabled() = runTest {
         val (repo, flow) = makeRepo(initial = defaultSettings.copy(lateStartTxEnabled = false))
         val bridge = SettingsBridge(repo, bridgeScope)

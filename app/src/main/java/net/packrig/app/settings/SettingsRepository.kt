@@ -56,6 +56,7 @@ class SettingsRepository(context: Context) {
             potaModeEnabled = prefs[Keys.POTA_MODE] ?: false,
             potaParkRef = prefs[Keys.POTA_PARK_REF] ?: "",
             cq73OnlyFilter = prefs[Keys.CQ73_FILTER] ?: false,
+            blockConfirmEnabled = prefs[Keys.BLOCK_CONFIRM] ?: true,
             decodeViewMode = prefs[Keys.DECODE_VIEW_MODE]?.let { DecodeViewMode.valueOf(it) }
                 ?: DecodeViewMode.OPERATE,
             txSlotParity = prefs[Keys.TX_SLOT_PARITY]?.let { TxSlotParity.valueOf(it) }
@@ -253,6 +254,10 @@ class SettingsRepository(context: Context) {
         appContext.settingsDataStore.edit { it[Keys.CQ73_FILTER] = enabled }
     }
 
+    suspend fun setBlockConfirmEnabled(enabled: Boolean) {
+        appContext.settingsDataStore.edit { it[Keys.BLOCK_CONFIRM] = enabled }
+    }
+
     suspend fun setDecodeViewMode(mode: DecodeViewMode) {
         appContext.settingsDataStore.edit { it[Keys.DECODE_VIEW_MODE] = mode.name }
     }
@@ -341,6 +346,7 @@ class SettingsRepository(context: Context) {
         val POTA_MODE = booleanPreferencesKey("pota_mode")
         val POTA_PARK_REF = stringPreferencesKey("pota_park_ref")
         val CQ73_FILTER = booleanPreferencesKey("cq73_filter")
+        val BLOCK_CONFIRM = booleanPreferencesKey("block_confirm")
         val DECODE_VIEW_MODE = stringPreferencesKey("decode_view_mode")
         val TX_SLOT_PARITY = stringPreferencesKey("tx_slot_parity")
         val USE_DARK_THEME = booleanPreferencesKey("use_dark_theme")

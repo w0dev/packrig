@@ -232,6 +232,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 useDarkTheme = settings.useDarkTheme,
                 decodeViewMode = settings.decodeViewMode,
                 cq73OnlyFilter = settings.cq73OnlyFilter,
+                blockConfirmEnabled = settings.blockConfirmEnabled,
                 decodeColors = settings.decodeColors,
                 devices = view.devices,
                 selectedDeviceId = settings.selectedAudioDeviceId ?: view.selectedDeviceId,
@@ -607,6 +608,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setCq73OnlyFilter(enabled: Boolean) {
         viewModelScope.launch { settingsRepo.setCq73OnlyFilter(enabled) }
+    }
+
+    fun setBlockConfirmEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepo.setBlockConfirmEnabled(enabled) }
     }
 
     fun setDecodeViewMode(mode: DecodeViewMode) {
