@@ -87,7 +87,7 @@ object AdifAutoBackup {
             val adif = logbook.exportAdif(
                 AdifExportContext(
                     programId = AppInfo.APP_NAME,
-                    programVersion = AppInfo.VERSION_NAME,
+                    programVersion = BuildConfig.VERSION_NAME,
                 ),
             )
             val dir = context.getExternalFilesDir(null) ?: context.filesDir

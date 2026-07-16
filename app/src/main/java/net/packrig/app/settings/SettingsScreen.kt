@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.packrig.app.BuildConfig
 import net.packrig.app.OperateUiState
 import net.packrig.app.OperateViewModel
 import net.packrig.core.ActivationProfile
@@ -429,7 +430,7 @@ private fun GeneralSettingsTab(vm: OperateViewModel, state: OperateUiState) {
         }
 
         SettingsSection("About") {
-            Text("${AppInfo.APP_NAME} ${AppInfo.VERSION_NAME}")
+            Text("${AppInfo.APP_NAME} ${BuildConfig.VERSION_NAME}")
             if (state.nativeLoaded) {
                 Text(
                     "Decoder library: loaded v${state.nativeVersion}",
