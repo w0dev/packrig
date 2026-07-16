@@ -63,6 +63,7 @@ data class StationSettings(
     val potaModeEnabled: Boolean = false,
     val potaParkRef: String = "",
     val cq73OnlyFilter: Boolean = false,
+    val blockConfirmEnabled: Boolean = true,
     val decodeViewMode: DecodeViewMode = DecodeViewMode.OPERATE,
     /** Transmit on even (:00/:30) or odd (:15/:45) UTC slots when calling CQ. */
     val txSlotParity: TxSlotParity = TxSlotParity.EVEN,

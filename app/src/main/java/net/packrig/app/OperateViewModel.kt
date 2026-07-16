@@ -232,6 +232,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 useDarkTheme = settings.useDarkTheme,
                 decodeViewMode = settings.decodeViewMode,
                 cq73OnlyFilter = settings.cq73OnlyFilter,
+                blockConfirmEnabled = settings.blockConfirmEnabled,
                 decodeColors = settings.decodeColors,
                 devices = view.devices,
                 selectedDeviceId = settings.selectedAudioDeviceId ?: view.selectedDeviceId,
@@ -607,6 +608,10 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setCq73OnlyFilter(enabled: Boolean) {
         viewModelScope.launch { settingsRepo.setCq73OnlyFilter(enabled) }
+    }
+
+    fun setBlockConfirmEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepo.setBlockConfirmEnabled(enabled) }
     }
 
     fun setDecodeViewMode(mode: DecodeViewMode) {
@@ -1164,8 +1169,13 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private companion object {
-        /** Floor-offset dB used by the spectrum/waterfall renderer at the default brightness (0.6). */
-        const val WATERFALL_FLOOR_OFFSET_DB_DEFAULT = 24f - 0.6f * 32f
+        /**
+         * Floor-offset dB for the spectrum/waterfall renderer. 0 starts the
+         * color ramp at the median in-band noise level, so noise shows as
+         * faint blue speckle and the RX passband edges stay visible against
+         * the silent (pure black) filter-rolloff region.
+         */
+        const val WATERFALL_FLOOR_OFFSET_DB_DEFAULT = 0f
         /** Poll interval for the capture-stall watchdog monitor coroutine. */
         const val CAPTURE_WATCHDOG_TICK_MS = 1_000L
     }

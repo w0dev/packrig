@@ -245,6 +245,23 @@ private fun GeneralSettingsTab(vm: OperateViewModel, state: OperateUiState) {
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text("Confirm before blocking", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Ask before a long-press blocks a station",
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+                Switch(
+                    checked = state.blockConfirmEnabled,
+                    onCheckedChange = vm::setBlockConfirmEnabled,
+                )
+            }
             if (state.userBlockedCalls.isEmpty()) {
                 Text(
                     "No blocked stations.",
