@@ -60,7 +60,7 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         logbook.exportAdif(
             AdifExportContext(
                 programId = AppInfo.APP_NAME,
-                programVersion = AppInfo.VERSION_NAME,
+                programVersion = BuildConfig.VERSION_NAME,
             ),
         )
 
@@ -72,7 +72,7 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
             group,
             AdifExportContext(
                 programId = AppInfo.APP_NAME,
-                programVersion = AppInfo.VERSION_NAME,
+                programVersion = BuildConfig.VERSION_NAME,
                 activationParkRef = activation.parkRef,
             ),
         )

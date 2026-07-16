@@ -14,7 +14,6 @@ enum class BuildPhase(val label: String) {
 object AppInfo {
     const val APP_NAME = "PackRig"
     const val TAGLINE = "FT8, vibe-coded"
-    const val VERSION_NAME = "1.0.0"
 
     /** FT8 internal audio sample rate. Everything DSP runs at this rate. */
     const val SAMPLE_RATE_HZ = 12_000
