@@ -87,7 +87,8 @@ class DecodeController(
 ) : AutoCloseable {
 
     /** UI-side sink for spectrum FFT columns. VM points this at `waterfall::addColumn`; tests leave it as a no-op. */
-    @Volatile var spectrumSink: (FloatArray) -> Unit = {}
+    /** Receives each spectrum column with the epoch-ms clock time it arrived. */
+    @Volatile var spectrumSink: (FloatArray, Long) -> Unit = { _, _ -> }
 
     private val spectrum = SpectrumProcessor(sampleRate = sampleRateHz)
     val binCount: Int = spectrum.binCount
@@ -204,7 +205,7 @@ class DecodeController(
         levelEma += 0.3f * (instDb - levelEma)
         val clipped = peak >= 32000
 
-        spectrum.process(pcm) { column -> spectrumSink(column) }
+        spectrum.process(pcm) { column -> spectrumSink(column, clock()) }
         val slotStartNow = net.packrig.core.SlotTiming.slotStart(clock())
         if (currentSlotStart.value != slotStartNow) {
             currentSlotStart.value = slotStartNow

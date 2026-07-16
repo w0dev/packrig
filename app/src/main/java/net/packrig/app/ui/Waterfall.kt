@@ -28,6 +28,7 @@ class Waterfall(
     private val bitmap: Bitmap = Bitmap.createBitmap(bins, history, Bitmap.Config.ARGB_8888)
     private val pixels = IntArray(bins * history)
     private val scratch = FloatArray(bins)
+    private val slotMarkerTracker = SlotMarkerTracker(history)
     private var emaFloor = -80f
     private var primed = false
 
@@ -35,8 +36,9 @@ class Waterfall(
         pixels.fill(0xFF000000.toInt())
     }
 
-    fun addColumn(column: FloatArray) {
+    fun addColumn(column: FloatArray, epochMillisUtc: Long) {
         synchronized(lock) {
+            slotMarkerTracker.onColumn(epochMillisUtc)
             val n = minOf(bins, column.size)
             val floorSample = estimateFloor(column, n, scratch)
 
@@ -67,10 +69,15 @@ class Waterfall(
         return bitmap.asImageBitmap()
     }
 
+    /** Slot-boundary marks currently on screen (row 0 = oldest/top). */
+    fun slotMarkers(): List<SlotMarkerTracker.SlotMark> =
+        synchronized(lock) { slotMarkerTracker.markers() }
+
     fun clear() {
         synchronized(lock) {
             pixels.fill(0xFF000000.toInt())
             primed = false
+            slotMarkerTracker.clear()
         }
     }
 
