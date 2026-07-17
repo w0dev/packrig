@@ -43,11 +43,14 @@ The multi-rig milestone (spec:
 section) covers two more families beyond Yaesu new-CAT. Neither is
 implemented yet; each gets its own spec + plan when picked up:
 
-- **Phase 3 — Kenwood** (`KenwoodCat`: TS-590SG, TS-890S, …). Small delta:
-  Yaesu new-CAT descends from Kenwood's ASCII dialect.
-- **Phase 4 — Icom CI-V** (`IcomCiV`: IC-7300 `0x94`, IC-705 `0xA4`, …).
-  New binary parser: `0xFE 0xFE … 0xFD` framing, BCD frequencies, per-model
-  bus addresses, own-echo handling.
+- **Phase 3 — Kenwood + Elecraft** (`KenwoodCat`: TS-590SG, TS-890S, …;
+  Elecraft KX2/KX3/K4 as a variant table — their dialect descends from
+  Kenwood's, as does Yaesu new-CAT). Small delta.
+- **Phase 4 — Icom CI-V** (`IcomCiV`: IC-7300 `0x94`, IC-705 `0xA4`, plus
+  Xiegu G90/X6100, which clone CI-V). New binary parser: `0xFE 0xFE … 0xFD`
+  framing, BCD frequencies, per-model bus addresses, own-echo handling.
+  **Designed 2026-07-17** (sequenced ahead of Phase 3):
+  `docs/superpowers/specs/2026-07-17-icom-civ-family-design.md`.
 - **Authoring references** (decided in the milestone spec): hamlib's per-rig
   backend sources and FT8CN's `rigs/*RigConstant.java` tables are the
   command-string/quirk references for writing our tables — used as data,
