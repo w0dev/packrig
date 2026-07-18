@@ -55,7 +55,12 @@ fun RigProfileEditorDialog(
         mutableStateOf(existing?.catProtocolId ?: CatProtocols.YAESU_NEWCAT)
     }
     var civAddressText by remember {
-        mutableStateOf(existing?.civAddress?.let { "%02X".format(it) } ?: "")
+        // Profile override, else the preset's factory default — a CI-V preset
+        // saved with a blank address must still reopen with the field prefilled.
+        mutableStateOf(
+            (existing?.civAddress ?: RigRegistry.byId(existing?.presetId ?: "")?.civAddress)
+                ?.let { "%02X".format(it) } ?: ""
+        )
     }
     var testResult by remember { mutableStateOf<String?>(null) }
 
@@ -92,6 +97,9 @@ fun RigProfileEditorDialog(
                 PresetPicker(
                     selectedId = presetId.ifEmpty { null },
                     onSelect = { id ->
+                        // Re-picking the current model is a no-op — don't wipe
+                        // typed overrides (CI-V address, baud, port, PTT).
+                        if (id == presetId) return@PresetPicker
                         presetId = id
                         val chosen = RigRegistry.byId(id)
                         if (name.isBlank() && chosen != null && !RigRegistry.isGeneric(id)) {
@@ -121,6 +129,9 @@ fun RigProfileEditorDialog(
                         CatProtocolPicker(
                             selectedId = catProtocolId,
                             onSelect = { id ->
+                                // Re-picking the current protocol is a no-op —
+                                // don't clear a typed CI-V address.
+                                if (id == catProtocolId) return@CatProtocolPicker
                                 catProtocolId = id
                                 civAddressText = ""
                                 testResult = null
