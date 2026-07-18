@@ -61,4 +61,15 @@ class FakeSerialTransportSelfTest {
         t.openResult = false
         assertFalse(t.open())
     }
+
+    @Test
+    fun enqueueOnWrite_isNotReadableUntilAfterAWrite() {
+        val t = FakeSerialTransport()
+        t.enqueueOnWrite("R!")
+        val buf = ByteArray(64)
+        assertEquals(0, t.read(buf, 200))
+        assertTrue(t.write("Q".toByteArray(Charsets.US_ASCII), 200))
+        assertEquals(2, t.read(buf, 200))
+        assertEquals("R!", String(buf, 0, 2, Charsets.US_ASCII))
+    }
 }

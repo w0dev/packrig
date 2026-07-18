@@ -47,100 +47,146 @@ class SerialRigBackend(
 
     override fun frequencyHz(): Long? {
         val p = protocol ?: return null
-        return catExchange(p.readFrequencyCommand(), p.replyTerminator)?.let(p::parseFrequency)
+        val outcome = catExchange(p, p.readFrequencyCommand())
+        // A transceive broadcast heard while waiting is a valid answer when the
+        // direct reply never came (echo-heavy or busy CI-V buses).
+        return outcome.reply?.let(p::parseFrequency)
+            ?: outcome.broadcasts.firstNotNullOfOrNull(p::parseFrequency)
     }
 
-    /**
-     * One-shot diagnostic: send a frequency query and classify what comes
-     * back, keeping partial bytes (unlike [readReply]) so a wrong-baud rig
-     * reads as [ProbeResult.Garbage] rather than a timeout.
-     */
     fun probeFrequency(): ProbeResult = synchronized(catLock) {
         val p = protocol ?: return ProbeResult.NoCat
+        if (p.wantsInputFlush) drainInput()
         if (!transport.write(p.readFrequencyCommand(), CAT_TIMEOUT_MS)) return ProbeResult.Silence
         val buffer = ByteArray(READ_BUFFER_SIZE)
-        var collected = ByteArray(0)
+        var pending = ByteArray(0)
+        var sawBytes = false
+        var sawEcho = false
+        var sawOther = false
         val deadline = nowMs() + CAT_REPLY_DEADLINE_MS
         while (nowMs() < deadline) {
             val n = transport.read(buffer, CAT_TIMEOUT_MS)
             if (n < 0) break
-            if (n > 0) {
-                collected += buffer.copyOfRange(0, n)
-                val end = collected.indexOfFirst { it == p.replyTerminator }
-                if (end >= 0) {
-                    val frame = collected.copyOfRange(0, end + 1)
-                    return p.parseFrequency(frame)?.let { ProbeResult.Sync(it) } ?: ProbeResult.Garbage
+            if (n == 0) continue
+            sawBytes = true
+            pending += buffer.copyOfRange(0, n)
+            val split = p.splitFrames(pending)
+            pending = split.remainder
+            for (frame in split.frames) {
+                when (p.classifyFrame(frame)) {
+                    FrameClass.Reply ->
+                        return p.parseFrequency(frame)?.let { ProbeResult.Sync(it) } ?: ProbeResult.Garbage
+                    FrameClass.Echo -> sawEcho = true
+                    FrameClass.Broadcast -> {
+                        p.parseFrequency(frame)?.let { return ProbeResult.Sync(it) }
+                        sawOther = true
+                    }
+                    else -> sawOther = true
                 }
             }
         }
-        return if (collected.isEmpty()) ProbeResult.Silence else ProbeResult.Garbage
+        return when {
+            sawEcho && !sawOther -> ProbeResult.EchoOnly
+            sawBytes -> ProbeResult.Garbage
+            else -> ProbeResult.Silence
+        }
     }
 
     override fun setFrequencyHz(hz: Long): Boolean {
-        val command = protocol?.setFrequencyCommand(hz) ?: return false
-        return catWrite(command)
+        val p = protocol ?: return false
+        val command = p.setFrequencyCommand(hz) ?: return false
+        return catWrite(p, command)
     }
 
     override fun modeLabel(): String? {
         val p = protocol ?: return null
-        return catExchange(p.readModeCommand(), p.replyTerminator)?.let(p::parseModeLabel)
+        return catExchange(p, p.readModeCommand()).reply?.let(p::parseModeLabel)
     }
 
     override fun setDataMode(): Boolean {
-        val command = protocol?.setDataModeCommand() ?: return false
-        return catWrite(command)
+        val p = protocol ?: return false
+        return catWrite(p, p.setDataModeCommand())
     }
 
     override fun dataModeLabel(): String = protocol?.dataModeLabel ?: "No CAT"
 
     override fun catPtt(on: Boolean): Boolean {
-        val command = protocol?.pttCommand(on) ?: return false
-        val ok = catWrite(command)
+        val p = protocol ?: return false
+        val command = p.pttCommand(on) ?: return false
+        val ok = catWrite(p, command)
         Log.i(TAG, "catPtt(on=$on) sent=$ok")
         return ok
     }
 
-    /** Send a CAT command that expects no reply. */
-    private fun catWrite(command: ByteArray): Boolean = synchronized(catLock) {
-        val ok = transport.write(command, CAT_TIMEOUT_MS)
-        Log.i(TAG, "CAT write \"${command.ascii()}\" ok=$ok")
-        ok
-    }
+    /** Reply (or null) plus any transceive broadcasts heard while waiting. */
+    private class Exchange(val reply: ByteArray?, val broadcasts: List<ByteArray>)
 
-    /** Send a CAT query and read the terminated reply, or null on timeout. */
-    private fun catExchange(command: ByteArray, terminator: Byte): ByteArray? = synchronized(catLock) {
+    /** Send a set command. Fire-and-forget unless the protocol acks sets. */
+    private fun catWrite(p: CatProtocol, command: ByteArray): Boolean = synchronized(catLock) {
+        if (p.wantsInputFlush) drainInput()
         if (!transport.write(command, CAT_TIMEOUT_MS)) {
             Log.e(TAG, "CAT write \"${command.ascii()}\" failed")
-            return null
+            return false
         }
-        val reply = readReply(terminator)
+        if (!p.setCommandsAcked) {
+            Log.i(TAG, "CAT write \"${command.ascii()}\" ok=true")
+            return true
+        }
+        val outcome = consumeFrames(p) { c -> c == FrameClass.Ack || c == FrameClass.Nak }
+        val acked = outcome.reply?.let { p.classifyFrame(it) == FrameClass.Ack } ?: false
+        Log.i(TAG, "CAT set \"${command.ascii()}\" acked=$acked")
+        return acked
+    }
+
+    /** Send a query and collect frames until a Reply or the deadline. */
+    private fun catExchange(p: CatProtocol, command: ByteArray): Exchange = synchronized(catLock) {
+        if (p.wantsInputFlush) drainInput()
+        if (!transport.write(command, CAT_TIMEOUT_MS)) {
+            Log.e(TAG, "CAT write \"${command.ascii()}\" failed")
+            return Exchange(null, emptyList())
+        }
+        val outcome = consumeFrames(p) { c -> c == FrameClass.Reply }
         Log.i(
             TAG,
             "CAT exchange \"${command.ascii()}\" -> " +
-                (reply?.let { "\"${it.ascii()}\"" } ?: "<timeout>"),
+                (outcome.reply?.let { "\"${it.ascii()}\"" } ?: "<timeout>"),
         )
-        reply
+        return outcome
     }
 
-    /** Accumulate reads until [terminator] or the deadline. */
-    private fun readReply(terminator: Byte): ByteArray? {
+    /** Accumulate reads, split into frames, and return the first frame matching
+     *  [wanted]; echoes, junk, and unclaimed acks are dropped, broadcasts kept. */
+    private fun consumeFrames(p: CatProtocol, wanted: (FrameClass) -> Boolean): Exchange {
         val buffer = ByteArray(READ_BUFFER_SIZE)
-        var collected = ByteArray(0)
+        var pending = ByteArray(0)
+        val broadcasts = mutableListOf<ByteArray>()
         val deadline = nowMs() + CAT_REPLY_DEADLINE_MS
         while (nowMs() < deadline) {
             val n = transport.read(buffer, CAT_TIMEOUT_MS)
             if (n < 0) {
-                Log.w(TAG, "CAT read error — aborting reply wait")
-                return null
+                Log.w(TAG, "CAT read error — aborting frame wait")
+                return Exchange(null, broadcasts)
             }
-            if (n > 0) {
-                collected += buffer.copyOfRange(0, n)
-                val end = collected.indexOfFirst { it == terminator }
-                if (end >= 0) return collected.copyOfRange(0, end + 1)
+            if (n == 0) continue
+            pending += buffer.copyOfRange(0, n)
+            val split = p.splitFrames(pending)
+            pending = split.remainder
+            for (frame in split.frames) {
+                val klass = p.classifyFrame(frame)
+                if (wanted(klass)) return Exchange(frame, broadcasts)
+                if (klass == FrameClass.Broadcast) broadcasts += frame
             }
         }
-        Log.w(TAG, "CAT reply timed out (got \"${collected.ascii()}\")")
-        return null
+        Log.w(TAG, "CAT frame wait timed out")
+        return Exchange(null, broadcasts)
+    }
+
+    /** Discard stale bytes (unclaimed acks, echoes) queued before an exchange. */
+    private fun drainInput() {
+        val buffer = ByteArray(READ_BUFFER_SIZE)
+        repeat(MAX_FLUSH_READS) {
+            if (transport.read(buffer, FLUSH_READ_TIMEOUT_MS) <= 0) return
+        }
     }
 
     private fun ByteArray.ascii(): String = toString(Charsets.US_ASCII)
@@ -154,5 +200,11 @@ class SerialRigBackend(
 
         /** Overall budget for collecting a complete terminated CAT reply. */
         private const val CAT_REPLY_DEADLINE_MS = 1000L
+
+        /** Per-read timeout while draining stale input before an exchange. */
+        private const val FLUSH_READ_TIMEOUT_MS = 10
+
+        /** Cap on drain reads so a chatty bus can't stall an exchange forever. */
+        private const val MAX_FLUSH_READS = 16
     }
 }

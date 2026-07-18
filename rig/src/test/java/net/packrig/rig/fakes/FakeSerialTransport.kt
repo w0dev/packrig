@@ -24,8 +24,16 @@ class FakeSerialTransport : SerialTransport {
 
     private val pending = ArrayDeque<Byte>()
 
+    /** Bytes delivered only after the next write() — for flush-enabled protocols
+     *  whose pre-write drain would otherwise eat a pre-enqueued reply. */
+    private val onWrite = ArrayDeque<Byte>()
+
     fun enqueueReply(ascii: String) {
         ascii.toByteArray(Charsets.US_ASCII).forEach { pending.addLast(it) }
+    }
+
+    fun enqueueOnWrite(ascii: String) {
+        ascii.toByteArray(Charsets.US_ASCII).forEach { onWrite.addLast(it) }
     }
 
     fun writtenAscii(): List<String> = writes.map { it.toString(Charsets.US_ASCII) }
@@ -42,6 +50,7 @@ class FakeSerialTransport : SerialTransport {
     override fun write(bytes: ByteArray, timeoutMs: Int): Boolean {
         if (failWrites) return false
         writes += bytes.copyOf()
+        while (onWrite.isNotEmpty()) pending.addLast(onWrite.removeFirst())
         return true
     }
 

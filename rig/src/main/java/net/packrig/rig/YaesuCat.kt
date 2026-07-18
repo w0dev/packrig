@@ -8,8 +8,6 @@ package net.packrig.rig
  */
 class YaesuCat(val model: YaesuModelSpec) : CatProtocol {
 
-    override val replyTerminator: Byte = TERMINATOR.code.toByte()
-
     override val dataModeLabel: String = model.modeLabels.getValue(model.dataModeCode)
 
     override fun readFrequencyCommand(): ByteArray = ascii("FA;")

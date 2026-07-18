@@ -11,6 +11,9 @@ sealed interface ProbeResult {
     /** Nothing arrived — wrong port, cable, or rig CAT menu off. */
     data object Silence : ProbeResult
 
+    /** Only our own echoed command came back — the rig itself never answered. */
+    data object EchoOnly : ProbeResult
+
     data object NoDevice : ProbeResult
     data object NoPermission : ProbeResult
 

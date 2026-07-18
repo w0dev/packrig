@@ -7,9 +7,6 @@ package net.packrig.rig
  */
 interface CatProtocol {
 
-    /** Byte that ends a reply frame (';' for ASCII CAT, 0xFD for CI-V). */
-    val replyTerminator: Byte
-
     /** Display label of the mode [setDataModeCommand] selects (e.g. "DATA-U"). */
     val dataModeLabel: String
 

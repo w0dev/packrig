@@ -80,11 +80,6 @@ class YaesuCatTest {
     }
 
     @Test
-    fun replyTerminatorIsSemicolon() {
-        assertEquals(';'.code.toByte(), cat.replyTerminator)
-    }
-
-    @Test
     fun splitFrames_splitsCompleteFramesAndKeepsRemainder() {
         val split = cat.splitFrames("FA014074000;MD02;FA0".toByteArray(Charsets.US_ASCII))
         assertEquals(listOf("FA014074000;", "MD02;"), split.frames.map { it.toString(Charsets.US_ASCII) })
