@@ -95,7 +95,6 @@ data class OperateUiState(
 
     // ── Tx (transmit settings + composed message) ─────────────────────────
     val txEnabled: Boolean = false,
-    val txMessage: String = DEFAULT_TX_MESSAGE,
     val txFreqHz: Int = DEFAULT_TX_FREQ_HZ,
     /** Next message [QsoMachine] will send on a TX slot, when a QSO is active. */
     val nextTxMessage: String? = null,
@@ -211,7 +210,6 @@ data class OperateUiState(
         const val INPUT_GAIN_MIN = 0.1f
         const val SILENCE_DBFS = -100f
         const val MAX_DECODE_ROWS = 500
-        const val DEFAULT_TX_MESSAGE = ""
         const val DEFAULT_TX_FREQ_HZ = 1000
         const val DEFAULT_MY_CALL = ""
         const val DEFAULT_MY_GRID = ""
