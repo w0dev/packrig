@@ -13,6 +13,11 @@ CAT manual + cross-checked against FT8CN, transport fields (PID/port) best-guess
 | FT-710   | ft710   | built-in USB          | CAT from manual   |
 | FTDX101  | ftdx101 | built-in USB (CP2105) | CAT from manual   |
 | FTX-1    | ftx1    | built-in USB (hub: CP2105 `10c4:ea70` + aux CDC + C-Media codec) | Verified on owner hardware 2026-07-09 (second reference rig): CAT read/write @ 38400 on port 0 = Enhanced, TX + audio field-checked; covers VHF/UHF (observed at 444.0925 MHz) |
+| IC-7300  | ic7300  | built-in USB (CP210x) | CAT from manual (CI-V `0x94`, 0x26 data; hamlib+FT8CN cross-check) |
+| IC-705   | ic705   | built-in USB          | CAT from manual (CI-V `0xA4`, 0x26 data; hamlib+wfview cross-check) |
+| IC-7100  | ic7100  | built-in USB          | CAT from manual (CI-V `0x88`, 0x06+0x1A data — pre-0x26 generation; hamlib flags ambiguous, manual-based) |
+| Xiegu G90  | xiegu-g90   | Digirig (CI-V jack)  | CAT from manual (CI-V `0x70` per Xiegu manual/Radioddity/FT8CN — hamlib row differs; no data mode, plain USB) |
+| Xiegu X6100 | xiegu-x6100 | built-in USB (CDC-ACM) | CAT from manual (CI-V `0xA4`, emulates IC-705; hamlib+wfview cross-check) |
 
 ## Rig profiles (Phase 2.5 — implemented)
 
@@ -40,14 +45,17 @@ generic-rts QSO, Test CAT spot-checks) verified 2026-07-11.
 
 The multi-rig milestone (spec:
 `docs/superpowers/specs/2026-07-04-multi-rig-support-design.md`, Phasing
-section) covers two more families beyond Yaesu new-CAT. Neither is
-implemented yet; each gets its own spec + plan when picked up:
+section) covers two more families beyond Yaesu new-CAT. Phase 4 is
+implemented and ships these presets unverified; Phase 3 remains future:
 
-- **Phase 3 — Kenwood** (`KenwoodCat`: TS-590SG, TS-890S, …). Small delta:
-  Yaesu new-CAT descends from Kenwood's ASCII dialect.
-- **Phase 4 — Icom CI-V** (`IcomCiV`: IC-7300 `0x94`, IC-705 `0xA4`, …).
-  New binary parser: `0xFE 0xFE … 0xFD` framing, BCD frequencies, per-model
-  bus addresses, own-echo handling.
+- **Phase 3 — Kenwood + Elecraft** (`KenwoodCat`: TS-590SG, TS-890S, …;
+  Elecraft KX2/KX3/K4 as a variant table — their dialect descends from
+  Kenwood's, as does Yaesu new-CAT). Small delta.
+- **Phase 4 — Icom CI-V** (`IcomCiV`: IC-7300 `0x94`, IC-705 `0xA4`, plus
+  Xiegu G90/X6100, which clone CI-V). New binary parser: `0xFE 0xFE … 0xFD`
+  framing, BCD frequencies, per-model bus addresses, own-echo handling.
+  **Implemented 2026-07-17** (sequenced ahead of Phase 3):
+  `docs/superpowers/specs/2026-07-17-icom-civ-family-design.md`.
 - **Authoring references** (decided in the milestone spec): hamlib's per-rig
   backend sources and FT8CN's `rigs/*RigConstant.java` tables are the
   command-string/quirk references for writing our tables — used as data,
@@ -55,6 +63,17 @@ implemented yet; each gets its own spec + plan when picked up:
 
 Out of scope for the milestone: pre-new-CAT Yaesu binary protocol
 (FT-857D, FT-818) — a genuinely different parser, not a table entry.
+
+## Verifying a CI-V rig (community reports)
+
+No CI-V hardware is on the maintainer's bench — these presets are
+desk-authored and ship unverified. To flip a row to Verified, open a
+"CI-V rig report" issue (template in the tracker) with: rig model +
+firmware, connection path (built-in USB / Digirig), the Test CAT result
+from the profile editor (Sync / Echo only / Garbage / Silence, with the
+baud + address used), whether TX keys, and whether a full FT8 QSO
+completed. Echo only usually means the CI-V address doesn't match the
+rig's menu. `transportVerified = true` lands with the row flip.
 
 ## Adding / verifying a model
 

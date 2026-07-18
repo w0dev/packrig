@@ -49,20 +49,9 @@ fun OperateScreen(
     val activity = context as? Activity
     var showBandSheet by remember { mutableStateOf(false) }
     var showPotaSheet by remember { mutableStateOf(false) }
-    var showLicenseDialog by remember { mutableStateOf(false) }
     var pendingBlockCall by remember { mutableStateOf<String?>(null) }
-    var pendingTxAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val potaSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var parkRefDraft by remember(state.potaParkRef) { mutableStateOf(state.potaParkRef) }
-
-    fun gateOnLicense(action: () -> Unit) {
-        if (state.licenseAcknowledged) {
-            action()
-        } else {
-            pendingTxAction = action
-            showLicenseDialog = true
-        }
-    }
 
     var hasPermission by remember {
         mutableStateOf(
@@ -138,8 +127,8 @@ fun OperateScreen(
                 canAnswer = state.txEnabled && !state.qsoActive,
                 canResume = state.txEnabled && !state.qsoActive,
                 onClear = vm::clearDecodes,
-                onAnswerCq = { row -> gateOnLicense { vm.answerCq(row) } },
-                onResume = { row -> gateOnLicense { vm.resumeFromDecode(row) } },
+                onAnswerCq = { row -> vm.answerCq(row) },
+                onResume = { row -> vm.resumeFromDecode(row) },
                 userBlockedCalls = state.userBlockedCalls,
                 onBlockSender = { call ->
                     if (state.blockConfirmEnabled) pendingBlockCall = call else vm.blockStation(call)
@@ -164,42 +153,10 @@ fun OperateScreen(
                         vm.startOperating()
                     }
                 },
-                onStartCq = { gateOnLicense { vm.startCq() } },
+                onStartCq = { vm.startCq() },
                 onEndQso = vm::stopQso,
             )
         }
-    }
-
-    if (showLicenseDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showLicenseDialog = false
-                pendingTxAction = null
-            },
-            title = { Text("Confirm before transmitting") },
-            text = {
-                Text(
-                    "Transmitting requires a valid amateur radio license for your " +
-                        "jurisdiction. You are responsible for lawful operation; this " +
-                        "app and its authors are not.",
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.acknowledgeLicense()
-                    showLicenseDialog = false
-                    val action = pendingTxAction
-                    pendingTxAction = null
-                    action?.invoke()
-                }) { Text("I understand") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showLicenseDialog = false
-                    pendingTxAction = null
-                }) { Text("Cancel") }
-            },
-        )
     }
 
     pendingBlockCall?.let { call ->

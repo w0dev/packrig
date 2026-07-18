@@ -2,6 +2,7 @@ package net.packrig.app
 
 import net.packrig.rig.ProbeResult
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProbeResultTextTest {
@@ -19,5 +20,11 @@ class ProbeResultTextTest {
         assertEquals("No USB serial device attached", probeResultText(ProbeResult.NoDevice))
         assertEquals("USB permission not granted — connect the rig and allow access", probeResultText(ProbeResult.NoPermission))
         assertEquals("This rig setup has no CAT to test", probeResultText(ProbeResult.NoCat))
+    }
+
+    @Test
+    fun echoOnly_pointsAtAddressAndPower() {
+        val text = probeResultText(ProbeResult.EchoOnly)
+        assertTrue(text.contains("CI-V address"))
     }
 }

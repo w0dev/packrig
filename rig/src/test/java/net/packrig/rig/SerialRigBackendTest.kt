@@ -105,4 +105,108 @@ class SerialRigBackendTest {
         assertEquals(listOf(false, false), transport.rtsEdges)
         assertFalse(transport.opened)
     }
+
+    /** Minimal acked/flushing protocol: frames are `<class-byte>!`, ack = 'K', nak = 'N'. */
+    private open class AckedStubProtocol : CatProtocol {
+        override val dataModeLabel = "STUB"
+        override val wantsInputFlush = true
+        override val setCommandsAcked = true
+        override fun readFrequencyCommand() = byteArrayOf('Q'.code.toByte())
+        override fun setFrequencyCommand(hz: Long): ByteArray = byteArrayOf('S'.code.toByte())
+        override fun parseFrequency(reply: ByteArray): Long? =
+            if (reply.firstOrNull() == 'R'.code.toByte()) 7_074_000L else null
+        override fun readModeCommand() = byteArrayOf('M'.code.toByte())
+        override fun parseModeLabel(reply: ByteArray): String? = null
+        override fun setDataModeCommand() = byteArrayOf('D'.code.toByte())
+        override fun pttCommand(on: Boolean) = byteArrayOf('P'.code.toByte())
+        override fun splitFrames(bytes: ByteArray): FrameSplit {
+            val frames = mutableListOf<ByteArray>()
+            var start = 0
+            for (i in bytes.indices) {
+                if (bytes[i] == '!'.code.toByte()) {
+                    frames += bytes.copyOfRange(start, i + 1)
+                    start = i + 1
+                }
+            }
+            return FrameSplit(frames, bytes.copyOfRange(start, bytes.size))
+        }
+        override fun classifyFrame(frame: ByteArray): FrameClass = when (frame.firstOrNull()) {
+            'R'.code.toByte() -> FrameClass.Reply
+            'E'.code.toByte() -> FrameClass.Echo
+            'K'.code.toByte() -> FrameClass.Ack
+            'N'.code.toByte() -> FrameClass.Nak
+            'B'.code.toByte() -> FrameClass.Broadcast
+            else -> FrameClass.Junk
+        }
+    }
+
+    @Test
+    fun exchange_skipsEchoAndJunkFramesBeforeReply() {
+        val t = FakeSerialTransport()
+        val b = SerialRigBackend(t, AckedStubProtocol())
+        t.enqueueOnWrite("E!x!R!")
+        assertEquals(7_074_000L, b.frequencyHz())
+    }
+
+    @Test
+    fun ackedSetCommand_trueOnAck_falseOnNak() {
+        val t = FakeSerialTransport()
+        val b = SerialRigBackend(t, AckedStubProtocol())
+        t.enqueueOnWrite("K!")
+        assertTrue(b.setDataMode())
+        t.enqueueOnWrite("N!")
+        assertFalse(b.setDataMode())
+    }
+
+    @Test
+    fun ackedSetCommand_falseOnTimeout() {
+        val t = FakeSerialTransport()
+        var clock = 0L
+        val b = SerialRigBackend(t, AckedStubProtocol()) { clock += 600; clock }
+        assertFalse(b.setDataMode())
+    }
+
+    @Test
+    fun flush_drainsStaleBytesBeforeExchange() {
+        val t = FakeSerialTransport()
+        val b = SerialRigBackend(t, AckedStubProtocol())
+        t.enqueueReply("K!")          // stale ack from a previous set
+        t.enqueueOnWrite("R!")        // the actual reply, delivered post-write
+        assertEquals(7_074_000L, b.frequencyHz())
+    }
+
+    @Test
+    fun frequency_fallsBackToBroadcastWhenReplyNeverComes() {
+        val t = FakeSerialTransport()
+        var clock = 0L
+        val b = SerialRigBackend(t, object : AckedStubProtocol() {
+            override fun parseFrequency(reply: ByteArray): Long? = when (reply.firstOrNull()) {
+                'B'.code.toByte() -> 14_074_000L
+                'R'.code.toByte() -> 7_074_000L
+                else -> null
+            }
+        }, { clock += 300; clock })
+        t.enqueueOnWrite("B!")
+        assertEquals(14_074_000L, b.frequencyHz())
+    }
+
+    @Test
+    fun probe_echoOnlyWhenOnlyOurEchoComesBack() {
+        val t = FakeSerialTransport()
+        var clock = 0L
+        val b = SerialRigBackend(t, AckedStubProtocol()) { clock += 300; clock }
+        t.enqueueOnWrite("E!")
+        assertEquals(ProbeResult.EchoOnly, b.probeFrequency())
+    }
+
+    @Test
+    fun probe_broadcastFrequencyCountsAsSync() {
+        val t = FakeSerialTransport()
+        val b = SerialRigBackend(t, object : AckedStubProtocol() {
+            override fun parseFrequency(reply: ByteArray): Long? =
+                if (reply.firstOrNull() == 'B'.code.toByte()) 14_074_000L else null
+        })
+        t.enqueueOnWrite("B!")
+        assertEquals(ProbeResult.Sync(14_074_000L), b.probeFrequency())
+    }
 }

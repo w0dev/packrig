@@ -85,10 +85,14 @@ class RigController(private val context: Context) : RigBackend, CatControl {
      * Closing a live backend is blocking USB I/O, and this method contends the
      * same monitor as [bindIfPermitted]/[rebind] — call off the main thread
      * whenever a backend may be bound (field ANR class, 2026-07-03).
+     *
+     * Compares the full descriptor value, not just [RigDescriptor.id]: a rig
+     * profile keeps its UUID id across edits, so an id-only comparison would
+     * miss a protocol or CI-V address change on the same profile.
      */
     @Synchronized
     fun setDescriptor(d: RigDescriptor?) {
-        if (descriptor?.id == d?.id) return
+        if (descriptor == d) return
         descriptor = d
         backend?.close()
         backend = null
@@ -168,7 +172,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
         val port = driver.ports[index]
         val candidate = SerialRigBackend(
             transport = UsbSerialTransport(usbManager, port, catBaud),
-            protocol = d.protocolFactory?.invoke(),
+            protocol = d.protocolFactory?.invoke(d.civAddress),
         )
         return if (candidate.open()) {
             backend = candidate
@@ -212,7 +216,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
         backend = null
         val candidate = SerialRigBackend(
             transport = UsbSerialTransport(usbManager, driver.ports[index], baud),
-            protocol = factory(),
+            protocol = factory(d.civAddress),
         )
         val result = if (!candidate.open()) {
             ProbeResult.Silence
@@ -326,7 +330,7 @@ class RigController(private val context: Context) : RigBackend, CatControl {
 
     override fun dataModeLabel(): String =
         backend?.dataModeLabel()
-            ?: descriptor?.protocolFactory?.invoke()?.dataModeLabel
+            ?: descriptor?.let { it.protocolFactory?.invoke(it.civAddress) }?.dataModeLabel
             ?: "DATA-U"
 
     override fun catPtt(on: Boolean): Boolean = backend?.catPtt(on) ?: false

@@ -367,8 +367,9 @@ class SettingsRepository(context: Context) {
     companion object {
         const val INPUT_GAIN_MIN = 0.1f
 
-        /** FT-891 menu 05-06 (CAT RATE) choices — the only valid CAT bauds. */
-        val CAT_BAUD_OPTIONS = listOf(4800, 9600, 19200, 38400)
+        /** Yaesu FT-891 menu 05-06 (CAT RATE) choices, plus 57600/115200 for
+         *  Icom CI-V rigs (e.g. IC-7300 defaults to 115200). */
+        val CAT_BAUD_OPTIONS = listOf(4800, 9600, 19200, 38400, 57600, 115200)
 
         /** Unknown values fall back to the rig-module default (38400). */
         fun coerceCatBaud(baud: Int): Int =

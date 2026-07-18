@@ -109,8 +109,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
      *
      * Holds VM-owned residual state that doesn't live in any controller slice:
      * USB device list + selected ID, operating/capturing flags, USB plumbing
-     * status (pttReady, catReady, USB-probe txStatus), the manual txMessage
-     * field, the operateStatus string, and the logbook contact count.
+     * status (pttReady, catReady, USB-probe txStatus), the operateStatus
+     * string, and the logbook contact count.
      *
      * Everything else in [OperateUiState] is derived from the controller slices
      * by the [combine] below — VM no longer mirrors slice fields into a
@@ -124,7 +124,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val isCapturing: Boolean = false,
         val pttReady: Boolean = false,
         val catReady: Boolean = false,
-        val txMessage: String = "",
         /** USB-probe / halt status; fallback when TxSlice.txStatus is null (see [mergedTxStatus]). */
         val txStatus: String? = null,
         val operateStatus: String? = null,
@@ -227,6 +226,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 myCall = settings.myCall,
                 myGrid = settings.myGrid,
                 licenseAcknowledged = settings.licenseAcknowledged,
+                settingsLoaded = settings.hydrated,
                 potaModeEnabled = settings.potaModeEnabled,
                 potaParkRef = settings.potaParkRef,
                 useDarkTheme = settings.useDarkTheme,
@@ -248,7 +248,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 decodeFailureCount = decode.decodeFailureCount,
                 inputGain = settings.inputGain,
                 txEnabled = settings.txEnabledInSettings,
-                txMessage = view.txMessage,
                 txFreqHz = settings.txToneHz,
                 nextTxMessage = qso.nextTxMessage,
                 txStatus = mergedTxStatus(tx.txStatus, view.txStatus),
@@ -393,15 +392,21 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 }
-                // Radio-model mirror: resolve the selected id to a descriptor and
-                // apply it to the controller, rebinding like the CAT-baud mirror.
+                // Radio-model mirror: resolve the selected rig profile (protocol +
+                // CI-V address honored via RigProfiles.resolve()) and apply it to
+                // the controller, rebinding like the CAT-baud mirror; falls back
+                // to the raw preset lookup when no profile is selected.
                 // The whole body runs on the CAT dispatcher: setDescriptor closes
                 // a live backend (blocking USB I/O) and contends the controller
                 // monitor with rebind — neither may pin Main (field ANR class,
                 // 2026-07-03). setDescriptor/rebind are idempotent, so a stale
                 // duplicate launch from a rapid settings burst is harmless.
-                val wantModel = s.radioModelId?.let { RigRegistry.byId(it) }
-                if (rig.descriptor?.id != wantModel?.id || rig.catPortOverride != s.catPortOverride) {
+                // Full structural equality (not just id) so an in-place profile
+                // edit — same UUID, changed protocol/address/etc. — still rebinds.
+                val wantModel = s.rigProfiles.firstOrNull { it.id == s.selectedRigProfileId }
+                    ?.let(RigProfiles::resolve)
+                    ?: s.radioModelId?.let { RigRegistry.byId(it) }
+                if (rig.descriptor != wantModel || rig.catPortOverride != s.catPortOverride) {
                     viewModelScope.launch(rigSession.catDispatcher) {
                         rig.setDescriptor(wantModel)
                         rig.catPortOverride = s.catPortOverride
@@ -687,10 +692,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settingsRepo.setMyGrid(grid) }
     }
 
-    fun setTxMessage(message: String) {
-        _viewState.update { it.copy(txMessage = message) }
-    }
-
     fun setTxFreqHz(freqHz: Int) {
         val hz = freqHz.coerceIn(300, 4000)
         viewModelScope.launch { settingsRepo.setTxToneHz(hz) }
@@ -842,8 +843,9 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
      * Rig probe found the Digirig usable (fresh start or USB reattach). Clears
      * the SAFETY-02 RX_ONLY latch when the license acknowledgment is already
      * on record — 2026-07-03 field report: with the acknowledgment persisted
-     * true, the license dialog (the only other notifyUsbReady caller) can
-     * never re-show, so a mid-session replug left TX dead-ended in RX_ONLY.
+     * true, the first-launch license dialog (answered once at launch via
+     * acknowledgeLicense(), the only other notifyUsbReady caller) can never
+     * re-show, so a mid-session replug left TX dead-ended in RX_ONLY.
      */
     private fun onRigReattached() {
         txOrchestrator.notifyRigReady(settingsBridge.slice.value.licenseAcknowledged)
@@ -918,23 +920,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun setOperateTxText(text: String) = qsoSession.setOperateTxText(text)
     fun selectOperateTxStep(step: QsoTxStep) = qsoSession.selectOperateTxStep(step)
     fun resetOperateTxText() = qsoSession.resetOperateTxText()
-
-    fun transmitOperateTxOnce() {
-        if (state.value.isTransmitting) return
-        val msg = state.value.operateTxText.trim()
-        if (!state.value.isOperating) startOperating()
-        viewModelScope.launch {
-            txOrchestrator.transmitAfterSlotBoundary(msg, state.value.txFreqHz)
-        }
-    }
-
-    fun transmitNextSlot() {
-        if (state.value.isTransmitting) return
-        val message = state.value.txMessage.trim()
-        viewModelScope.launch {
-            txOrchestrator.transmitAfterSlotBoundary(message, state.value.txFreqHz)
-        }
-    }
 
     /** Clear the latched RF-safety halt so TX can resume after operator review. */
     fun acknowledgeSafetyHalt() {
@@ -1189,6 +1174,9 @@ fun probeResultText(result: ProbeResult): String = when (result) {
     // the rig never parses the corrupted query, so it never replies (field-
     // verified on the FT-891, 2026-07-11).
     ProbeResult.Silence -> "No response — check the baud rate, CAT port, cable, and the rig's CAT menu"
+    ProbeResult.EchoOnly ->
+        "The cable echoes commands but the radio didn't answer — check the CI-V address matches " +
+            "the radio's menu, and that the radio is on"
     ProbeResult.NoDevice -> "No USB serial device attached"
     ProbeResult.NoPermission -> "USB permission not granted — connect the rig and allow access"
     ProbeResult.NoCat -> "This rig setup has no CAT to test"

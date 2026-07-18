@@ -8,18 +8,24 @@ package net.packrig.rig
 object CatProtocols {
 
     const val YAESU_NEWCAT = "yaesu-newcat"
+    const val ICOM_CIV = "icom-civ"
 
     data class Entry(
         val id: String,
         val displayName: String,
-        val factory: () -> CatProtocol,
+        val factory: (civAddress: Int?) -> CatProtocol,
     )
 
     val all: List<Entry> = listOf(
         Entry(
             id = YAESU_NEWCAT,
-            displayName = "Yaesu CAT",
-            factory = { YaesuCat(YaesuModels.GENERIC) },
+            displayName = "Serial CAT (Yaesu)",
+            factory = { _ -> YaesuCat(YaesuModels.GENERIC) },
+        ),
+        Entry(
+            id = ICOM_CIV,
+            displayName = "CI-V (Icom)",
+            factory = { addr -> IcomCiV(IcomModels.GENERIC, addr) },
         ),
     )
 

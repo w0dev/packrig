@@ -8,8 +8,6 @@ package net.packrig.rig
  */
 class YaesuCat(val model: YaesuModelSpec) : CatProtocol {
 
-    override val replyTerminator: Byte = TERMINATOR.code.toByte()
-
     override val dataModeLabel: String = model.modeLabels.getValue(model.dataModeCode)
 
     override fun readFrequencyCommand(): ByteArray = ascii("FA;")
@@ -41,6 +39,18 @@ class YaesuCat(val model: YaesuModelSpec) : CatProtocol {
     override fun setDataModeCommand(): ByteArray = ascii("MD0${model.dataModeCode};")
 
     override fun pttCommand(on: Boolean): ByteArray = ascii(if (on) "TX1;" else "TX0;")
+
+    override fun splitFrames(bytes: ByteArray): FrameSplit {
+        val frames = mutableListOf<ByteArray>()
+        var start = 0
+        for (i in bytes.indices) {
+            if (bytes[i] == TERMINATOR.code.toByte()) {
+                frames += bytes.copyOfRange(start, i + 1)
+                start = i + 1
+            }
+        }
+        return FrameSplit(frames, bytes.copyOfRange(start, bytes.size))
+    }
 
     /** Strip whitespace, the trailing terminator, and a matching opcode prefix. */
     private fun opcodeBody(reply: ByteArray, opcode: String): String? {

@@ -82,7 +82,8 @@ import java.util.concurrent.Executors
  *
  * Reconnect never auto-resumes TX — the QSO was stopped on detach and
  * every TX start remains behind an explicit operator tap (and the
- * license dialog when the acknowledgment is not on record).
+ * first-launch license dialog, answered once at launch before any TX
+ * tap is possible, when the acknowledgment is not on record).
  * EMERGENCY_HALT still only clears via [acknowledgeAndResetEmergency].
  */
 class TxOrchestrator(
@@ -253,8 +254,9 @@ class TxOrchestrator(
     /**
      * Called when the rig probe finds the Digirig present and usable again
      * (USB reattach). Restores READY from RX_ONLY only when the operator's
-     * license acknowledgment is already on record; otherwise the license
-     * dialog on the next TX tap stays the explicit gate. Never clears
+     * license acknowledgment is already on record; otherwise the
+     * first-launch license dialog — answered once at launch, before any TX
+     * tap is possible — stays the explicit gate. Never clears
      * EMERGENCY_HALT.
      */
     fun notifyRigReady(licenseAcknowledged: Boolean) {

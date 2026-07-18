@@ -9,7 +9,7 @@ import org.json.JSONObject
  * Codec for the RIG_PROFILES DataStore value: `{"v":1,"profiles":[...]}`.
  * Decode is fail-closed to an empty list — a corrupt value must never crash
  * settings; the operator just re-adds their rig. Field names are persisted;
- * never rename ("id","name","preset","protocol","baud","port","ptt").
+ * never rename ("id","name","preset","protocol","baud","port","ptt","civAddr").
  */
 object RigProfileJson {
 
@@ -26,6 +26,7 @@ object RigProfileJson {
             p.baud?.let { o.put("baud", it) }
             p.catPortIndex?.let { o.put("port", it) }
             p.pttMethod?.let { o.put("ptt", it.name) }
+            p.civAddress?.let { o.put("civAddr", it) }
             array.put(o)
         }
         return JSONObject().put("v", VERSION).put("profiles", array).toString()
@@ -49,6 +50,7 @@ object RigProfileJson {
                     pttMethod = o.optStringOrNull("ptt")?.let { name ->
                         PttMethod.entries.firstOrNull { it.name == name }
                     },
+                    civAddress = if (o.has("civAddr")) o.getInt("civAddr") else null,
                 )
             }
         }.getOrDefault(emptyList())

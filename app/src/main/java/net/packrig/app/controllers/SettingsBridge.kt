@@ -53,6 +53,7 @@ class SettingsBridge(
             prev.potaModeEnabled != s.potaModeEnabled
 
     private fun StationSettings.toSlice() = SettingsSlice(
+        hydrated = true,
         lastAdifBackupAtMs = lastAdifBackupAtMs,
         myCall = myCall,
         myGrid = myGrid,
@@ -90,6 +91,9 @@ class SettingsBridge(
 
 /** Snapshot of all settings fields consumed by [net.packrig.app.OperateViewModel]. */
 data class SettingsSlice(
+    /** False only for the pre-DataStore default slice; true once real settings
+     *  have been read. Gates first-launch UI that must not flash on defaults. */
+    val hydrated: Boolean = false,
     val myCall: String = "",
     val myGrid: String = "",
     val txToneHz: Int = 1000,

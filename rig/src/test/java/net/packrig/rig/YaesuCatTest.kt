@@ -2,6 +2,8 @@ package net.packrig.rig
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class YaesuCatTest {
@@ -78,7 +80,23 @@ class YaesuCatTest {
     }
 
     @Test
-    fun replyTerminatorIsSemicolon() {
-        assertEquals(';'.code.toByte(), cat.replyTerminator)
+    fun splitFrames_splitsCompleteFramesAndKeepsRemainder() {
+        val split = cat.splitFrames("FA014074000;MD02;FA0".toByteArray(Charsets.US_ASCII))
+        assertEquals(listOf("FA014074000;", "MD02;"), split.frames.map { it.toString(Charsets.US_ASCII) })
+        assertEquals("FA0", split.remainder.toString(Charsets.US_ASCII))
+    }
+
+    @Test
+    fun splitFrames_noTerminatorIsAllRemainder() {
+        val split = cat.splitFrames("FA0140".toByteArray(Charsets.US_ASCII))
+        assertTrue(split.frames.isEmpty())
+        assertEquals("FA0140", split.remainder.toString(Charsets.US_ASCII))
+    }
+
+    @Test
+    fun framingDefaults_matchLegacyYaesuBehavior() {
+        assertEquals(FrameClass.Reply, cat.classifyFrame("FA014074000;".toByteArray(Charsets.US_ASCII)))
+        assertFalse(cat.wantsInputFlush)
+        assertFalse(cat.setCommandsAcked)
     }
 }

@@ -44,7 +44,8 @@ val Ft8DialPresets = listOf(
  */
 fun presetsForModel(modelId: String?): List<Ft8DialPreset> {
     val protocol = modelId
-        ?.let { RigRegistry.byId(it)?.protocolFactory?.invoke() }
+        ?.let { RigRegistry.byId(it) }
+        ?.let { it.protocolFactory?.invoke(it.civAddress) }
         ?: return Ft8DialPresets
     return Ft8DialPresets.filter { protocol.setFrequencyCommand(it.hz) != null }
 }

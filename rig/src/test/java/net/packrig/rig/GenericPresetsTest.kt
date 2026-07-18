@@ -37,7 +37,7 @@ class GenericPresetsTest {
     @Test
     fun genericYaesuSpecCoversEveryFt8DialPreset() {
         // Wide bounds: 70 cm (432.174 MHz) must be settable so generics offer the full band table.
-        val protocol = CatProtocols.byId(CatProtocols.YAESU_NEWCAT)!!.factory()
+        val protocol = CatProtocols.byId(CatProtocols.YAESU_NEWCAT)!!.factory(null)
         assertNotNull(protocol.setFrequencyCommand(432_174_000L))
         assertNotNull(protocol.setFrequencyCommand(1_840_000L))
     }

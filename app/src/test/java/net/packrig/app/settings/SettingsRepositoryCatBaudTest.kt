@@ -57,12 +57,12 @@ class SettingsRepositoryCatBaudTest {
     fun coerceCatBaudFallsBackToDefaultForUnknown() {
         assertEquals(38_400, SettingsRepository.coerceCatBaud(0))
         assertEquals(38_400, SettingsRepository.coerceCatBaud(-1))
-        assertEquals(38_400, SettingsRepository.coerceCatBaud(115_200))
+        assertEquals(38_400, SettingsRepository.coerceCatBaud(230_400))
     }
 
     @Test
-    fun catBaudOptionsMatchFt891Menu() {
-        assertEquals(listOf(4800, 9600, 19200, 38400), SettingsRepository.CAT_BAUD_OPTIONS)
+    fun catBaudOptionsMatchFt891MenuPlusCivRates() {
+        assertEquals(listOf(4800, 9600, 19200, 38400, 57600, 115200), SettingsRepository.CAT_BAUD_OPTIONS)
     }
 
     @Test
