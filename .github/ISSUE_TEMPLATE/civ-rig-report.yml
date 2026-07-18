@@ -1,0 +1,54 @@
+name: CI-V rig report
+description: Field-verification report for an Icom / Xiegu radio
+title: "[CI-V] <rig model>: <works / partial / broken>"
+labels: ["civ-verification"]
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Rig model and firmware
+      placeholder: IC-7300, firmware 1.42
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection path
+      options:
+        - Built-in USB
+        - Digirig / external interface
+    validations:
+      required: true
+  - type: input
+    id: settings
+    attributes:
+      label: Profile settings used
+      placeholder: "preset ic7300, baud 115200, CI-V address 94, PTT CAT"
+    validations:
+      required: true
+  - type: dropdown
+    id: testcat
+    attributes:
+      label: Test CAT result
+      options:
+        - Sync OK
+        - Echo only
+        - Garbage
+        - Silence
+    validations:
+      required: true
+  - type: dropdown
+    id: qso
+    attributes:
+      label: How far did it get?
+      options:
+        - Full FT8 QSO completed (decode + TX + log)
+        - TX keys and decodes arrive, no QSO yet
+        - CAT syncs only
+        - Nothing works
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes (echo settings, rig menu values, anything odd)
