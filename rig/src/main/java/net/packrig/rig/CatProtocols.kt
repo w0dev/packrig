@@ -24,7 +24,7 @@ object CatProtocols {
         ),
         Entry(
             id = ICOM_CIV,
-            displayName = "Icom CI-V",
+            displayName = "CI-V (Icom)",
             factory = { addr -> IcomCiV(IcomModels.GENERIC, addr) },
         ),
     )
