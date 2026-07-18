@@ -101,9 +101,9 @@ any other `gateOnLicense` call sites) call the ViewModel directly again.
 
 - Unit: `showsFirstLaunchLicenseDialog` truth table (the no-flash
   hydration race is the load-bearing case: `(false, false) → false`).
-- Unit (VM/repository level): "turn on TX" persists `licenseAcknowledged =
-  true` AND `txEnabled = true`; "RX only" persists `licenseAcknowledged =
-  true` with `txEnabled` unchanged (off).
+- Unit (seam level): "turn on TX" acknowledges AND sets `txEnabled = true`;
+  "RX only" acknowledges AND sets `txEnabled = false` (explicit disarm —
+  see the Buttons bullet).
 - Existing tests that exercise `gateOnLicense` wiring update to the
   direct-call wiring; assertions about the downstream `AppRfState` gate
   must survive unchanged.
