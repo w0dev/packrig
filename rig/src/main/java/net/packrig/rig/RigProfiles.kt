@@ -25,6 +25,7 @@ object RigProfiles {
             defaultBaud = profile.baud ?: preset.defaultBaud,
             catPortIndex = profile.catPortIndex ?: preset.catPortIndex,
             defaultPtt = profile.pttMethod ?: preset.defaultPtt,
+            civAddress = profile.civAddress ?: preset.civAddress,
         )
     }
 }

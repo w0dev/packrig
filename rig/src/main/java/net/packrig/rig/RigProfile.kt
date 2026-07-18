@@ -17,4 +17,6 @@ data class RigProfile(
     val baud: Int? = null,
     val catPortIndex: Int? = null,
     val pttMethod: PttMethod? = null,
+    /** CI-V bus address override; honored for CI-V presets and CAT generics speaking CI-V. */
+    val civAddress: Int? = null,
 )

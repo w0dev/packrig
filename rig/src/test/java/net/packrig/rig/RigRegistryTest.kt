@@ -21,7 +21,7 @@ class RigRegistryTest {
             // Generics may have null protocolFactory (e.g. generic-rts audio-only).
             // Non-null factories must produce a valid protocol.
             if (d.protocolFactory != null) {
-                assertNotNull("${d.id} protocol", d.protocolFactory.invoke())
+                assertNotNull("${d.id} protocol", d.protocolFactory.invoke(d.civAddress))
             }
             assertTrue("${d.id} port index >= 0", d.catPortIndex >= 0)
             assertTrue("${d.id} baud > 0", d.defaultBaud > 0)
@@ -66,10 +66,25 @@ class RigRegistryTest {
 
     @Test
     fun ft891ProtocolIsByteEquivalentToYaesuFt891() {
-        val cat = RigRegistry.byId("ft891")!!.protocolFactory!!.invoke()
+        val cat = RigRegistry.byId("ft891")!!.protocolFactory!!.invoke(null)
         assertEquals(
             "FA014074000;",
             cat.setFrequencyCommand(14_074_000)!!.toString(Charsets.US_ASCII),
         )
+    }
+
+    @Test
+    fun civPresets_shipUnverifiedWithExpectedTransportDefaults() {
+        val ids = listOf("ic7300", "ic705", "ic7100", "xiegu-g90", "xiegu-x6100")
+        ids.forEach { id ->
+            val d = RigRegistry.byId(id) ?: error("missing preset $id")
+            assertFalse(d.transportVerified)
+            assertNotNull(d.civAddress)
+            assertNotNull(d.protocolFactory)
+        }
+        assertEquals(115_200, RigRegistry.byId("ic7300")!!.defaultBaud)
+        assertEquals(19_200, RigRegistry.byId("xiegu-g90")!!.defaultBaud)
+        assertEquals(PttMethod.RTS, RigRegistry.byId("xiegu-g90")!!.defaultPtt)
+        assertEquals(PttMethod.CAT, RigRegistry.byId("ic7300")!!.defaultPtt)
     }
 }

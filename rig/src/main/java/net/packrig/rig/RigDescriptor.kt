@@ -16,12 +16,15 @@ package net.packrig.rig
 data class RigDescriptor(
     val id: String,
     val displayName: String,
-    /** Builds the CAT protocol, or null for CAT-less presets (generic-rts):
-     *  PTT keys via RTS, every CAT read/write is a fast no-op. */
-    val protocolFactory: (() -> CatProtocol)?,
+    /** Builds the CAT protocol (param: CI-V bus address, or null for the
+     *  model default / non-CI-V families), or null for CAT-less presets
+     *  (generic-rts): PTT keys via RTS, every CAT read/write is a fast no-op. */
+    val protocolFactory: ((civAddress: Int?) -> CatProtocol)?,
     val defaultBaud: Int,
     val catPortIndex: Int,
     val defaultPtt: PttMethod,
     val customProbePids: List<UsbId> = emptyList(),
     val transportVerified: Boolean,
+    /** CI-V bus address this descriptor resolves to; null for non-CI-V rigs. */
+    val civAddress: Int? = null,
 )

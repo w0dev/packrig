@@ -71,8 +71,36 @@ class RigProfilesTest {
     @Test
     fun unknownProtocolIdFallsBackToPresetFactory() {
         val resolved = RigProfiles.resolve(
-            profile(RigRegistry.GENERIC_DIGIRIG, catProtocolId = "icom-civ"),
+            profile(RigRegistry.GENERIC_DIGIRIG, catProtocolId = "kenwood-ts590-cat"),
         )!!
         assertSame(RigRegistry.byId(RigRegistry.GENERIC_DIGIRIG)!!.protocolFactory, resolved.protocolFactory)
+    }
+
+    @Test
+    fun civAddress_overrideWinsPresetDefaultFallsThrough() {
+        val preset = RigRegistry.byId("ic7300")!!
+        assertEquals(0x94, preset.civAddress)
+        val defaulted = RigProfiles.resolve(
+            RigProfile(id = "p1", name = "My 7300", presetId = "ic7300"),
+        )!!
+        assertEquals(0x94, defaulted.civAddress)
+        val moved = RigProfiles.resolve(
+            RigProfile(id = "p2", name = "Moved 7300", presetId = "ic7300", civAddress = 0x76),
+        )!!
+        assertEquals(0x76, moved.civAddress)
+        val protocol = moved.protocolFactory!!.invoke(moved.civAddress) as IcomCiV
+        assertEquals(0x76, protocol.civAddress)
+    }
+
+    @Test
+    fun catGeneric_icomCivProtocolUsesProfileAddress() {
+        val resolved = RigProfiles.resolve(
+            RigProfile(
+                id = "p3", name = "Bench CI-V", presetId = RigRegistry.GENERIC_CAT,
+                catProtocolId = CatProtocols.ICOM_CIV, civAddress = 0xA2,
+            ),
+        )!!
+        val protocol = resolved.protocolFactory!!.invoke(resolved.civAddress) as IcomCiV
+        assertEquals(0xA2, protocol.civAddress)
     }
 }
