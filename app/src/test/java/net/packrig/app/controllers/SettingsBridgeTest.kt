@@ -189,4 +189,15 @@ class SettingsBridgeTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun slice_defaultIsNotHydrated_emissionMarksHydrated() {
+        // Default slice (before any DataStore emission) must not claim hydration —
+        // the first-launch license dialog keys off this to avoid flashing at
+        // already-acknowledged users while settings load.
+        assertFalse(SettingsSlice().hydrated)
+        val (repo, _) = makeRepo()
+        val bridge = SettingsBridge(repo, bridgeScope)
+        assertTrue(bridge.slice.value.hydrated)
+    }
 }

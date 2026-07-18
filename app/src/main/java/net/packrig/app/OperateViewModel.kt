@@ -227,6 +227,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 myCall = settings.myCall,
                 myGrid = settings.myGrid,
                 licenseAcknowledged = settings.licenseAcknowledged,
+                settingsLoaded = settings.hydrated,
                 potaModeEnabled = settings.potaModeEnabled,
                 potaParkRef = settings.potaParkRef,
                 useDarkTheme = settings.useDarkTheme,
