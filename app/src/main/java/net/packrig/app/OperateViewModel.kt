@@ -227,6 +227,7 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 myCall = settings.myCall,
                 myGrid = settings.myGrid,
                 licenseAcknowledged = settings.licenseAcknowledged,
+                settingsLoaded = settings.hydrated,
                 potaModeEnabled = settings.potaModeEnabled,
                 potaParkRef = settings.potaParkRef,
                 useDarkTheme = settings.useDarkTheme,
@@ -848,8 +849,9 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
      * Rig probe found the Digirig usable (fresh start or USB reattach). Clears
      * the SAFETY-02 RX_ONLY latch when the license acknowledgment is already
      * on record — 2026-07-03 field report: with the acknowledgment persisted
-     * true, the license dialog (the only other notifyUsbReady caller) can
-     * never re-show, so a mid-session replug left TX dead-ended in RX_ONLY.
+     * true, the first-launch license dialog (answered once at launch via
+     * acknowledgeLicense(), the only other notifyUsbReady caller) can never
+     * re-show, so a mid-session replug left TX dead-ended in RX_ONLY.
      */
     private fun onRigReattached() {
         txOrchestrator.notifyRigReady(settingsBridge.slice.value.licenseAcknowledged)

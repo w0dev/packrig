@@ -63,6 +63,8 @@ data class OperateUiState(
     val myCall: String = DEFAULT_MY_CALL,
     val myGrid: String = DEFAULT_MY_GRID,
     val licenseAcknowledged: Boolean = false,
+    /** True once settings have been read from DataStore (see SettingsSlice.hydrated). */
+    val settingsLoaded: Boolean = false,
     val potaModeEnabled: Boolean = false,
     val potaParkRef: String = "",
 

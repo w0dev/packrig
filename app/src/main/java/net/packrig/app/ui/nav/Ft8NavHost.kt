@@ -133,5 +133,15 @@ fun PackRigApp(
                 }
             }
         }
+        if (FirstLaunchLicense.shows(operateState.settingsLoaded, operateState.licenseAcknowledged)) {
+            FirstLaunchLicenseDialog(
+                onEnableTx = {
+                    FirstLaunchLicense.applyChoice(true, operateVm::acknowledgeLicense, operateVm::setTxEnabled)
+                },
+                onRxOnly = {
+                    FirstLaunchLicense.applyChoice(false, operateVm::acknowledgeLicense, operateVm::setTxEnabled)
+                },
+            )
+        }
     }
 }
