@@ -33,4 +33,16 @@ interface CatProtocol {
 
     /** Key/unkey via CAT, or null if this family has no CAT PTT. */
     fun pttCommand(on: Boolean): ByteArray?
+
+    /** Chop accumulated reply bytes into complete frames + unconsumed rest. */
+    fun splitFrames(bytes: ByteArray): FrameSplit
+
+    /** Classify a complete frame. Default: everything is a reply (ASCII CAT). */
+    fun classifyFrame(frame: ByteArray): FrameClass = FrameClass.Reply
+
+    /** Drain stale input (unclaimed acks/echoes) before each exchange. */
+    val wantsInputFlush: Boolean get() = false
+
+    /** Set commands are acknowledged — await Ack/Nak instead of fire-and-forget. */
+    val setCommandsAcked: Boolean get() = false
 }

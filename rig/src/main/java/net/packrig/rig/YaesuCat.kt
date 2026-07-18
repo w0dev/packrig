@@ -42,6 +42,18 @@ class YaesuCat(val model: YaesuModelSpec) : CatProtocol {
 
     override fun pttCommand(on: Boolean): ByteArray = ascii(if (on) "TX1;" else "TX0;")
 
+    override fun splitFrames(bytes: ByteArray): FrameSplit {
+        val frames = mutableListOf<ByteArray>()
+        var start = 0
+        for (i in bytes.indices) {
+            if (bytes[i] == TERMINATOR.code.toByte()) {
+                frames += bytes.copyOfRange(start, i + 1)
+                start = i + 1
+            }
+        }
+        return FrameSplit(frames, bytes.copyOfRange(start, bytes.size))
+    }
+
     /** Strip whitespace, the trailing terminator, and a matching opcode prefix. */
     private fun opcodeBody(reply: ByteArray, opcode: String): String? {
         val trimmed = reply.toString(Charsets.US_ASCII).trim().removeSuffix(TERMINATOR.toString())
