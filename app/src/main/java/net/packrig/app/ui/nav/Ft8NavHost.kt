@@ -136,10 +136,11 @@ fun PackRigApp(
         if (FirstLaunchLicense.shows(operateState.settingsLoaded, operateState.licenseAcknowledged)) {
             FirstLaunchLicenseDialog(
                 onEnableTx = {
-                    operateVm.acknowledgeLicense()
-                    operateVm.setTxEnabled(true)
+                    FirstLaunchLicense.applyChoice(true, operateVm::acknowledgeLicense, operateVm::setTxEnabled)
                 },
-                onRxOnly = { operateVm.acknowledgeLicense() },
+                onRxOnly = {
+                    FirstLaunchLicense.applyChoice(false, operateVm::acknowledgeLicense, operateVm::setTxEnabled)
+                },
             )
         }
     }

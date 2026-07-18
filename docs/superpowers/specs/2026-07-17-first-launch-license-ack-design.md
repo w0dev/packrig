@@ -63,8 +63,11 @@ the only TX control afterward.
 - Buttons (confirm / dismiss slots of an `AlertDialog`):
   - **"I understand — turn on TX"** → `acknowledgeLicense()` +
     `setTxEnabled(true)`
-  - **"Just looking around (RX only)"** → `acknowledgeLicense()` only;
-    Enable transmit stays off.
+  - **"Just looking around (RX only)"** → `acknowledgeLicense()` +
+    `setTxEnabled(false)` — TX is set explicitly in both directions so a
+    legacy install that had Enable transmit on before ever acknowledging
+    is actually disarmed by the RX-only answer (final-review finding,
+    2026-07-18; keeps the milestone's receive-only constraint honest).
 
 ### Deletions
 

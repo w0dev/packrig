@@ -14,6 +14,18 @@ object FirstLaunchLicense {
      *  already-acknowledged users while DataStore loads. */
     fun shows(settingsLoaded: Boolean, licenseAcknowledged: Boolean): Boolean =
         settingsLoaded && !licenseAcknowledged
+
+    /** Applies a dialog answer. Both choices acknowledge the license; TX is set
+     *  explicitly in BOTH directions — "RX only" must also disarm a legacy
+     *  install that had Enable transmit on before ever acknowledging. */
+    fun applyChoice(
+        enableTx: Boolean,
+        acknowledgeLicense: () -> Unit,
+        setTxEnabled: (Boolean) -> Unit,
+    ) {
+        acknowledgeLicense()
+        setTxEnabled(enableTx)
+    }
 }
 
 /**
