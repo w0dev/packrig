@@ -51,21 +51,30 @@ fun RigProfileEditorDialog(
     var baud by remember { mutableStateOf(existing?.baud) }
     var catPortIndex by remember { mutableStateOf(existing?.catPortIndex) }
     var pttMethod by remember { mutableStateOf(existing?.pttMethod) }
+    var catProtocolId by remember {
+        mutableStateOf(existing?.catProtocolId ?: CatProtocols.YAESU_NEWCAT)
+    }
+    var civAddressText by remember {
+        mutableStateOf(existing?.civAddress?.let { "%02X".format(it) } ?: "")
+    }
     var testResult by remember { mutableStateOf<String?>(null) }
 
     val preset = RigRegistry.byId(presetId)
     val isCatSetup = preset != null && preset.protocolFactory != null
     val nameError = RigProfileList.nameError(name, allProfiles, existing?.id)
-    val canSave = preset != null && nameError == null
+    val shownProtocolId = if (RigRegistry.isCatGeneric(presetId)) catProtocolId else null
+    val civError = RigProfileForm.civAddressError(civAddressText, presetId, shownProtocolId)
+    val canSave = preset != null && nameError == null && civError == null
 
     fun draft() = RigProfile(
         id = existing?.id ?: UUID.randomUUID().toString(),
         name = name.trim(),
         presetId = presetId,
-        catProtocolId = if (RigRegistry.isCatGeneric(presetId)) CatProtocols.YAESU_NEWCAT else null,
+        catProtocolId = if (RigRegistry.isCatGeneric(presetId)) catProtocolId else null,
         baud = baud,
         catPortIndex = catPortIndex,
         pttMethod = pttMethod,
+        civAddress = RigProfileForm.parseCivAddress(civAddressText),
     )
 
     AlertDialog(
@@ -92,6 +101,8 @@ fun RigProfileEditorDialog(
                         baud = null
                         catPortIndex = null
                         pttMethod = null
+                        catProtocolId = CatProtocols.YAESU_NEWCAT
+                        civAddressText = chosen?.civAddress?.let { "%02X".format(it) } ?: ""
                         testResult = null
                     },
                 )
@@ -107,7 +118,30 @@ fun RigProfileEditorDialog(
                 )
                 if (isCatSetup) {
                     if (RigRegistry.isCatGeneric(presetId)) {
-                        CatProtocolPicker() // single option today, preselected + read-only
+                        CatProtocolPicker(
+                            selectedId = catProtocolId,
+                            onSelect = { id ->
+                                catProtocolId = id
+                                civAddressText = ""
+                                testResult = null
+                            },
+                        )
+                    }
+                    RigProfileForm.protocolLabel(presetId)?.let {
+                        Text("Protocol: $it", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (RigProfileForm.showsCivAddressField(presetId, shownProtocolId)) {
+                        OutlinedTextField(
+                            value = civAddressText,
+                            onValueChange = { civAddressText = it.uppercase().take(2) },
+                            label = { Text("CI-V address") },
+                            isError = civAddressText.isNotEmpty() && civError != null,
+                            supportingText = {
+                                Text(civError ?: "Two hex digits from the radio's CI-V menu, e.g. 94")
+                            },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                     CatBaudPicker(
                         baud = baud ?: preset.defaultBaud,
@@ -182,19 +216,32 @@ private fun PresetPicker(selectedId: String?, onSelect: (String) -> Unit) {
     }
 }
 
-/** One protocol today — plain text (not a disabled field) so it reads as information, not a broken control. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CatProtocolPicker() {
-    Column {
-        Text(
-            "CAT protocol: ${CatProtocols.all.single().displayName}",
-            style = MaterialTheme.typography.bodyMedium,
+private fun CatProtocolPicker(
+    selectedId: String,
+    onSelect: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val label = CatProtocols.byId(selectedId)?.displayName ?: selectedId
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = label,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("CAT protocol") },
+            supportingText = { Text("The command language your radio speaks — check its manual if unsure") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
         )
-        Text(
-            "Only Yaesu-protocol radios are supported in this release.",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            CatProtocols.all.forEach { entry ->
+                DropdownMenuItem(
+                    text = { Text(entry.displayName) },
+                    onClick = { expanded = false; onSelect(entry.id) },
+                )
+            }
+        }
     }
 }
 
