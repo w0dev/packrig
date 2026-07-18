@@ -109,8 +109,8 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
      *
      * Holds VM-owned residual state that doesn't live in any controller slice:
      * USB device list + selected ID, operating/capturing flags, USB plumbing
-     * status (pttReady, catReady, USB-probe txStatus), the manual txMessage
-     * field, the operateStatus string, and the logbook contact count.
+     * status (pttReady, catReady, USB-probe txStatus), the operateStatus
+     * string, and the logbook contact count.
      *
      * Everything else in [OperateUiState] is derived from the controller slices
      * by the [combine] below — VM no longer mirrors slice fields into a
@@ -124,7 +124,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         val isCapturing: Boolean = false,
         val pttReady: Boolean = false,
         val catReady: Boolean = false,
-        val txMessage: String = "",
         /** USB-probe / halt status; fallback when TxSlice.txStatus is null (see [mergedTxStatus]). */
         val txStatus: String? = null,
         val operateStatus: String? = null,
@@ -248,7 +247,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                 decodeFailureCount = decode.decodeFailureCount,
                 inputGain = settings.inputGain,
                 txEnabled = settings.txEnabledInSettings,
-                txMessage = view.txMessage,
                 txFreqHz = settings.txToneHz,
                 nextTxMessage = qso.nextTxMessage,
                 txStatus = mergedTxStatus(tx.txStatus, view.txStatus),
@@ -687,10 +685,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settingsRepo.setMyGrid(grid) }
     }
 
-    fun setTxMessage(message: String) {
-        _viewState.update { it.copy(txMessage = message) }
-    }
-
     fun setTxFreqHz(freqHz: Int) {
         val hz = freqHz.coerceIn(300, 4000)
         viewModelScope.launch { settingsRepo.setTxToneHz(hz) }
@@ -918,23 +912,6 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
     fun setOperateTxText(text: String) = qsoSession.setOperateTxText(text)
     fun selectOperateTxStep(step: QsoTxStep) = qsoSession.selectOperateTxStep(step)
     fun resetOperateTxText() = qsoSession.resetOperateTxText()
-
-    fun transmitOperateTxOnce() {
-        if (state.value.isTransmitting) return
-        val msg = state.value.operateTxText.trim()
-        if (!state.value.isOperating) startOperating()
-        viewModelScope.launch {
-            txOrchestrator.transmitAfterSlotBoundary(msg, state.value.txFreqHz)
-        }
-    }
-
-    fun transmitNextSlot() {
-        if (state.value.isTransmitting) return
-        val message = state.value.txMessage.trim()
-        viewModelScope.launch {
-            txOrchestrator.transmitAfterSlotBoundary(message, state.value.txFreqHz)
-        }
-    }
 
     /** Clear the latched RF-safety halt so TX can resume after operator review. */
     fun acknowledgeSafetyHalt() {
