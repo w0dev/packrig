@@ -97,4 +97,51 @@ class IcomCiVTest {
         )
         assertEquals(FrameClass.Junk, moved.classifyFrame(bytes(0xFE, 0xFE, 0xE0, 0x94, 0xFB, 0xFD)))
     }
+
+    @Test
+    fun pttCommand_isCmd1c00() {
+        assertEquals(
+            bytes(0xFE, 0xFE, 0x94, 0xE0, 0x1C, 0x00, 0x01, 0xFD).toList(),
+            civ.pttCommand(true).toList(),
+        )
+        assertEquals(
+            bytes(0xFE, 0xFE, 0x94, 0xE0, 0x1C, 0x00, 0x00, 0xFD).toList(),
+            civ.pttCommand(false).toList(),
+        )
+    }
+
+    @Test
+    fun parseModeLabel_readsCmd04Reply() {
+        val reply = bytes(0xFE, 0xFE, 0xE0, 0x94, 0x04, 0x01, 0x02, 0xFD) // USB, FIL2
+        assertEquals("USB", civ.parseModeLabel(reply))
+    }
+
+    @Test
+    fun dataMode_cmd26Strategy() {
+        assertEquals(
+            bytes(0xFE, 0xFE, 0x94, 0xE0, 0x26, 0x00, 0x01, 0x01, 0x01, 0xFD).toList(),
+            civ.setDataModeCommand().toList(),
+        )
+        assertEquals("USB-D", civ.dataModeLabel)
+    }
+
+    @Test
+    fun dataMode_cmd06Plus1aStrategyIsTwoFrames() {
+        val old = IcomCiV(spec.copy(dataModeStrategy = DataModeStrategy.CMD_06_PLUS_1A))
+        assertEquals(
+            bytes(0xFE, 0xFE, 0x94, 0xE0, 0x06, 0x01, 0x01, 0xFD).toList() +
+                bytes(0xFE, 0xFE, 0x94, 0xE0, 0x1A, 0x06, 0x01, 0x01, 0xFD).toList(),
+            old.setDataModeCommand().toList(),
+        )
+    }
+
+    @Test
+    fun dataMode_cmd06OnlyStrategyIsPlainUsb() {
+        val g90 = IcomCiV(spec.copy(dataModeStrategy = DataModeStrategy.CMD_06_ONLY))
+        assertEquals(
+            bytes(0xFE, 0xFE, 0x94, 0xE0, 0x06, 0x01, 0x01, 0xFD).toList(),
+            g90.setDataModeCommand().toList(),
+        )
+        assertEquals("USB", g90.dataModeLabel)
+    }
 }
