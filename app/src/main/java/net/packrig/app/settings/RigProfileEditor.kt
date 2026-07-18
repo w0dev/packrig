@@ -241,7 +241,7 @@ private fun CatProtocolPicker(
             onValueChange = {},
             readOnly = true,
             label = { Text("CAT protocol") },
-            supportingText = { Text("The command language your radio speaks — check its manual if unsure") },
+            supportingText = { Text("The command language your radio speaks — Xiegu radios use Icom CI-V") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
         )

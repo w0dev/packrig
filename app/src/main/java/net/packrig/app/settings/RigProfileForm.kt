@@ -51,6 +51,8 @@ object RigProfileForm {
     fun protocolLabel(presetId: String): String? {
         val preset = RigRegistry.byId(presetId) ?: return null
         if (RigRegistry.isGeneric(presetId) || preset.protocolFactory == null) return null
-        return if (preset.civAddress != null) "Icom CI-V" else "Yaesu CAT"
+        // Reuse the protocol dropdown's display names so the two never drift.
+        val id = if (preset.civAddress != null) CatProtocols.ICOM_CIV else CatProtocols.YAESU_NEWCAT
+        return CatProtocols.byId(id)?.displayName
     }
 }

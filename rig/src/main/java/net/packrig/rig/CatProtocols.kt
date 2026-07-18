@@ -19,12 +19,12 @@ object CatProtocols {
     val all: List<Entry> = listOf(
         Entry(
             id = YAESU_NEWCAT,
-            displayName = "Yaesu CAT",
+            displayName = "Serial CAT (Yaesu)",
             factory = { _ -> YaesuCat(YaesuModels.GENERIC) },
         ),
         Entry(
             id = ICOM_CIV,
-            displayName = "Icom CI-V (Icom, Xiegu)",
+            displayName = "Icom CI-V",
             factory = { addr -> IcomCiV(IcomModels.GENERIC, addr) },
         ),
     )

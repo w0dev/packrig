@@ -67,7 +67,7 @@ class RigProfileFormTest {
     @Test
     fun protocolLabel_namesFamilyForNamedCatPresets() {
         assertEquals("Icom CI-V", RigProfileForm.protocolLabel("ic7300"))
-        assertEquals("Yaesu CAT", RigProfileForm.protocolLabel("ft891"))
+        assertEquals("Serial CAT (Yaesu)", RigProfileForm.protocolLabel("ft891"))
         assertNull(RigProfileForm.protocolLabel(RigRegistry.GENERIC_CAT))   // generics pick their own
         assertNull(RigProfileForm.protocolLabel(RigRegistry.GENERIC_RTS))   // no CAT at all
     }

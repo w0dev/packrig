@@ -98,7 +98,7 @@ object RigRegistry {
         ),
         RigDescriptor(
             id = "xiegu-g90",
-            displayName = "Xiegu G90 (via Digirig)",
+            displayName = "Xiegu G90",
             protocolFactory = { addr -> IcomCiV(IcomModels.XIEGU_G90, addr) },
             defaultBaud = 19_200,
             catPortIndex = 0,
