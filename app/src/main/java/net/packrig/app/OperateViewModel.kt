@@ -393,15 +393,21 @@ class OperateViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 }
-                // Radio-model mirror: resolve the selected id to a descriptor and
-                // apply it to the controller, rebinding like the CAT-baud mirror.
+                // Radio-model mirror: resolve the selected rig profile (protocol +
+                // CI-V address honored via RigProfiles.resolve()) and apply it to
+                // the controller, rebinding like the CAT-baud mirror; falls back
+                // to the raw preset lookup when no profile is selected.
                 // The whole body runs on the CAT dispatcher: setDescriptor closes
                 // a live backend (blocking USB I/O) and contends the controller
                 // monitor with rebind — neither may pin Main (field ANR class,
                 // 2026-07-03). setDescriptor/rebind are idempotent, so a stale
                 // duplicate launch from a rapid settings burst is harmless.
-                val wantModel = s.radioModelId?.let { RigRegistry.byId(it) }
-                if (rig.descriptor?.id != wantModel?.id || rig.catPortOverride != s.catPortOverride) {
+                // Full structural equality (not just id) so an in-place profile
+                // edit — same UUID, changed protocol/address/etc. — still rebinds.
+                val wantModel = s.rigProfiles.firstOrNull { it.id == s.selectedRigProfileId }
+                    ?.let(RigProfiles::resolve)
+                    ?: s.radioModelId?.let { RigRegistry.byId(it) }
+                if (rig.descriptor != wantModel || rig.catPortOverride != s.catPortOverride) {
                     viewModelScope.launch(rigSession.catDispatcher) {
                         rig.setDescriptor(wantModel)
                         rig.catPortOverride = s.catPortOverride

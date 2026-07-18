@@ -3,8 +3,8 @@ package net.packrig.rig
 /**
  * The preset table for rig profiles (spec 2026-07-10-rig-profiles-design). No `default` — an unselected model is a
  * real state the app handles (see [RigController.State.NoModel]); the operator
- * must choose. The current family is all Yaesu new-CAT; Phase 3/4 append
- * Kenwood/Icom.
+ * must choose. Yaesu new-CAT and Icom CI-V families are present; Phase 3 still
+ * appends Kenwood and Elecraft.
  */
 object RigRegistry {
 

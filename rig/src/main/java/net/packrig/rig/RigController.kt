@@ -85,10 +85,14 @@ class RigController(private val context: Context) : RigBackend, CatControl {
      * Closing a live backend is blocking USB I/O, and this method contends the
      * same monitor as [bindIfPermitted]/[rebind] — call off the main thread
      * whenever a backend may be bound (field ANR class, 2026-07-03).
+     *
+     * Compares the full descriptor value, not just [RigDescriptor.id]: a rig
+     * profile keeps its UUID id across edits, so an id-only comparison would
+     * miss a protocol or CI-V address change on the same profile.
      */
     @Synchronized
     fun setDescriptor(d: RigDescriptor?) {
-        if (descriptor?.id == d?.id) return
+        if (descriptor == d) return
         descriptor = d
         backend?.close()
         backend = null

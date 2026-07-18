@@ -57,6 +57,63 @@ class RigControllerDescriptorTest {
         assertEquals(null, controller().catPortOverride)
     }
 
+    // Whole-branch review finding (icom-civ, 2026-07-17): the live CAT path
+    // must bind the *resolved* profile (protocol + CI-V address), not a raw
+    // preset lookup. This is the closest feasible seam to the app-level
+    // radio-model mirror in OperateViewModel — RigProfiles.resolve() honoring
+    // catProtocolId/civAddress feeds straight into RigController.setDescriptor,
+    // which is exactly what the mirror does off the CAT dispatcher. There is
+    // no Robolectric/harness in this repo to instantiate OperateViewModel
+    // itself (it needs AudioManager/USB framework classes), so the mirror's
+    // collect-block logic (which profile wins, id-vs-value comparison) is not
+    // exercised end-to-end here — only the resolve+bind contract it depends on.
+    @Test
+    fun setDescriptor_bindsResolvedProfile_protocolAndCivAddressHonored() {
+        val rig = controller()
+        val profile = RigProfile(
+            id = "profile-uuid-1",
+            name = "My Icom",
+            presetId = RigRegistry.GENERIC_CAT,
+            catProtocolId = CatProtocols.ICOM_CIV,
+            civAddress = 0xA2,
+        )
+        val descriptor = RigProfiles.resolve(profile)
+        rig.setDescriptor(descriptor)
+
+        val bound = rig.descriptor
+        assertEquals(0xA2, bound?.civAddress)
+        val protocol = bound?.protocolFactory?.invoke(bound.civAddress)
+        assertEquals(true, protocol is IcomCiV)
+        assertEquals(0xA2, (protocol as IcomCiV).civAddress)
+    }
+
+    @Test
+    fun setDescriptor_sameValueIsNoOp_butEditedFieldOnSameIdRebinds() {
+        val rig = controller()
+        val profile = RigProfile(
+            id = "profile-uuid-2",
+            name = "My Icom",
+            presetId = RigRegistry.GENERIC_CAT,
+            catProtocolId = CatProtocols.ICOM_CIV,
+            civAddress = 0x58,
+        )
+        val original = RigProfiles.resolve(profile)!!
+        rig.setDescriptor(original)
+        assertEquals(original, rig.descriptor)
+
+        // Same value, different instance (data class equality) -> no-op.
+        rig.setDescriptor(original.copy())
+        assertEquals(original, rig.descriptor)
+
+        // Same UUID (profile edit), civAddress changed -> must rebind: the old
+        // id-only guard (`descriptor?.id == d?.id`) would have short-circuited
+        // here and left the stale address bound.
+        val edited = RigProfiles.resolve(profile.copy(civAddress = 0xA2))!!
+        rig.setDescriptor(edited)
+        assertEquals(0xA2, rig.descriptor?.civAddress)
+        assertEquals(edited, rig.descriptor)
+    }
+
     // FTX-1 bench regression (2026-07-09): the stock prober class-probes generic
     // CDC-ACM devices, so a multi-device rig yields several candidates in hash
     // order — the rig's aux CDC device must never beat its CP2105 CAT bridge.
